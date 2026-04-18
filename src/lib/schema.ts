@@ -35,8 +35,9 @@ export const fundebConsultorias = fundebSchema.table('consultorias', {
 
 export const users = crmSchema.table('users', {
   id: text('id').primaryKey(),
-  email: text('email').notNull().unique(),
   name: text('name'),
+  email: text('email').notNull().unique(),
+  emailVerified: timestamp('email_verified', { mode: 'date' }),
   image: text('image'),
   role: text('role').notNull().default('consultor'),
   googleRefreshToken: text('google_refresh_token'),
