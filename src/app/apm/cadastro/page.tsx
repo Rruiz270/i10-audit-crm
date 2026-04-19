@@ -1,7 +1,9 @@
 import Image from 'next/image';
+import { redirect } from 'next/navigation';
 import { allMunicipalities } from '@/lib/municipalities';
 import { ApmCadastroForm } from '@/components/apm-cadastro-form';
 import { Wordmark } from '@/components/ui/wordmark';
+import { hasApmGate } from '@/lib/actions/apm-gate';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +14,11 @@ export const metadata = {
 };
 
 export default async function ApmCadastroPage() {
+  // Gate de senha: se não tem o cookie, volta pra /apm (tela de senha)
+  if (!(await hasApmGate())) {
+    redirect('/apm');
+  }
+
   const municipalities = await allMunicipalities();
 
   return (
