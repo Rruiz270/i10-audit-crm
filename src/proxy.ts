@@ -1,5 +1,10 @@
-import { auth } from '@/lib/auth';
+import NextAuth from 'next-auth';
 import { NextResponse } from 'next/server';
+import authConfig from '@/lib/auth.config';
+
+// IMPORTANTE: aqui usamos `auth.config.ts` (edge-safe — sem bcrypt/drizzle)
+// e NÃO `auth.ts` (que puxa Node-only modules para o bundle do Edge runtime).
+const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
   const { nextUrl, auth: session } = req;

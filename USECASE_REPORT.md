@@ -1,6 +1,6 @@
 # Use Case Test Report — i10-audit-crm
 
-Rodado em 18/04/2026, 21:41:26
+Rodado em 18/04/2026, 21:47:19
 
 **139 ✓ / 0 ✗**  · 139 casos totais
 

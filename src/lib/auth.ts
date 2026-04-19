@@ -1,5 +1,4 @@
 import NextAuth from 'next-auth';
-import Google from 'next-auth/providers/google';
 import Credentials from 'next-auth/providers/credentials';
 import { DrizzleAdapter } from '@auth/drizzle-adapter';
 import bcrypt from 'bcryptjs';
@@ -7,20 +6,16 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from './db';
 import { users, accounts, sessions, verificationTokens } from './schema';
+import authConfig from './auth.config';
 
 /**
- * NextAuth v5 config com DOIS providers:
- *   · Google OAuth — para quem já tem Workspace (fluxo original)
- *   · Credentials (email/senha) — para contas criadas via /signup ou /admin/team
+ * Auth completa — Node.js runtime obrigatório (usa bcrypt + Drizzle).
+ * NÃO importar daqui em `proxy.ts` (Edge) — use `auth.config.ts` no proxy.
  *
- * Estratégia de sessão: JWT (obrigatório quando o Credentials provider está em uso).
- * O Drizzle adapter ainda persiste `users`/`accounts`/`verification_tokens`.
- *
- * Regras de signIn (ambos providers):
- *   · usuário precisa existir em crm.users
- *   · `is_active = true`
- *   · `approval_status = 'approved'`
- * Caso contrário, o login é rejeitado.
+ * Estende authConfig com:
+ *   · DrizzleAdapter (persiste users/accounts/verification_tokens)
+ *   · Credentials provider (email/senha com bcrypt.compare)
+ *   · callbacks completos (signIn gating, jwt fresh lookup, session mapping)
  */
 
 const adminEmails = (process.env.ADMIN_EMAILS ?? '')
@@ -46,28 +41,15 @@ async function findActiveApprovedUserByEmail(email: string) {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   adapter: DrizzleAdapter(db, {
     usersTable: users,
     accountsTable: accounts,
     sessionsTable: sessions,
     verificationTokensTable: verificationTokens,
   }),
-  session: { strategy: 'jwt' },
   providers: [
-    Google({
-      authorization: {
-        params: {
-          scope: [
-            'openid',
-            'email',
-            'profile',
-            'https://www.googleapis.com/auth/calendar.events',
-          ].join(' '),
-          access_type: 'offline',
-          prompt: 'consent',
-        },
-      },
-    }),
+    ...authConfig.providers,
     Credentials({
       id: 'credentials',
       name: 'Email e senha',
@@ -83,7 +65,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!result) return null;
         if (result.status !== 'ok') return null;
         const u = result.user;
-        if (!u.passwordHash) return null; // usuário Google-only, não pode logar via credentials
+        if (!u.passwordHash) return null;
         const valid = await bcrypt.compare(password, u.passwordHash);
         if (!valid) return null;
         return {
@@ -96,21 +78,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
+    ...authConfig.callbacks,
     async signIn({ user, account }) {
-      // Credentials já validou em authorize() — aceita direto
       if (account?.provider === 'credentials') return true;
-
       if (!user?.email) return false;
       const email = user.email.toLowerCase();
       const result = await findActiveApprovedUserByEmail(email);
-      // Admin allowlist via env continua criando contas novas como admin aprovados
       if (adminEmails.includes(email)) {
-        if (!result) {
-          // Deixa o DrizzleAdapter criar o user; signIn callback roda antes.
-          // Depois do insert, o approvalStatus vai cair no default 'approved' e role permanecerá 'consultor'.
-          // O segundo login promove pra admin no signIn callback abaixo através de UPDATE.
-        }
-        // Promove + aprova o admin allowlisted
         await db
           .update(users)
           .set({ role: 'admin', isActive: true, approvalStatus: 'approved' })
@@ -122,7 +96,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return true;
     },
     async jwt({ token, user, trigger }) {
-      // No primeiro login ou sempre que Next chama com "update"
       if (user?.email) {
         const fresh = await db.query.users.findFirst({
           where: eq(users.email, user.email as string),
@@ -134,7 +107,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           token.approvalStatus = fresh.approvalStatus;
         }
       } else if (trigger === 'update' || !token.role) {
-        // Refresh a cada request se token estiver desatualizado
         if (token.email) {
           const fresh = await db.query.users.findFirst({
             where: eq(users.email, token.email as string),
@@ -158,8 +130,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return session;
     },
-  },
-  pages: {
-    signIn: '/login',
   },
 });

@@ -109,4 +109,6 @@ export async function toggleMemberActive(formData: FormData) {
   return { ok: true as const, active: !u.isActive };
 }
 
-export { ADMIN_ROLES, ROLES };
+// Nota: ADMIN_ROLES e ROLES (arrays constantes) NÃO podem ser exportados
+// daqui porque arquivos marcados com 'use server' só exportam async functions
+// (viram RPC endpoints). Importe ADMIN_ROLES direto de '@/lib/roles' se precisar.
