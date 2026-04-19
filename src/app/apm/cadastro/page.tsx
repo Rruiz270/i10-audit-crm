@@ -1,5 +1,7 @@
+import Image from 'next/image';
 import { allMunicipalities } from '@/lib/municipalities';
 import { ApmCadastroForm } from '@/components/apm-cadastro-form';
+import { Wordmark } from '@/components/ui/wordmark';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,17 +34,45 @@ export default async function ApmCadastroPage() {
           }}
         />
         <div className="relative max-w-3xl mx-auto px-6 py-12 md:py-16">
-          <div className="flex items-center gap-3 mb-6">
-            <span
-              className="inline-block px-4 py-1.5 rounded-full text-[11px] font-bold"
-              style={{
-                background: 'rgba(255,255,255,0.15)',
-                border: '1px solid rgba(255,255,255,0.3)',
-                letterSpacing: '1.5px',
-              }}
+          {/* Logos co-branded: APM logo oficial + wordmark i10 */}
+          <div className="flex flex-wrap items-center gap-5 mb-8">
+            <div
+              className="bg-white rounded-xl p-3 shadow-md inline-flex items-center"
+              style={{ height: 64 }}
             >
-              APM × INSTITUTO i10
-            </span>
+              <Image
+                src="/logos/apm-logo.jpg"
+                alt="APM — Associação Paulista de Municípios"
+                width={1075}
+                height={345}
+                priority
+                className="h-10 md:h-12 w-auto"
+                style={{ height: '100%', width: 'auto', objectFit: 'contain' }}
+              />
+            </div>
+            <div
+              className="text-2xl font-bold select-none"
+              style={{ color: 'rgba(255,255,255,0.4)' }}
+              aria-hidden
+            >
+              ×
+            </div>
+            <div
+              className="bg-white rounded-xl px-4 shadow-md inline-flex items-center"
+              style={{ height: 64 }}
+            >
+              <Wordmark size="md" />
+            </div>
+          </div>
+          <div
+            className="inline-block px-4 py-1.5 rounded-full text-[11px] font-bold mb-6"
+            style={{
+              background: 'rgba(255,255,255,0.15)',
+              border: '1px solid rgba(255,255,255,0.3)',
+              letterSpacing: '1.5px',
+            }}
+          >
+            CADASTRO OPERACIONAL · FUNDEB SP
           </div>
           <h1
             className="text-3xl md:text-5xl font-bold leading-tight mb-4"
