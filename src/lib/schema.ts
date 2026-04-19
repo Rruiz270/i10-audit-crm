@@ -28,7 +28,14 @@ export const fundebConsultorias = fundebSchema.table('consultorias', {
   id: serial('id').primaryKey(),
   municipalityId: integer('municipality_id'),
   status: text('status'),
+  startDate: timestamp('start_date'),
+  endDate: timestamp('end_date'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at'),
   consultantName: text('consultant_name'),
+  secretaryName: text('secretary_name'),
+  annotations: text('annotations'),
 });
 
 // ─── CRM core ──────────────────────────────────────────────────────────────
@@ -42,7 +49,32 @@ export const users = crmSchema.table('users', {
   role: text('role').notNull().default('consultor'),
   googleRefreshToken: text('google_refresh_token'),
   isActive: boolean('is_active').default(true),
+  // Autenticação por email+senha (bcrypt hash) — permite login sem Google
+  passwordHash: text('password_hash'),
+  // 'pending' | 'approved' | 'rejected' — auto-signups ficam pending até aprovação
+  approvalStatus: text('approval_status').notNull().default('approved'),
+  // Overrides pessoais — editáveis em /me (sobrescreve o que vem do Google)
+  displayName: text('display_name'),
+  phone: text('phone'),
+  signature: text('signature'),
   createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const userPreferences = crmSchema.table('user_preferences', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  notificationsEnabled: boolean('notifications_enabled').notNull().default(true),
+  notifyTaskOverdue: boolean('notify_task_overdue').notNull().default(true),
+  notifyNewLead: boolean('notify_new_lead').notNull().default(true),
+  notifyHandoffKickoff: boolean('notify_handoff_kickoff').notNull().default(true),
+  notifyBnccSignals: boolean('notify_bncc_signals').notNull().default(true),
+  defaultPipelineFilter: text('default_pipeline_filter').notNull().default('all'),
+  timezone: text('timezone').notNull().default('America/Sao_Paulo'),
+  workingHoursStart: text('working_hours_start'),
+  workingHoursEnd: text('working_hours_end'),
+  displayCompact: boolean('display_compact').notNull().default(false),
+  updatedAt: timestamp('updated_at').defaultNow(),
 });
 
 export const opportunities = crmSchema.table('opportunities', {
@@ -64,8 +96,42 @@ export const opportunities = crmSchema.table('opportunities', {
   ),
   handedOffAt: timestamp('handed_off_at'),
   notes: text('notes'),
+  tags: text('tags').array().default([]),
+  lostReasonCode: text('lost_reason_code'),
+  lastActivityAt: timestamp('last_activity_at').defaultNow(),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+export const pipelineStages = crmSchema.table('pipeline_stages', {
+  key: text('key').primaryKey(),
+  label: text('label').notNull(),
+  description: text('description'),
+  color: text('color').notNull().default('slate-500'),
+  order: integer('order').notNull(),
+  probability: real('probability').notNull().default(0.5),
+  rotDays: integer('rot_days'),
+  isTerminal: boolean('is_terminal').notNull().default(false),
+  isWon: boolean('is_won').notNull().default(false),
+  isCustom: boolean('is_custom').notNull().default(false),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+export const tasks = crmSchema.table('tasks', {
+  id: serial('id').primaryKey(),
+  opportunityId: integer('opportunity_id')
+    .notNull()
+    .references(() => opportunities.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  description: text('description'),
+  dueAt: timestamp('due_at').notNull(),
+  completedAt: timestamp('completed_at'),
+  assignedTo: text('assigned_to').references(() => users.id),
+  createdBy: text('created_by').references(() => users.id),
+  priority: text('priority').notNull().default('normal'),
+  createdAt: timestamp('created_at').defaultNow(),
 });
 
 export const contacts = crmSchema.table('contacts', {

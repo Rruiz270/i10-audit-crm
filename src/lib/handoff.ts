@@ -7,10 +7,24 @@ export type ConsultoriaPayload = {
   municipalityId: number;
   status: 'active';
   consultantName: string;
+  secretaryName: string | null;
   startDate: Date;
+  endDate: Date | null;
   notes: string;
   annotations: string;
 };
+
+/**
+ * Duração padrão de uma consultoria i10 (em meses). Usado quando o consultor
+ * não informa `endDate` no handoff. Pode ser ajustado se o ciclo médio mudar.
+ */
+export const DEFAULT_CONSULTORIA_MONTHS = 12;
+
+export function computeEndDate(start: Date, months: number): Date {
+  const end = new Date(start);
+  end.setMonth(end.getMonth() + months);
+  return end;
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 // YOUR CONTRIBUTION — define exactly what transfers from a Won Opportunity
@@ -31,20 +45,29 @@ export function buildConsultoriaPayload(
   op: Opportunity,
   ownerName: string | null,
   primaryContactSummary: string,
+  scheduling: {
+    startDate: Date;
+    endDate: Date | null;
+    secretaryName: string | null;
+  },
 ): ConsultoriaPayload {
   if (!op.municipalityId) {
     throw new Error('Não é possível criar consultoria sem municipalityId');
   }
 
-  // TODO(raphael): refine what context travels to the consultoria.
   const contractLine = op.contractSigned
     ? 'Contrato: ASSINADO.'
     : `Contrato: PENDENTE. ${op.contractNotes ?? ''}`.trim();
+
+  const kickoffLine = `Kickoff planejado: ${scheduling.startDate.toLocaleDateString('pt-BR')}${
+    scheduling.endDate ? ` → ${scheduling.endDate.toLocaleDateString('pt-BR')}` : ''
+  }`;
 
   const annotationParts = [
     '--- Origem: i10 CRM ---',
     `Opportunity #${op.id}`,
     contractLine,
+    kickoffLine,
     primaryContactSummary,
     op.notes ? `Notas da venda:\n${op.notes}` : '',
   ].filter(Boolean);
@@ -53,7 +76,9 @@ export function buildConsultoriaPayload(
     municipalityId: op.municipalityId,
     status: 'active',
     consultantName: ownerName ?? '',
-    startDate: new Date(),
+    secretaryName: scheduling.secretaryName,
+    startDate: scheduling.startDate,
+    endDate: scheduling.endDate,
     notes: op.notes ?? '',
     annotations: annotationParts.join('\n\n'),
   };

@@ -34,6 +34,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# background test loop logs
+.test-runs/
+
 # drizzle generated migrations - keep
 # .drizzle/
 

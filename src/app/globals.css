@@ -1,25 +1,57 @@
 @import "tailwindcss";
 
-:root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --card: #ffffff;
-  --card-foreground: #0f172a;
-  --muted: #f1f5f9;
-  --muted-foreground: #475569;
-  --border: #e2e8f0;
+/* ─── Instituto i10 Brandbook v2.0 ─────────────────────────────────────────
+ * Navy #0A2463 · Cyan #00B4D8 · Mint #00E5A0
+ * Fonts: Inter (sans), Source Serif 4 (serif)
+ * Voice: profissional, visionário, acessível, inovador
+ */
 
-  /* i10 institutional blue palette */
-  --i10-50:  #eff6ff;
-  --i10-100: #dbeafe;
-  --i10-200: #bfdbfe;
-  --i10-300: #93c5fd;
-  --i10-400: #60a5fa;
-  --i10-500: #3b82f6;
-  --i10-600: #1d4ed8;
-  --i10-700: #1e40af;
-  --i10-800: #1e3a8a;
-  --i10-900: #172554;
+:root {
+  /* Backgrounds & surfaces */
+  --background: #F8FAFC;
+  --foreground: #1a1a2e;
+  --card: #FFFFFF;
+  --card-foreground: #0F172A;
+  --muted: #F1F5F9;
+  --muted-foreground: #475569;
+  --border: #E2E8F0;
+
+  /* Navy — primary */
+  --i10-navy-dark: #061840;
+  --i10-navy: #0A2463;
+  --i10-navy-light: #1a3a7a;
+  --i10-navy-muted: #2952a3;
+  --i10-navy-pale: #d6e0f5;
+
+  /* Cyan — secondary / accent */
+  --i10-cyan-dark: #0096C7;
+  --i10-cyan: #00B4D8;
+  --i10-cyan-light: #48CAE4;
+  --i10-cyan-pale: #ADE8F4;
+  --i10-cyan-wash: #CAF0F8;
+
+  /* Mint — highlights (success/positive) */
+  --i10-mint-dark: #00C48A;
+  --i10-mint: #00E5A0;
+  --i10-mint-pale: #B7F5E0;
+  --i10-mint-wash: #E0FFF5;
+
+  /* Legacy tailwind scale (mapped to navy so existing `text-i10-700` keeps working) */
+  --i10-50:  #F1F5FD;
+  --i10-100: #d6e0f5;
+  --i10-200: #B8C7EA;
+  --i10-300: #91A8DB;
+  --i10-400: #5F7DBE;
+  --i10-500: #2952a3;
+  --i10-600: #1a3a7a;
+  --i10-700: #0A2463;
+  --i10-800: #061840;
+  --i10-900: #040E26;
+
+  /* Gradients (per brandbook) */
+  --i10-gradient-main: linear-gradient(135deg, #0A2463 0%, #00B4D8 100%);
+  --i10-gradient-accent: linear-gradient(90deg, #00B4D8 0%, #00E5A0 100%);
+  --i10-gradient-dark: linear-gradient(135deg, #061840 0%, #0A2463 100%);
 }
 
 @theme inline {
@@ -30,19 +62,64 @@
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
-  --color-i10-50: var(--i10-50);
+
+  /* Numeric i10 scale */
+  --color-i10-50:  var(--i10-50);
   --color-i10-100: var(--i10-100);
+  --color-i10-200: var(--i10-200);
+  --color-i10-300: var(--i10-300);
+  --color-i10-400: var(--i10-400);
   --color-i10-500: var(--i10-500);
   --color-i10-600: var(--i10-600);
   --color-i10-700: var(--i10-700);
   --color-i10-800: var(--i10-800);
   --color-i10-900: var(--i10-900);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+
+  /* Named brand tokens */
+  --color-i10-navy: var(--i10-navy);
+  --color-i10-navy-dark: var(--i10-navy-dark);
+  --color-i10-navy-light: var(--i10-navy-light);
+  --color-i10-navy-muted: var(--i10-navy-muted);
+  --color-i10-navy-pale: var(--i10-navy-pale);
+  --color-i10-cyan: var(--i10-cyan);
+  --color-i10-cyan-dark: var(--i10-cyan-dark);
+  --color-i10-cyan-light: var(--i10-cyan-light);
+  --color-i10-cyan-pale: var(--i10-cyan-pale);
+  --color-i10-cyan-wash: var(--i10-cyan-wash);
+  --color-i10-mint: var(--i10-mint);
+  --color-i10-mint-dark: var(--i10-mint-dark);
+  --color-i10-mint-pale: var(--i10-mint-pale);
+  --color-i10-mint-wash: var(--i10-mint-wash);
+
+  --font-sans: var(--font-inter);
+  --font-serif: var(--font-source-serif);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Utility classes for brandbook gradients */
+.i10-gradient-main { background: var(--i10-gradient-main); }
+.i10-gradient-accent { background: var(--i10-gradient-accent); }
+.i10-gradient-dark { background: var(--i10-gradient-dark); }
+
+/* Small decorative divider per brandbook (4px bar with accent gradient) */
+.i10-divider {
+  width: 64px;
+  height: 4px;
+  background: var(--i10-gradient-accent);
+  border-radius: 2px;
+}
+
+/* i10 eyebrow label — per brandbook page-label style */
+.i10-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--i10-cyan);
 }

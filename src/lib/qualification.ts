@@ -29,6 +29,10 @@ export type QualificationResult =
 // ─────────────────────────────────────────────────────────────────────────
 export function canAdvance(
   op: OpportunitySnapshot,
+  // `toStage` is part of the public signature so callers can extend this with
+  // per-transition guards (e.g. require a meeting before reaching 'ganhou').
+  // Today we only check the exit rules of the current stage, hence the prefix.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   toStage: StageKey,
 ): QualificationResult {
   const required = STAGES_BY_KEY[op.stage].requiredFieldsToExit;

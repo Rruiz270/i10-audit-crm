@@ -17,6 +17,16 @@ export type StageDefinition = {
   wipLimit: number | null;
   isTerminal: boolean;
   isWon: boolean;
+  /**
+   * Probabilidade de fechamento neste estágio (0..1). Usado para o pipeline
+   * ponderado: `weighted = estimated_value × probability`.
+   */
+  probability: number;
+  /**
+   * Após quantos dias sem atividade o deal é considerado "parado" (rotten).
+   * Null = nunca apodrece (ex.: estágios terminais).
+   */
+  rotDays: number | null;
   requiredFieldsToExit: Array<
     'primaryContact' | 'estimatedValue' | 'closeDate' | 'municipalityAssigned'
   >;
@@ -36,6 +46,8 @@ export const STAGES: StageDefinition[] = [
     wipLimit: null,
     isTerminal: false,
     isWon: false,
+    probability: 0.05,
+    rotDays: 5,
     requiredFieldsToExit: ['municipalityAssigned', 'primaryContact'],
   },
   {
@@ -47,6 +59,8 @@ export const STAGES: StageDefinition[] = [
     wipLimit: null,
     isTerminal: false,
     isWon: false,
+    probability: 0.15,
+    rotDays: 7,
     requiredFieldsToExit: [],
   },
   {
@@ -58,6 +72,8 @@ export const STAGES: StageDefinition[] = [
     wipLimit: null,
     isTerminal: false,
     isWon: false,
+    probability: 0.3,
+    rotDays: 10,
     requiredFieldsToExit: [],
   },
   {
@@ -69,6 +85,8 @@ export const STAGES: StageDefinition[] = [
     wipLimit: null,
     isTerminal: false,
     isWon: false,
+    probability: 0.4,
+    rotDays: 14,
     requiredFieldsToExit: [],
   },
   {
@@ -80,6 +98,8 @@ export const STAGES: StageDefinition[] = [
     wipLimit: null,
     isTerminal: false,
     isWon: false,
+    probability: 0.6,
+    rotDays: 10,
     requiredFieldsToExit: [],
   },
   {
@@ -91,6 +111,8 @@ export const STAGES: StageDefinition[] = [
     wipLimit: null,
     isTerminal: false,
     isWon: false,
+    probability: 0.8,
+    rotDays: 7,
     requiredFieldsToExit: ['estimatedValue', 'closeDate'],
   },
   {
@@ -102,6 +124,8 @@ export const STAGES: StageDefinition[] = [
     wipLimit: null,
     isTerminal: true,
     isWon: true,
+    probability: 1.0,
+    rotDays: null,
     requiredFieldsToExit: [],
   },
   {
@@ -113,6 +137,8 @@ export const STAGES: StageDefinition[] = [
     wipLimit: null,
     isTerminal: true,
     isWon: false,
+    probability: 0.0,
+    rotDays: null,
     requiredFieldsToExit: [],
   },
 ];
@@ -122,3 +148,10 @@ export const STAGES_BY_KEY = Object.fromEntries(
 ) as Record<StageKey, StageDefinition>;
 
 export const ACTIVE_STAGES = STAGES.filter((s) => !s.isTerminal);
+
+/**
+ * Colunas visíveis no Kanban: inclui "ganhou" pra que usuários arrastem
+ * cards pra lá. Só exclui "perdido" (que tem fluxo próprio via StageControl,
+ * porque exige motivo estruturado).
+ */
+export const KANBAN_STAGES = STAGES.filter((s) => s.key !== 'perdido');

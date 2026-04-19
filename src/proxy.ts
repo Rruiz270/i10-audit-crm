@@ -6,10 +6,14 @@ export default auth((req) => {
 
   const isPublicPath =
     nextUrl.pathname === '/login' ||
+    nextUrl.pathname === '/signup' ||
     nextUrl.pathname.startsWith('/api/auth') ||
     nextUrl.pathname.startsWith('/intake/') ||
     nextUrl.pathname.startsWith('/_next') ||
-    nextUrl.pathname === '/favicon.ico';
+    nextUrl.pathname === '/favicon.ico' ||
+    nextUrl.pathname === '/manifest.webmanifest' ||
+    nextUrl.pathname === '/sw.js' ||
+    nextUrl.pathname.startsWith('/icons/');
 
   if (isPublicPath) return NextResponse.next();
 
