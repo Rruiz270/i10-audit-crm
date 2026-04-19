@@ -20,7 +20,8 @@ export default auth((req) => {
     nextUrl.pathname === '/favicon.ico' ||
     nextUrl.pathname === '/manifest.webmanifest' ||
     nextUrl.pathname === '/sw.js' ||
-    nextUrl.pathname.startsWith('/icons/');
+    nextUrl.pathname.startsWith('/icons/') ||
+    nextUrl.pathname.startsWith('/logos/');
 
   if (isPublicPath) return NextResponse.next();
 
