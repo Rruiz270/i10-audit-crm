@@ -14,6 +14,7 @@ export default auth((req) => {
     nextUrl.pathname === '/signup' ||
     nextUrl.pathname.startsWith('/api/auth') ||
     nextUrl.pathname.startsWith('/intake/') ||
+    nextUrl.pathname.startsWith('/apm/') ||
     nextUrl.pathname.startsWith('/_next') ||
     nextUrl.pathname === '/favicon.ico' ||
     nextUrl.pathname === '/manifest.webmanifest' ||
