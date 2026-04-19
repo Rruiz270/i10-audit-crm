@@ -101,7 +101,7 @@ export default async function ApmCadastroPage() {
             </div>
             <div>
               <span className="text-3xl font-extrabold" style={{ color: '#00E5A0' }}>
-                R$ bi
+                R$ 13 bi
               </span>
               <span className="ml-2 text-xs uppercase tracking-wider">em VAAT/VAAR</span>
             </div>
