@@ -68,9 +68,15 @@ export async function handoffToFundeb(formData: FormData) {
     return { ok: false as const, error: 'Oportunidade sem municipalityId' };
   }
 
-  const [owner] = op.ownerId
-    ? await db.select().from(users).where(eq(users.id, op.ownerId)).limit(1)
-    : [null];
+  // Fallback: se a oportunidade nao tem owner, usa quem esta fazendo o handoff.
+  // Garante que a consultoria no BNCC nunca nasca sem dono. Tambem backfilla
+  // o owner_id da oportunidade pra manter consistencia entre os dois sistemas.
+  const effectiveOwnerId = op.ownerId ?? user.id;
+  const [owner] = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, effectiveOwnerId))
+    .limit(1);
 
   const primary = await db.query.contacts.findFirst({
     where: and(eq(contacts.opportunityId, opportunityId), eq(contacts.isPrimary, true)),
@@ -106,8 +112,8 @@ export async function handoffToFundeb(formData: FormData) {
           ${payload.endDate ? payload.endDate.toISOString() : null},
           ${payload.notes}, ${payload.consultantName},
           ${payload.secretaryName}, ${payload.annotations},
-          ${op.ownerId ?? null},
-          ${op.ownerId ? new Date().toISOString() : null},
+          ${effectiveOwnerId},
+          ${new Date().toISOString()},
           NOW(), NOW())
         RETURNING id`,
   ])) as unknown as [InsertedRow[]];
@@ -122,6 +128,9 @@ export async function handoffToFundeb(formData: FormData) {
     .set({
       handedOffConsultoriaId: consultoriaId,
       handedOffAt: new Date(),
+      // Se nao tinha owner, backfilla com quem fez o handoff — mantem CRM
+      // e BNCC consistentes e evita orfaos em auditorias futuras.
+      ...(op.ownerId ? {} : { ownerId: effectiveOwnerId }),
       updatedAt: new Date(),
     })
     .where(eq(opportunities.id, opportunityId));
