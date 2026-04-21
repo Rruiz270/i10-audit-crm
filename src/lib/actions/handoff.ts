@@ -94,15 +94,21 @@ export async function handoffToFundeb(formData: FormData) {
   const sql = neon(url);
 
   type InsertedRow = { id: number };
+  // Propaga op.ownerId -> fundeb.consultorias.assigned_consultor_id para
+  // que o BNCC reconheca o owner no pool/meus e no audit log de ownership.
   const [result] = (await sql.transaction([
     sql`INSERT INTO fundeb.consultorias
         (municipality_id, status, start_date, end_date, notes, consultant_name,
-         secretary_name, annotations, created_at, updated_at)
+         secretary_name, annotations, assigned_consultor_id, assigned_at,
+         created_at, updated_at)
         VALUES (${payload.municipalityId}, ${payload.status},
           ${payload.startDate.toISOString()},
           ${payload.endDate ? payload.endDate.toISOString() : null},
           ${payload.notes}, ${payload.consultantName},
-          ${payload.secretaryName}, ${payload.annotations}, NOW(), NOW())
+          ${payload.secretaryName}, ${payload.annotations},
+          ${op.ownerId ?? null},
+          ${op.ownerId ? new Date().toISOString() : null},
+          NOW(), NOW())
         RETURNING id`,
   ])) as unknown as [InsertedRow[]];
 
