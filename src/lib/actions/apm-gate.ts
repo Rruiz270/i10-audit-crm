@@ -44,7 +44,7 @@ export async function validateApmGate(formData: FormData) {
     maxAge: COOKIE_DAYS * 24 * 3600,
   });
 
-  redirect('/apm/cadastro');
+  redirect('/apm/dashboard');
 }
 
 /**
