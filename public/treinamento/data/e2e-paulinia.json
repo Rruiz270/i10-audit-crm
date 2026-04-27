@@ -1,0 +1,137 @@
+{
+  "muni": {
+    "id": 413,
+    "nome": "Paulínia",
+    "totalMatriculas": 13714,
+    "receitaTotal": 2183321600,
+    "potTotal": 46772812,
+    "recebeVaar": false,
+    "vaarBanco": 0
+  },
+  "oppId": 2388,
+  "consId": 605,
+  "scenes": [
+    {
+      "sceneId": "apm-gate",
+      "url": "crm:/apm",
+      "stepLabel": "Cena 1/12 · apm-gate · CRM",
+      "secretQuestion": "Vou cadastrar um secretário que acabei de visitar em Paulínia. Onde acesso?",
+      "consultorResponse": "🎯 APM CAPTADOR",
+      "screenshotPre": "screenshots/01-apm-gate-pre.png",
+      "screenshotPost": "screenshots/01-apm-gate-post.png",
+      "ts": "2026-04-27T03:42:22.909Z"
+    },
+    {
+      "sceneId": "apm-cadastro",
+      "url": "crm:/apm/cadastro",
+      "stepLabel": "Cena 2/12 · apm-cadastro · CRM",
+      "secretQuestion": "Pronto, formulário aberto. Vou registrar o município, contato principal e observações da visita.",
+      "consultorResponse": "🎯 APM CAPTADOR",
+      "screenshotPre": "screenshots/02-apm-cadastro-pre.png",
+      "screenshotPost": "screenshots/02-apm-cadastro-post.png",
+      "ts": "2026-04-27T03:42:39.622Z"
+    },
+    {
+      "sceneId": "crm-leads",
+      "url": "crm:/leads",
+      "stepLabel": "Cena 3/12 · crm-leads · CRM",
+      "secretQuestion": "Acabou de chegar um lead novo da APM em Paulínia. Vou abrir e triar.",
+      "consultorResponse": "👨‍💼 CONSULTOR i10",
+      "screenshotPre": "screenshots/03-crm-leads-pre.png",
+      "screenshotPost": "screenshots/03-crm-leads-post.png",
+      "ts": "2026-04-27T03:42:56.625Z"
+    },
+    {
+      "sceneId": "crm-pipeline",
+      "url": "crm:/pipeline",
+      "stepLabel": "Cena 4/12 · crm-pipeline · CRM",
+      "secretQuestion": "Lead já entrou como oportunidade no estágio \"Novo\". Conduzo pelas próximas etapas: contato → diagnóstico → reunião → negociação → fecho.",
+      "consultorResponse": "👨‍💼 CONSULTOR i10",
+      "screenshotPre": "screenshots/04-crm-pipeline-pre.png",
+      "screenshotPost": "screenshots/04-crm-pipeline-post.png",
+      "ts": "2026-04-27T03:43:11.733Z"
+    },
+    {
+      "sceneId": "crm-opp-detail",
+      "url": "crm:/opportunities/2388",
+      "stepLabel": "Cena 5/12 · crm-opp-detail · CRM",
+      "secretQuestion": "Aqui detalho: município Paulínia (13.714 alunos), valor estimado da consultoria, data prevista de fechamento. Registro cada interação aqui.",
+      "consultorResponse": "👨‍💼 CONSULTOR i10",
+      "screenshotPre": "screenshots/05-crm-opp-detail-pre.png",
+      "screenshotPost": "screenshots/05-crm-opp-detail-post.png",
+      "ts": "2026-04-27T03:43:30.861Z"
+    },
+    {
+      "sceneId": "crm-handoff",
+      "url": "crm:/opportunities/2388",
+      "stepLabel": "Cena 6/12 · crm-handoff · CRM",
+      "secretQuestion": "Reunião de auditoria realizada, contrato assinado. Marco como \"Ganhou\" — handoff dispara consultoria FUNDEB no sistema BNCC Captação.",
+      "consultorResponse": "👨‍💼 CONSULTOR i10",
+      "screenshotPre": "screenshots/06-crm-handoff-pre.png",
+      "screenshotPost": "screenshots/06-crm-handoff-post.png",
+      "ts": "2026-04-27T03:43:50.013Z"
+    },
+    {
+      "sceneId": "bncc-portfolio",
+      "url": "bncc:/portfolio",
+      "stepLabel": "Cena 7/12 · bncc-portfolio · BNCC",
+      "secretQuestion": "Mudo pra plataforma BNCC Captação. Aqui executo a entrega — a consultoria criada pelo handoff já aparece no portfolio.",
+      "consultorResponse": "👨‍💼 CONSULTOR SENIOR",
+      "screenshotPre": "screenshots/07-bncc-portfolio-pre.png",
+      "screenshotPost": "screenshots/07-bncc-portfolio-post.png",
+      "ts": "2026-04-27T03:44:13.852Z"
+    },
+    {
+      "sceneId": "bncc-step-cidade",
+      "url": "bncc:/wizard/605/step-1-cidade",
+      "stepLabel": "Cena 8/12 · bncc-step-cidade · BNCC",
+      "secretQuestion": "Etapa 1 do wizard: confirmação dos dados de Paulínia. Receita atual R$ 2183.3M e potencial identificado R$ 46.8M.",
+      "consultorResponse": "👨‍💼 CONSULTOR SENIOR",
+      "screenshotPre": "screenshots/08-bncc-step-cidade-pre.png",
+      "screenshotPost": "screenshots/08-bncc-step-cidade-post.png",
+      "ts": "2026-04-27T03:44:32.977Z"
+    },
+    {
+      "sceneId": "bncc-step-diagnostico",
+      "url": "bncc:/wizard/605/step-3-diagnostico",
+      "stepLabel": "Cena 9/12 · bncc-step-diagnostico · BNCC",
+      "secretQuestion": "Mostra pra mim onde estamos perdendo. Quero ver o detalhamento.",
+      "consultorResponse": "🎤 SECRETÁRIA",
+      "screenshotPre": "screenshots/09-bncc-step-diagnostico-pre.png",
+      "screenshotPost": "screenshots/09-bncc-step-diagnostico-post.png",
+      "ts": "2026-04-27T03:44:56.466Z"
+    },
+    {
+      "sceneId": "bncc-step-simulacao",
+      "url": "bncc:/wizard/605/step-4-simulacao",
+      "stepLabel": "Cena 10/12 · bncc-step-simulacao · BNCC",
+      "secretQuestion": "E se eu converter mais escolas pra integral? Quanto entra a mais?",
+      "consultorResponse": "🎤 SECRETÁRIA",
+      "screenshotPre": "screenshots/10-bncc-step-simulacao-pre.png",
+      "screenshotPost": "screenshots/10-bncc-step-simulacao-post.png",
+      "ts": "2026-04-27T03:45:19.243Z"
+    },
+    {
+      "sceneId": "bncc-telao",
+      "url": "bncc:/consultorias/605/telao",
+      "stepLabel": "Cena 11/12 · bncc-telao · BNCC",
+      "secretQuestion": "Modo telão pra apresentar pro prefeito: ganho garantido pelo cadastro correto + potencial a destravar com compliance.",
+      "consultorResponse": "👨‍💼 CONSULTOR SENIOR",
+      "screenshotPre": "screenshots/11-bncc-telao-pre.png",
+      "screenshotPost": "screenshots/11-bncc-telao-post.png",
+      "ts": "2026-04-27T03:45:40.837Z"
+    },
+    {
+      "sceneId": "wrap",
+      "url": "bncc:/dashboard",
+      "stepLabel": "Cena 12/12 · wrap · BNCC",
+      "secretQuestion": "Fluxo completo: APM gera lead em campo → CRM trabalha pipeline até fechar contrato → BNCC executa auditoria FUNDEB e entrega snapshot. Tudo conectado, dados fluem entre os 3 sistemas.",
+      "consultorResponse": "🎯 PIPELINE COMPLETO",
+      "screenshotPre": "screenshots/12-wrap-pre.png",
+      "screenshotPost": "screenshots/12-wrap-post.png",
+      "ts": "2026-04-27T03:45:59.050Z"
+    }
+  ],
+  "errors": [],
+  "durationSec": 233.928
+}

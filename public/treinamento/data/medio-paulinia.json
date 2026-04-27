@@ -1,0 +1,164 @@
+{
+  "muni": {
+    "id": 413,
+    "nome": "Paulínia",
+    "totalMatriculas": 13714,
+    "receitaTotal": 2183321600,
+    "potTotal": 46772812
+  },
+  "opportunityId": 2384,
+  "scenes": [
+    {
+      "sceneId": "dashboard",
+      "url": "/",
+      "stepLabel": "Cena 1/15 · dashboard",
+      "secretQuestion": "Bom dia! Acabei de receber acesso ao CRM. Por onde começo?",
+      "consultorResponse": "Bom dia! O Dashboard é a sua base. Mostra: oportunidades por estágio, tarefas vencendo hoje, reuniões da semana. Tudo o que importa hoje, num lugar só.",
+      "screenshotPre": "screenshots/01-dashboard-pre.png",
+      "screenshotPost": "screenshots/01-dashboard-post.png",
+      "ts": "2026-04-27T03:19:19.698Z"
+    },
+    {
+      "sceneId": "leads",
+      "url": "/leads",
+      "stepLabel": "Cena 2/15 · leads",
+      "secretQuestion": "Como sei quando chega um lead novo?",
+      "consultorResponse": "Aqui no Leads. Toda vez que alguém preenche o formulário público (intake) ou um APM cadastra prefeito/secretário em campo, vira uma submissão aqui. Você triagem antes de virar oportunidade.",
+      "screenshotPre": "screenshots/02-leads-pre.png",
+      "screenshotPost": "screenshots/02-leads-post.png",
+      "ts": "2026-04-27T03:19:34.967Z"
+    },
+    {
+      "sceneId": "pipeline",
+      "url": "/pipeline",
+      "stepLabel": "Cena 3/15 · pipeline",
+      "secretQuestion": "O Pipeline é o kanban?",
+      "consultorResponse": "Exato. 8 estágios: Novo → Contato Inicial → Diagnóstico Enviado → Follow-up → Reunião → Negociação → Ganhou (vira consultoria FUNDEB) ou Perdido. Você arrasta os cards entre colunas.",
+      "screenshotPre": "screenshots/03-pipeline-pre.png",
+      "screenshotPost": "screenshots/03-pipeline-post.png",
+      "ts": "2026-04-27T03:19:50.860Z"
+    },
+    {
+      "sceneId": "opportunities",
+      "url": "/opportunities",
+      "stepLabel": "Cena 4/15 · opportunities",
+      "secretQuestion": "E aqui em Oportunidades?",
+      "consultorResponse": "Visão de tabela com filtros — por dono, estágio, valor, tag. Útil quando o pipeline visual fica grande. Daqui você abre cada oportunidade pra ver detalhes.",
+      "screenshotPre": "screenshots/04-opportunities-pre.png",
+      "screenshotPost": "screenshots/04-opportunities-post.png",
+      "ts": "2026-04-27T03:20:06.173Z"
+    },
+    {
+      "sceneId": "opportunity-detail",
+      "url": "/opportunities/2384",
+      "stepLabel": "Cena 5/15 · opportunity-detail",
+      "secretQuestion": "Vamos abrir uma. O que tem aqui dentro?",
+      "consultorResponse": "Tudo da oportunidade: município (Paulínia, 13.714 alunos, receita R$ 2183.3M), contatos, atividades, tarefas, reuniões agendadas. Cada interação fica registrada.",
+      "screenshotPre": "screenshots/05-opportunity-detail-pre.png",
+      "screenshotPost": "screenshots/05-opportunity-detail-post.png",
+      "ts": "2026-04-27T03:20:22.452Z"
+    },
+    {
+      "sceneId": "contacts",
+      "url": "/contacts",
+      "stepLabel": "Cena 6/15 · contacts",
+      "secretQuestion": "Como organizo contatos quando o município tem várias pessoas envolvidas?",
+      "consultorResponse": "Cada oportunidade pode ter N contatos. Um é marcado como \"principal\" — geralmente o secretário de educação. Os outros são suporte (financeiro, pedagógico). Centralizada aqui pra busca rápida.",
+      "screenshotPre": "screenshots/06-contacts-pre.png",
+      "screenshotPost": "screenshots/06-contacts-post.png",
+      "ts": "2026-04-27T03:20:37.044Z"
+    },
+    {
+      "sceneId": "tasks",
+      "url": "/tasks",
+      "stepLabel": "Cena 7/15 · tasks",
+      "secretQuestion": "E follow-ups? Como não esqueço de ligar de volta?",
+      "consultorResponse": "Tarefas com prazo. Você cria daqui ou direto na oportunidade. O sistema te alerta quando tá atrasada — uma \"rotting\" mostra deals parados há tempo demais sem ação.",
+      "screenshotPre": "screenshots/07-tasks-pre.png",
+      "screenshotPost": "screenshots/07-tasks-post.png",
+      "ts": "2026-04-27T03:20:49.640Z"
+    },
+    {
+      "sceneId": "meetings",
+      "url": "/meetings",
+      "stepLabel": "Cena 8/15 · meetings",
+      "secretQuestion": "Como agendo reunião com a secretaria?",
+      "consultorResponse": "Reuniões integra com Google Calendar. Cria evento, convida participantes, gera link Meet. Quando a reunião é \"diagnóstico\" ou \"auditoria\", o sistema aceita avançar de estágio só após ela ser realizada.",
+      "screenshotPre": "screenshots/08-meetings-pre.png",
+      "screenshotPost": "screenshots/08-meetings-post.png",
+      "ts": "2026-04-27T03:21:02.109Z"
+    },
+    {
+      "sceneId": "reports",
+      "url": "/reports",
+      "stepLabel": "Cena 9/15 · reports",
+      "secretQuestion": "Como meu gestor acompanha minha performance?",
+      "consultorResponse": "Relatórios. Mostra forecast (pipeline ponderado por probabilidade de fechamento), win/loss rate, motivos de perda mais comuns, deals parados. Cada consultor vê os seus, gestor vê todos.",
+      "screenshotPre": "screenshots/09-reports-pre.png",
+      "screenshotPost": "screenshots/09-reports-post.png",
+      "ts": "2026-04-27T03:21:16.625Z"
+    },
+    {
+      "sceneId": "admin-team",
+      "url": "/admin/team",
+      "stepLabel": "Cena 10/15 · admin-team",
+      "secretQuestion": "Só admin vê isso ne?",
+      "consultorResponse": "Isso. Time & Permissões — admin aprova novos cadastros (consultores que se inscrevem ficam \"pending\" até aprovação), promove a gestor, transfere leads entre consultores e desativa contas. Auditoria de cada ação fica em Saúde Operacional.",
+      "screenshotPre": "screenshots/10-admin-team-pre.png",
+      "screenshotPost": "screenshots/10-admin-team-post.png",
+      "ts": "2026-04-27T03:21:31.318Z"
+    },
+    {
+      "sceneId": "admin-health",
+      "url": "/admin/health",
+      "stepLabel": "Cena 11/15 · admin-health",
+      "secretQuestion": "O que é Saúde Operacional?",
+      "consultorResponse": "Auditoria do sistema: leads não triados há mais de X dias, oportunidades sem dono, deals \"rotten\", handoffs pendentes. É a tela que o gestor abre toda segunda-feira.",
+      "screenshotPre": "screenshots/11-admin-health-pre.png",
+      "screenshotPost": "screenshots/11-admin-health-post.png",
+      "ts": "2026-04-27T03:21:44.591Z"
+    },
+    {
+      "sceneId": "settings-stages",
+      "url": "/settings/stages",
+      "stepLabel": "Cena 12/15 · settings-stages",
+      "secretQuestion": "Posso customizar os estágios do pipeline?",
+      "consultorResponse": "Pode. Estágios padrão são 8, mas se quiser separar, ex: \"Diagnóstico Enviado\" em \"Enviado\" + \"Aprovado\", você cria estágio custom aqui. Define probabilidade, dias até \"rotten\" e campos obrigatórios pra avançar.",
+      "screenshotPre": "screenshots/12-settings-stages-pre.png",
+      "screenshotPost": "screenshots/12-settings-stages-post.png",
+      "ts": "2026-04-27T03:21:57.123Z"
+    },
+    {
+      "sceneId": "me",
+      "url": "/me",
+      "stepLabel": "Cena 13/15 · me",
+      "secretQuestion": "Como configuro minhas notificações?",
+      "consultorResponse": "No Meu Perfil. Define o nome que aparece pros outros consultores, sua assinatura nos emails, e em Preferências escolhe quando ser notificado: tarefas atrasadas, novos leads, sinais BNCC.",
+      "screenshotPre": "screenshots/13-me-pre.png",
+      "screenshotPost": "screenshots/13-me-post.png",
+      "ts": "2026-04-27T03:22:10.744Z"
+    },
+    {
+      "sceneId": "apm",
+      "url": "/apm/dashboard",
+      "stepLabel": "Cena 14/15 · apm",
+      "secretQuestion": "E o módulo APM, é onde os captadores cadastram?",
+      "consultorResponse": "Sim. APM tem acesso restrito por senha — só o time da APM. Eles cadastram leads em campo (prefeitos, secretários), os leads aparecem aqui no CRM pra triagem. O dashboard APM agora também tem treinamento e métricas.",
+      "screenshotPre": "screenshots/14-apm-pre.png",
+      "screenshotPost": "screenshots/14-apm-post.png",
+      "ts": "2026-04-27T03:22:23.434Z"
+    },
+    {
+      "sceneId": "wrap",
+      "url": "/",
+      "stepLabel": "Cena 15/15 · wrap",
+      "secretQuestion": "Resumindo: posso captar lead, mover pelo pipeline, fazer handoff e o BNCC executa a auditoria?",
+      "consultorResponse": "Exato. APM gera lead → CRM trabalha o pipeline até \"Ganhou\" → Handoff cria automaticamente uma consultoria FUNDEB no sistema BNCC Captação → consultor sênior executa as 9 etapas. Aqui você fecha vendas, lá entrega valor.",
+      "screenshotPre": "screenshots/15-wrap-pre.png",
+      "screenshotPost": "screenshots/15-wrap-post.png",
+      "ts": "2026-04-27T03:22:43.026Z"
+    }
+  ],
+  "errors": [],
+  "durationSec": 226.448
+}

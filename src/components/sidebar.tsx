@@ -15,6 +15,7 @@ const USER_NAV: NavItem[] = [
   { href: '/meetings', label: 'Reuniões' },
   { href: '/contacts', label: 'Contatos' },
   { href: '/reports', label: 'Relatórios' },
+  { href: '/admin/treinamento', label: 'Treinamento' },
   { href: '/me', label: 'Meu perfil' },
 ];
 

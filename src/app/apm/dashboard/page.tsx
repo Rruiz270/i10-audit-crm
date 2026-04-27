@@ -160,12 +160,35 @@ export default async function ApmDashboardPage() {
             Simulações de consultoria FUNDEB
           </h2>
           <p className="mt-2 text-sm text-slate-600 max-w-3xl leading-relaxed">
-            3 vídeos guiados mostrando como conduzir uma consultoria completa do início ao fim.
-            Cada cidade tem tamanho diferente e o diálogo simula uma <strong>Secretária de Educação</strong> fazendo perguntas reais
-            enquanto o <strong>Consultor i10</strong> responde e navega o sistema. Inclui as 9 etapas do wizard
-            + tour por todas as ferramentas da plataforma + modo telão final.
+            Vídeos guiados cobrindo o fluxo completo de captação até a entrega da consultoria.
+            Comece pelo fluxo end-to-end e depois aprofunde em cada cidade conforme o caso real.
           </p>
         </div>
+
+        {/* E2E destaque */}
+        <a
+          href="/admin/treinamento/e2e-paulinia"
+          className="block mb-8 bg-gradient-to-br from-slate-900 to-slate-700 text-white rounded-xl p-6 hover:shadow-lg transition-shadow"
+        >
+          <div className="flex items-start gap-5">
+            <div className="text-5xl text-emerald-400">▶</div>
+            <div className="flex-1">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-300 mb-1">
+                FLUXO COMPLETO · CROSS-APP
+              </div>
+              <div className="text-xl font-bold mb-1" style={{ fontFamily: "'Source Serif 4', serif" }}>
+                APM → CRM → BNCC Captação
+              </div>
+              <div className="text-sm text-white/80">
+                Como o lead nasce no APM (em campo), passa pelo pipeline do CRM e vira auditoria FUNDEB no BNCC. Tudo em ~4 minutos.
+              </div>
+            </div>
+          </div>
+        </a>
+
+        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 mb-4">
+          Por tamanho de município
+        </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {TRAININGS.map((t) => (
