@@ -220,13 +220,42 @@ export async function deleteOpportunity(formData: FormData) {
   const user = await requireUser();
   const id = Number(formData.get('id'));
   if (!Number.isFinite(id)) return { ok: false as const, error: 'ID inválido' };
-  if (!['admin', 'gestor'].includes(user.role)) {
-    return { ok: false as const, error: 'Apenas admin/gestor podem excluir.' };
+  if (user.role !== 'admin') {
+    return { ok: false as const, error: 'Apenas admin pode excluir.' };
   }
   await db.delete(opportunities).where(eq(opportunities.id, id));
   revalidatePath('/opportunities');
   revalidatePath('/pipeline');
   redirect('/opportunities');
+}
+
+export async function deleteOpportunityById(id: number) {
+  const user = await requireUser();
+  if (user.role !== 'admin') {
+    return { ok: false as const, error: 'Apenas admin pode excluir.' };
+  }
+  if (!Number.isFinite(id) || id <= 0) {
+    return { ok: false as const, error: 'ID inválido' };
+  }
+  await db.delete(opportunities).where(eq(opportunities.id, id));
+  revalidatePath('/opportunities');
+  revalidatePath('/pipeline');
+  return { ok: true as const };
+}
+
+export async function bulkDeleteOpportunities(ids: number[]) {
+  const user = await requireUser();
+  if (user.role !== 'admin') {
+    return { ok: false as const, error: 'Apenas admin pode excluir.' };
+  }
+  const valid = ids.filter((n) => Number.isFinite(n) && n > 0);
+  if (!valid.length) {
+    return { ok: false as const, error: 'Nenhum ID válido' };
+  }
+  await db.delete(opportunities).where(inArray(opportunities.id, valid));
+  revalidatePath('/opportunities');
+  revalidatePath('/pipeline');
+  return { ok: true as const, count: valid.length };
 }
 
 export async function changeStage(input: {

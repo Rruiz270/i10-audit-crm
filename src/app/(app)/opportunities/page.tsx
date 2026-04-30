@@ -88,7 +88,7 @@ export default async function OpportunitiesPage({
         </div>
       </header>
 
-      <OpportunitiesTable rows={rows} users={users} canBulk={canBulk} tagFilter={params.tag} />
+      <OpportunitiesTable rows={rows} users={users} canBulk={canBulk} isAdmin={user.role === 'admin'} tagFilter={params.tag} />
     </div>
   );
 }

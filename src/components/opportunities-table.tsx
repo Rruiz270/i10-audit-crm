@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { StageBadge } from '@/components/ui/stage-badge';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/input';
-import { bulkReassign } from '@/lib/actions/opportunities';
+import { bulkReassign, deleteOpportunityById, bulkDeleteOpportunities } from '@/lib/actions/opportunities';
 import { isRotten } from '@/lib/forecast';
 import type { StageKey } from '@/lib/pipeline';
 
@@ -39,11 +39,13 @@ export function OpportunitiesTable({
   rows,
   users,
   canBulk,
+  isAdmin,
   tagFilter,
 }: {
   rows: Row[];
   users: User[];
   canBulk: boolean;
+  isAdmin: boolean;
   tagFilter?: string;
 }) {
   const router = useRouter();
@@ -51,6 +53,34 @@ export function OpportunitiesTable({
   const [newOwner, setNewOwner] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   const [msg, setMsg] = React.useState<string | null>(null);
+  const [deleting, setDeleting] = React.useState<number | null>(null);
+
+  async function doDelete(id: number) {
+    if (!confirm(`Excluir oportunidade #${id}? Essa ação não pode ser desfeita.`)) return;
+    setDeleting(id);
+    const res = await deleteOpportunityById(id);
+    setDeleting(null);
+    if (res.ok) {
+      router.refresh();
+    } else {
+      alert(res.error ?? 'Erro ao excluir');
+    }
+  }
+
+  async function doBulkDelete() {
+    if (!confirm(`Excluir ${selected.size} oportunidade${selected.size === 1 ? '' : 's'}? Essa ação não pode ser desfeita.`)) return;
+    setBusy(true);
+    setMsg(null);
+    const res = await bulkDeleteOpportunities([...selected]);
+    setBusy(false);
+    if (res.ok) {
+      setMsg(`✓ ${res.count} excluída${res.count === 1 ? '' : 's'}`);
+      setSelected(new Set());
+      router.refresh();
+    } else {
+      setMsg(res.error ?? 'Erro');
+    }
+  }
 
   const filteredRows = tagFilter
     ? rows.filter((r) => (r.tags ?? []).includes(tagFilter))
@@ -143,12 +173,13 @@ export function OpportunitiesTable({
               <th className="text-left px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wider">Fechamento</th>
               <th className="text-left px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wider">Dono</th>
               <th className="text-left px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wider">Criada</th>
+              {isAdmin && <th className="w-16 px-4 py-3"></th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {filteredRows.length === 0 && (
               <tr>
-                <td colSpan={9} className="text-center py-10 text-sm text-slate-500 italic">
+                <td colSpan={isAdmin ? 10 : 9} className="text-center py-10 text-sm text-slate-500 italic">
                   Nenhuma oportunidade{tagFilter ? ` com a tag "${tagFilter}"` : ''}.{' '}
                   <Link href="/opportunities/new" className="text-i10-700 underline">Criar a primeira</Link>.
                 </td>
@@ -199,6 +230,22 @@ export function OpportunitiesTable({
                   <td className="px-4 py-3 text-slate-700">{fmtDate(r.closeDate)}</td>
                   <td className="px-4 py-3 text-slate-700">{r.ownerName ?? '—'}</td>
                   <td className="px-4 py-3 text-slate-500 text-xs">{fmtDate(r.createdAt)}</td>
+                  {isAdmin && (
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => doDelete(r.id)}
+                        disabled={deleting === r.id}
+                        className="text-slate-400 hover:text-rose-600 transition-colors disabled:opacity-50"
+                        title="Excluir oportunidade"
+                      >
+                        {deleting === r.id ? (
+                          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" /><path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" /></svg>
+                        ) : (
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        )}
+                      </button>
+                    </td>
+                  )}
                 </tr>
               );
             })}
@@ -232,6 +279,16 @@ export function OpportunitiesTable({
           >
             {busy ? 'Aplicando…' : 'Aplicar'}
           </Button>
+          {isAdmin && (
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={doBulkDelete}
+              disabled={busy}
+            >
+              {busy ? 'Excluindo…' : 'Excluir'}
+            </Button>
+          )}
           <button
             onClick={() => setSelected(new Set())}
             className="text-slate-300 hover:text-white text-xs"
