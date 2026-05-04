@@ -21,6 +21,7 @@ export const fundebMunicipalities = fundebSchema.table('municipalities', {
   id: serial('id').primaryKey(),
   nome: text('nome').notNull(),
   codigoIbge: varchar('codigo_ibge', { length: 7 }).unique(),
+  uf: varchar('uf', { length: 2 }),
   regiao: text('regiao'),
 });
 
