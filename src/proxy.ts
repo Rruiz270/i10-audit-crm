@@ -29,7 +29,8 @@ export default auth((req) => {
     nextUrl.pathname.startsWith('/api/marketing/t/') ||
     nextUrl.pathname.startsWith('/api/marketing/webhooks/') ||
     nextUrl.pathname.startsWith('/api/marketing/cron/') ||
-    nextUrl.pathname.startsWith('/api/marketing/unsubscribe');
+    nextUrl.pathname.startsWith('/api/marketing/unsubscribe') ||
+    nextUrl.pathname.startsWith('/api/marketing/d/');
 
   if (isPublicPath) return NextResponse.next();
 

@@ -4,6 +4,10 @@
     {
       "path": "/api/marketing/cron/drain",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/marketing/cron/sequences",
+      "schedule": "* * * * *"
     }
   ]
 }

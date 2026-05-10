@@ -40,24 +40,36 @@ export default async function ProjectDashboardPage({
         {project.description && <p className="text-sm text-slate-500 mt-1">{project.description}</p>}
       </header>
 
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-5 gap-3 mb-8">
         <DashCard
           title="Audiências"
           count={aud.length}
           href={`/marketing/${id}/audiences`}
-          subtitle={`${aud.reduce((s, a) => s + a.contactCount, 0)} contatos totais`}
+          subtitle={`${aud.reduce((s, a) => s + a.contactCount, 0)} contatos`}
         />
         <DashCard
           title="Templates"
           count={tpl.length}
           href={`/marketing/${id}/templates`}
-          subtitle="Email + WhatsApp"
+          subtitle="Email + WA"
         />
         <DashCard
           title="Campanhas"
           count={camp.length}
           href={`/marketing/${id}/campaigns`}
-          subtitle={camp.filter((c) => c.status === 'sending').length + ' enviando agora'}
+          subtitle={camp.filter((c) => c.status === 'sending').length + ' enviando'}
+        />
+        <DashCard
+          title="Assets"
+          count={0}
+          href={`/marketing/${id}/assets`}
+          subtitle="PDFs + tracking"
+        />
+        <DashCard
+          title="Attendance"
+          count={0}
+          href={`/marketing/${id}/attendance`}
+          subtitle="CSV → CRM opp"
         />
       </div>
 
