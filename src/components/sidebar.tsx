@@ -27,11 +27,8 @@ const ADMIN_NAV: NavItem[] = [
   { href: '/settings/stages', label: 'Estágios do pipeline' },
 ];
 
-// Nav do engine de marketing + Insights — gated por NEXT_PUBLIC_MARKETING_ENABLED
-const MARKETING_NAV: NavItem[] = [
-  { href: '/marketing', label: 'Marketing engine' },
-  { href: '/insights', label: 'i10 Insights' },
-];
+// Nav do engine de marketing — gated por NEXT_PUBLIC_MARKETING_ENABLED
+const MARKETING_NAV: NavItem[] = [{ href: '/marketing', label: 'Marketing engine' }];
 
 export function Sidebar({ userName, userRole }: { userName?: string | null; userRole?: string }) {
   const showAdmin = isAdmin(userRole);

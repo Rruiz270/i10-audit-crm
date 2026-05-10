@@ -30,9 +30,7 @@ export default auth((req) => {
     nextUrl.pathname.startsWith('/api/marketing/webhooks/') ||
     nextUrl.pathname.startsWith('/api/marketing/cron/') ||
     nextUrl.pathname.startsWith('/api/marketing/unsubscribe') ||
-    nextUrl.pathname.startsWith('/api/marketing/d/') ||
-    nextUrl.pathname.startsWith('/api/insights/webhooks/') ||
-    nextUrl.pathname.startsWith('/api/insights/cron/');
+    nextUrl.pathname.startsWith('/api/marketing/d/');
 
   if (isPublicPath) return NextResponse.next();
 
