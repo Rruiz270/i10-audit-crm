@@ -27,8 +27,12 @@ const ADMIN_NAV: NavItem[] = [
   { href: '/settings/stages', label: 'Estágios do pipeline' },
 ];
 
+// Nav do engine de marketing — gated por NEXT_PUBLIC_MARKETING_ENABLED
+const MARKETING_NAV: NavItem[] = [{ href: '/marketing', label: 'Marketing engine' }];
+
 export function Sidebar({ userName, userRole }: { userName?: string | null; userRole?: string }) {
   const showAdmin = isAdmin(userRole);
+  const showMarketing = showAdmin && process.env.NEXT_PUBLIC_MARKETING_ENABLED === 'true';
   return (
     <aside className="w-60 shrink-0 flex flex-col text-white i10-gradient-dark">
       {/* Header com wordmark sobre o gradient navy */}
@@ -58,6 +62,29 @@ export function Sidebar({ userName, userRole }: { userName?: string | null; user
             {item.label}
           </Link>
         ))}
+
+        {showMarketing && (
+          <>
+            <div
+              className="mt-5 mb-2 px-3 text-[10px] font-bold uppercase"
+              style={{ color: 'var(--i10-cyan-light)', letterSpacing: '3px' }}
+            >
+              Engine
+            </div>
+            {MARKETING_NAV.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'block px-3 py-2 rounded-md text-sm font-medium',
+                  'text-white/75 hover:bg-white/10 hover:text-white transition-colors',
+                )}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </>
+        )}
 
         {showAdmin && (
           <>

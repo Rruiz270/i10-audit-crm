@@ -1,8 +1,8 @@
 # Use Case Test Report — i10-audit-crm
 
-Rodado em 18/04/2026, 21:47:19
+Rodado em 10/05/2026, 17:02:46
 
-**139 ✓ / 0 ✗**  · 139 casos totais
+**108 ✓ / 24 ✗**  · 132 casos totais
 
 ## Essenciais  (5/5)
 
@@ -164,7 +164,7 @@ Rodado em 18/04/2026, 21:47:19
 - ✅ Stats A: 1 ganha / 0 perdida
 - ✅ Stats B: 0 ganha / 1 perdida
 
-## Auth  (17/17)
+## Auth  (14/16)
 
 - ✅ users tem password_hash + approval_status
 - ✅ bcrypt: hash + compare correto
@@ -177,43 +177,36 @@ Rodado em 18/04/2026, 21:47:19
 - ✅ User Google-only tem password_hash NULL
 - ✅ Seed criou 4 contas de teste
 - ✅ 3 das 4 contas estão approved (admin/gestor/consultor)
-- ✅ pendente@i10.crm tem approval_status="pending"
+- ❌ pendente@i10.crm tem approval_status="pending" — _got="rejected" expected="pending"_
 - ✅ Todas as 4 contas de teste têm hash bcrypt ($2...)
 - ✅ Senha "admin2026" bate para admin@i10.crm
 - ✅ Senha "consultor2026" bate para consultor@i10.crm
-- ✅ NextAuth expõe provider "credentials"
-- ✅ NextAuth expõe provider "google"
+- ❌ GET /api/auth/providers — _fetch failed_
 
-## Http_smoke  (28/28)
+## Http_smoke  (0/22)
 
-- ✅ /login = 200
-- ✅ /signup = 200
-- ✅ /intake/fundeb = 200
-- ✅ /manifest.webmanifest = 200
-- ✅ /sw.js = 200
-- ✅ /icons/icon-192.svg = 200
-- ✅ /icons/icon-512.svg = 200
-- ✅ / redireciona p/ login (307)
-- ✅ /opportunities redireciona p/ login (307)
-- ✅ /opportunities/new redireciona p/ login (307)
-- ✅ /pipeline redireciona p/ login (307)
-- ✅ /tasks redireciona p/ login (307)
-- ✅ /meetings redireciona p/ login (307)
-- ✅ /contacts redireciona p/ login (307)
-- ✅ /leads redireciona p/ login (307)
-- ✅ /reports redireciona p/ login (307)
-- ✅ /settings/stages redireciona p/ login (307)
-- ✅ /settings redireciona p/ login (307)
-- ✅ /admin/team redireciona p/ login (307)
-- ✅ /admin/health redireciona p/ login (307)
-- ✅ /me redireciona p/ login (307)
-- ✅ /me/preferences redireciona p/ login (307)
-- ✅ manifest.json servido parseia
-- ✅ intake/fundeb contém "Fale com a equipe"
-- ✅ intake/fundeb contém honeypot <input name="website">
-- ✅ intake/fundeb tem campo de município
-- ✅ login contém wordmark i10
-- ✅ login referencia manifest.webmanifest
+- ❌ /login = 200 — _got="err:fetch failed" expected=200_
+- ❌ /signup = 200 — _got="err:fetch failed" expected=200_
+- ❌ /intake/fundeb = 200 — _got="err:fetch failed" expected=200_
+- ❌ /manifest.webmanifest = 200 — _got="err:fetch failed" expected=200_
+- ❌ /sw.js = 200 — _got="err:fetch failed" expected=200_
+- ❌ /icons/icon-192.svg = 200 — _got="err:fetch failed" expected=200_
+- ❌ /icons/icon-512.svg = 200 — _got="err:fetch failed" expected=200_
+- ❌ / redireciona p/ login (307) — _got="err:fetch failed" expected=307_
+- ❌ /opportunities redireciona p/ login (307) — _got="err:fetch failed" expected=307_
+- ❌ /opportunities/new redireciona p/ login (307) — _got="err:fetch failed" expected=307_
+- ❌ /pipeline redireciona p/ login (307) — _got="err:fetch failed" expected=307_
+- ❌ /tasks redireciona p/ login (307) — _got="err:fetch failed" expected=307_
+- ❌ /meetings redireciona p/ login (307) — _got="err:fetch failed" expected=307_
+- ❌ /contacts redireciona p/ login (307) — _got="err:fetch failed" expected=307_
+- ❌ /leads redireciona p/ login (307) — _got="err:fetch failed" expected=307_
+- ❌ /reports redireciona p/ login (307) — _got="err:fetch failed" expected=307_
+- ❌ /settings/stages redireciona p/ login (307) — _got="err:fetch failed" expected=307_
+- ❌ /settings redireciona p/ login (307) — _got="err:fetch failed" expected=307_
+- ❌ /admin/team redireciona p/ login (307) — _got="err:fetch failed" expected=307_
+- ❌ /admin/health redireciona p/ login (307) — _got="err:fetch failed" expected=307_
+- ❌ /me redireciona p/ login (307) — _got="err:fetch failed" expected=307_
+- ❌ /me/preferences redireciona p/ login (307) — _got="err:fetch failed" expected=307_
 
 ---
 
