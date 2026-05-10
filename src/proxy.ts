@@ -21,7 +21,15 @@ export default auth((req) => {
     nextUrl.pathname === '/manifest.webmanifest' ||
     nextUrl.pathname === '/sw.js' ||
     nextUrl.pathname.startsWith('/icons/') ||
-    nextUrl.pathname.startsWith('/logos/');
+    nextUrl.pathname.startsWith('/logos/') ||
+    // Marketing engine — endpoints públicos:
+    // /u/unsubscribe (LGPD opt-out 1-clique), /api/marketing/t/* (tracking),
+    // /api/marketing/webhooks/* (provider callbacks), /api/marketing/cron/* (Vercel Cron)
+    nextUrl.pathname.startsWith('/u/') ||
+    nextUrl.pathname.startsWith('/api/marketing/t/') ||
+    nextUrl.pathname.startsWith('/api/marketing/webhooks/') ||
+    nextUrl.pathname.startsWith('/api/marketing/cron/') ||
+    nextUrl.pathname.startsWith('/api/marketing/unsubscribe');
 
   if (isPublicPath) return NextResponse.next();
 
