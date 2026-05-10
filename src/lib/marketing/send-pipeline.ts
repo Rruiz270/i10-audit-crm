@@ -8,9 +8,14 @@ import {
   contacts,
   webhookLog,
 } from '../schema-marketing';
-import { renderEmail, generateTrackingToken } from './template-engine';
+import {
+  renderEmail,
+  renderWhatsAppFreeform,
+  renderWhatsAppTemplate,
+  generateTrackingToken,
+} from './template-engine';
 import { isSuppressed, addSuppression } from './suppression';
-import { getEmailProvider } from './providers';
+import { getEmailProvider, getWhatsAppProvider } from './providers';
 import type { ClaimedJob } from './queue';
 
 // ─── Send pipeline — handlers de jobs da queue ────────────────────────────
@@ -156,6 +161,108 @@ async function markSendFailed(sendId: number, message: string) {
     .update(sends)
     .set({ status: 'failed', errorMessage: message })
     .where(eq(sends.id, sendId));
+}
+
+// ─── send_whatsapp handler ────────────────────────────────────────────────
+// Payload: { sendId: number }
+// Lê send + campaign + template + contact, renderiza WA, chama Twilio.
+// Mesma estrutura do send_email mas com phone como destino + WhatsApp provider.
+export async function handleSendWhatsApp(payload: Record<string, unknown>): Promise<HandlerResult> {
+  const sendId = Number(payload.sendId);
+  if (!sendId) return { ok: false, error: 'missing sendId in payload', retryable: false };
+
+  const rows = await db
+    .select({
+      send: sends,
+      campaign: campaigns,
+      template: templates,
+      contact: contacts,
+    })
+    .from(sends)
+    .innerJoin(campaigns, eq(sends.campaignId, campaigns.id))
+    .innerJoin(templates, eq(campaigns.templateId, templates.id))
+    .innerJoin(contacts, eq(sends.contactId, contacts.id))
+    .where(eq(sends.id, sendId))
+    .limit(1);
+
+  if (rows.length === 0) return { ok: false, error: `send ${sendId} not found`, retryable: false };
+  const { send, campaign, template, contact } = rows[0];
+
+  if (send.status === 'sent' || send.status === 'delivered') return { ok: true };
+
+  const phone = send.toPhone ?? contact.whatsapp ?? contact.phone;
+  if (!phone) {
+    await markSendFailed(sendId, 'no phone/whatsapp on contact');
+    return { ok: false, error: 'no phone', retryable: false };
+  }
+
+  // Suppression check (channel='whatsapp')
+  if (await isSuppressed(phone, 'whatsapp')) {
+    await markSendFailed(sendId, 'suppressed before send');
+    return { ok: true };
+  }
+
+  // Test allowlist (também aplica a phones em modo teste)
+  const allowlistRaw = process.env.MARKETING_TEST_ALLOWLIST_PHONE;
+  if (allowlistRaw) {
+    const allowed = allowlistRaw.split(',').map((s) => s.trim().replace(/\D/g, ''));
+    const phoneDigits = phone.replace(/\D/g, '');
+    const allowedHit = allowed.some((a) => phoneDigits.endsWith(a) || a.endsWith(phoneDigits));
+    if (!allowedHit) {
+      await markSendFailed(
+        sendId,
+        `blocked_test_mode: ${phone} não está em MARKETING_TEST_ALLOWLIST_PHONE`,
+      );
+      return { ok: true };
+    }
+  }
+
+  // Renderizar — se template tem waTemplateName, usa template approved; senão freeform
+  const mergeVars = (send.mergeVars ?? {}) as Record<string, unknown>;
+  let rendered;
+  if (template.waTemplateName) {
+    rendered = renderWhatsAppTemplate(template.variables ?? [], mergeVars);
+  } else if (template.text) {
+    rendered = renderWhatsAppFreeform(template.text, mergeVars);
+  } else {
+    return { ok: false, error: 'WA template missing waTemplateName or text body', retryable: false };
+  }
+
+  await db.update(sends).set({ status: 'sending' }).where(eq(sends.id, sendId));
+
+  const provider = getWhatsAppProvider(campaign.provider ?? undefined);
+  const result = await provider.send({
+    fromNumber: process.env.TWILIO_WHATSAPP_FROM ?? 'whatsapp:+14155238886',
+    toNumber: phone,
+    body: rendered.body || undefined,
+    templateName: template.waTemplateName ?? undefined,
+    templateLanguage: template.waTemplateLanguage ?? 'pt_BR',
+    templateVariables: rendered.twilioContentVariables,
+    tag: String(sendId),
+  });
+
+  if (result.ok) {
+    await db
+      .update(sends)
+      .set({
+        status: 'sent',
+        sentAt: new Date(),
+        providerId: result.providerId,
+        provider: result.provider,
+      })
+      .where(eq(sends.id, sendId));
+    await db
+      .update(campaigns)
+      .set({ sentCount: sql`${campaigns.sentCount} + 1` })
+      .where(eq(campaigns.id, campaign.id));
+    return { ok: true };
+  }
+
+  await db
+    .update(sends)
+    .set({ status: result.retryable ? 'queued' : 'failed', errorMessage: result.error })
+    .where(eq(sends.id, sendId));
+  return { ok: false, error: result.error, retryable: result.retryable };
 }
 
 // ─── process_webhook handler ──────────────────────────────────────────────
@@ -346,7 +453,7 @@ export async function dispatchJob(job: ClaimedJob): Promise<HandlerResult> {
     case 'process_webhook':
       return handleProcessWebhook(job.payload);
     case 'send_whatsapp':
-      return { ok: false, error: 'whatsapp not implemented yet (fase 3)', retryable: false };
+      return handleSendWhatsApp(job.payload);
     case 'advance_sequence':
       return { ok: false, error: 'sequences not implemented yet (fase 2)', retryable: false };
     default:

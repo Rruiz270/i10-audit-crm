@@ -122,12 +122,29 @@ export default async function NewCampaignPage({
               required
               className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
             >
-              {tpl.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
+              <optgroup label="📧 Email">
+                {tpl
+                  .filter((t) => t.channel === 'email')
+                  .map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+              </optgroup>
+              <optgroup label="💬 WhatsApp">
+                {tpl
+                  .filter((t) => t.channel === 'whatsapp')
+                  .map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+              </optgroup>
             </select>
+            <p className="text-xs text-slate-500 mt-1">
+              Channel da campanha = channel do template selecionado. WhatsApp exige audience com
+              contatos que tenham phone/whatsapp.
+            </p>
           </div>
         </div>
 

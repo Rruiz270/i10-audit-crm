@@ -34,7 +34,7 @@ export default async function TemplatesPage({
       </header>
 
       <section className="mb-8 bg-white border border-slate-200 rounded-xl p-6">
-        <h2 className="text-base font-semibold text-slate-900 mb-3">Novo template (email)</h2>
+        <h2 className="text-base font-semibold text-slate-900 mb-3">Novo template — Email</h2>
         <form action={createTemplate} className="space-y-3">
           <input type="hidden" name="projectId" value={id} />
           <input type="hidden" name="channel" value="email" />
@@ -83,7 +83,48 @@ export default async function TemplatesPage({
             type="submit"
             className="bg-i10-700 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-i10-800"
           >
-            Criar template
+            Criar template email
+          </button>
+        </form>
+      </section>
+
+      <section className="mb-8 bg-white border border-slate-200 rounded-xl p-6">
+        <h2 className="text-base font-semibold text-slate-900 mb-1">Novo template — WhatsApp</h2>
+        <p className="text-xs text-slate-500 mb-3">
+          WhatsApp aceita formatação <code>*negrito*</code> <code>_itálico_</code>{' '}
+          <code>~tachado~</code>. Use <code>\n</code> pra quebra de linha. Pra disparar fora da
+          janela de 24h da Meta, precisa preencher template aprovado (campo opcional).
+        </p>
+        <form action={createTemplate} className="space-y-3">
+          <input type="hidden" name="projectId" value={id} />
+          <input type="hidden" name="channel" value="whatsapp" />
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Nome interno</label>
+            <input
+              name="name"
+              type="text"
+              required
+              placeholder="WA1 — D-12 Prefeito (freeform)"
+              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">
+              Mensagem (texto + {`{{var}}`})
+            </label>
+            <textarea
+              name="text"
+              rows={6}
+              required
+              placeholder="Olá {{prefeito_apelido}}! 👋\n\nMapeamos R$ {{valor_potencial}} que {{municipio}} pode captar a mais em FUNDEB..."
+              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm font-mono text-xs"
+            />
+          </div>
+          <button
+            type="submit"
+            className="bg-i10-700 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-i10-800"
+          >
+            Criar template WhatsApp
           </button>
         </form>
       </section>

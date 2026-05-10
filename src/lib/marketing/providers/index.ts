@@ -1,6 +1,7 @@
 import type { EmailProvider, WhatsAppProvider } from './types';
 import { BrevoEmailProvider } from './brevo';
 import { SESEmailProvider } from './ses';
+import { TwilioWhatsAppProvider } from './twilio';
 
 // Factory — escolhe o provider baseado em env. Cache em memória pra não
 // reinstanciar a cada send (fetch/AWS SDK podem ser pesados de inicializar).
@@ -41,19 +42,21 @@ export function getWhatsAppProvider(override?: string): WhatsAppProvider {
 
   if (!override && whatsappCache && whatsappCache.name === name) return whatsappCache;
 
-  // Twilio sai na fase 3 — por enquanto stub que falha explicitamente
-  // pra detectarmos cedo se algo tentar enviar WA antes da hora.
-  const provider: WhatsAppProvider = {
-    name,
-    async send() {
-      return {
-        ok: false,
-        error: 'whatsapp provider not configured — install in fase 3',
-        retryable: false,
-        provider: name,
-      };
-    },
-  };
+  let provider: WhatsAppProvider;
+  switch (name) {
+    case 'twilio':
+      provider = new TwilioWhatsAppProvider({
+        accountSid: process.env.TWILIO_ACCOUNT_SID ?? '',
+        authToken: process.env.TWILIO_AUTH_TOKEN ?? '',
+        from: process.env.TWILIO_WHATSAPP_FROM ?? 'whatsapp:+14155238886',
+        statusCallbackUrl: process.env.MARKETING_BASE_URL
+          ? `${process.env.MARKETING_BASE_URL}/api/marketing/webhooks/twilio`
+          : undefined,
+      });
+      break;
+    default:
+      throw new Error(`Unknown WhatsApp provider: ${name}`);
+  }
 
   if (!override) whatsappCache = provider;
   return provider;
