@@ -245,9 +245,19 @@ async function processFormSubmission(
         const ownerId = owner[0]?.id ?? null;
         const oppNotes =
           `Agendou diagnóstico no Smart Cities Park (LP /pa-smart). Município: ${String(body.municipio ?? '')}`;
+        // resolve municipality_id pelo IBGE (pra qualificar/exibir a cidade no pipeline)
+        let municipalityId: number | null = null;
+        if (body.ibge) {
+          try {
+            const muni = await q`select id from fundeb.municipalities where codigo_ibge::text = ${String(body.ibge)} limit 1`;
+            municipalityId = muni[0]?.id ?? null;
+          } catch {
+            municipalityId = null;
+          }
+        }
         const opp = await q`
-          insert into crm.opportunities (owner_id, stage, source, notes)
-          values (${ownerId}, 'novo', ${src}, ${oppNotes}) returning id`;
+          insert into crm.opportunities (municipality_id, owner_id, stage, source, notes)
+          values (${municipalityId}, ${ownerId}, 'novo', ${src}, ${oppNotes}) returning id`;
         const oppId = opp[0].id;
         await q`
           insert into crm.contacts (opportunity_id, name, email, phone, role, is_primary)
