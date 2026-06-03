@@ -127,6 +127,7 @@ async function processFormSubmission(
     preSequenceId?: number;
     posSequenceId?: number;
     signupTag?: string;
+    createOpportunity?: boolean;
   };
   const signupTag = settings.signupTag ?? `${project.slug}:signup`;
 
@@ -219,6 +220,48 @@ async function processFormSubmission(
   if (settings.posSequenceId) {
     const enrollResult = await enrollContactInSequence(contactId, settings.posSequenceId);
     if (enrollResult.enrolled) enrolledInSequence = settings.posSequenceId;
+  }
+
+  // ─── Ponte: quem agenda vira oportunidade no pipeline (crm.opportunities) ──
+  // Escopado por settings.createOpportunity (só projetos que optam, ex: PB).
+  // Defensivo: NUNCA quebra o cadastro do lead — falha aqui só loga.
+  if (settings.createOpportunity) {
+    try {
+      const { neon } = await import('@neondatabase/serverless');
+      const q = neon(process.env.DATABASE_URL!);
+      const src = `agendamento_${project.slug}`;
+      // idempotente: não duplica oportunidade pro mesmo e-mail nesta origem
+      const existing = await q`
+        select 1 from crm.contacts cc
+        join crm.opportunities oo on oo.id = cc.opportunity_id
+        where lower(cc.email) = ${email} and oo.source = ${src} limit 1`;
+      if (existing.length === 0) {
+        // consultor ativo com menos oportunidades (load-balance)
+        const owner = await q`
+          select id from crm.users
+          where role = 'consultor' and is_active = true
+          order by (select count(*) from crm.opportunities o where o.owner_id = crm.users.id) asc, id asc
+          limit 1`;
+        const ownerId = owner[0]?.id ?? null;
+        const oppNotes =
+          `Agendou diagnóstico no Smart Cities Park (LP /pa-smart). Município: ${String(body.municipio ?? '')}`;
+        const opp = await q`
+          insert into crm.opportunities (owner_id, stage, source, notes)
+          values (${ownerId}, 'novo', ${src}, ${oppNotes}) returning id`;
+        const oppId = opp[0].id;
+        await q`
+          insert into crm.contacts (opportunity_id, name, email, phone, role, is_primary)
+          values (${oppId}, ${String(body.name ?? email.split('@')[0])}, ${email},
+                  ${body.phone ? String(body.phone) : null}, 'prefeitura', true)`;
+        await q`
+          insert into crm.activities (opportunity_id, type, subject, body, metadata)
+          values (${oppId}, 'agendamento', 'Agendou no Smart Cities Park',
+                  ${`Lead criado via LP /pa-smart. E-mail: ${email}`},
+                  ${JSON.stringify({ source: src, marketingContactId: contactId })})`;
+      }
+    } catch (err) {
+      console.error('[pb-opp-bridge] falhou (lead preservado):', err);
+    }
   }
 
   return { contactId, tagged: signupTag, exitedFromSequence, enrolledInSequence };
