@@ -3,7 +3,12 @@ import { notFound, redirect } from 'next/navigation';
 import { isAdmin } from '@/lib/roles';
 import { requireUser } from '@/lib/session';
 import { getProject } from '@/lib/actions/marketing/projects';
-import { getCampaign, getCampaignStats, launchCampaign } from '@/lib/actions/marketing/campaigns';
+import {
+  getCampaign,
+  getCampaignStats,
+  getBouncedRecipients,
+  launchCampaign,
+} from '@/lib/actions/marketing/campaigns';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +28,7 @@ export default async function CampaignDetailPage({
   const campaign = await getCampaign(campaignId);
   if (!campaign) notFound();
   const stats = await getCampaignStats(campaignId);
+  const bounced = await getBouncedRecipients(campaignId);
 
   const isLaunched = campaign.status !== 'draft';
 
@@ -76,6 +82,41 @@ export default async function CampaignDetailPage({
             </div>
           </div>
         </section>
+      )}
+
+      {/* Bounces — clicável (lista os e-mails que falharam) */}
+      {bounced.length > 0 && (
+        <details className="mb-8 bg-white border border-slate-200 rounded-xl p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-slate-700 select-none">
+            📭 {bounced.length} e-mails com bounce — clique para ver quais
+          </summary>
+          <div className="mt-3 max-h-96 overflow-auto">
+            <table className="w-full text-xs">
+              <thead className="text-slate-400 sticky top-0 bg-white">
+                <tr>
+                  <th className="text-left py-1 font-medium">E-mail</th>
+                  <th className="text-left py-1 font-medium">Tipo</th>
+                  <th className="text-left py-1 font-medium">Município</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bounced.map((b, i) => (
+                  <tr key={i} className="border-t border-slate-100">
+                    <td className="py-1 font-mono text-slate-700">{b.email}</td>
+                    <td className="py-1">
+                      {b.reason === 'hard_bounce' ? (
+                        <span className="text-red-600">🔴 hard</span>
+                      ) : (
+                        <span className="text-amber-600">🟡 soft</span>
+                      )}
+                    </td>
+                    <td className="py-1 text-slate-500">{b.municipio ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
       )}
 
       {/* Launch / dry-run */}

@@ -238,3 +238,19 @@ export async function getCampaignStats(campaignId: number) {
     ),
   };
 }
+
+// Lista os destinatários que deram bounce (clicável no dashboard da campanha)
+export async function getBouncedRecipients(campaignId: number) {
+  const user = await requireUser();
+  requireRole(user, ['admin']);
+  return db
+    .select({
+      email: sends.toEmail,
+      reason: sends.errorMessage,
+      municipio: contacts.municipio,
+    })
+    .from(sends)
+    .leftJoin(contacts, eq(sends.contactId, contacts.id))
+    .where(and(eq(sends.campaignId, campaignId), eq(sends.status, 'bounced')))
+    .orderBy(desc(sends.errorMessage), contacts.municipio);
+}
