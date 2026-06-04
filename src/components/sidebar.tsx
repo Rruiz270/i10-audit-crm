@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 import { Wordmark } from '@/components/ui/wordmark';
 import { isAdmin } from '@/lib/roles';
 
-type NavItem = { href: string; label: string };
+type NavItem = { href: string; label: string; external?: boolean };
 
 // Nav do consultor — trabalho diário na captação
 const USER_NAV: NavItem[] = [
@@ -27,8 +27,14 @@ const ADMIN_NAV: NavItem[] = [
   { href: '/settings/stages', label: 'Estágios do pipeline' },
 ];
 
-// Nav do engine de marketing — gated por NEXT_PUBLIC_MARKETING_ENABLED
-const MARKETING_NAV: NavItem[] = [{ href: '/marketing', label: 'Marketing engine' }];
+// Nav do hub de Marketing — gated por NEXT_PUBLIC_MARKETING_ENABLED.
+// Reúne engine de e-mail, leads, insights (newsletter) e social (Meta).
+const MARKETING_NAV: NavItem[] = [
+  { href: '/marketing', label: 'Marketing engine' },
+  { href: '/leads', label: 'Leads Hub' },
+  { href: '/marketing/insights', label: 'Insights' },
+  { href: '/marketing/social', label: 'Social Medias' },
+];
 
 export function Sidebar({ userName, userRole }: { userName?: string | null; userRole?: string }) {
   const showAdmin = isAdmin(userRole);
@@ -69,20 +75,35 @@ export function Sidebar({ userName, userRole }: { userName?: string | null; user
               className="mt-5 mb-2 px-3 text-[10px] font-bold uppercase"
               style={{ color: 'var(--i10-cyan-light)', letterSpacing: '3px' }}
             >
-              Engine
+              Marketing
             </div>
-            {MARKETING_NAV.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'block px-3 py-2 rounded-md text-sm font-medium',
-                  'text-white/75 hover:bg-white/10 hover:text-white transition-colors',
-                )}
-              >
-                {item.label}
-              </Link>
-            ))}
+            {MARKETING_NAV.map((item) =>
+              item.external ? (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    'block px-3 py-2 rounded-md text-sm font-medium',
+                    'text-white/75 hover:bg-white/10 hover:text-white transition-colors',
+                  )}
+                >
+                  {item.label} ↗
+                </a>
+              ) : (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    'block px-3 py-2 rounded-md text-sm font-medium',
+                    'text-white/75 hover:bg-white/10 hover:text-white transition-colors',
+                  )}
+                >
+                  {item.label}
+                </Link>
+              ),
+            )}
           </>
         )}
 

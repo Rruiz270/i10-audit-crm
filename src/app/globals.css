@@ -91,6 +91,19 @@
   --color-i10-mint-pale: var(--i10-mint-pale);
   --color-i10-mint-wash: var(--i10-mint-wash);
 
+  /* Brand aliases (unprefixed) — used by telas portadas do i10-insights.
+     Mapeiam para os mesmos hex da marca; não tocam na escala de cinza padrão. */
+  --color-navy: var(--i10-navy);
+  --color-navy-dark: var(--i10-navy-dark);
+  --color-navy-light: var(--i10-navy-light);
+  --color-cyan: var(--i10-cyan);
+  --color-cyan-light: var(--i10-cyan-light);
+  --color-cyan-pale: var(--i10-cyan-pale);
+  --color-green: #00E5A0;
+  --color-green-dark: #00C48A;
+  --color-green-pale: #B7F5E0;
+  --color-off-white: #F8FAFC;
+
   --font-sans: var(--font-inter);
   --font-serif: var(--font-source-serif);
 }
