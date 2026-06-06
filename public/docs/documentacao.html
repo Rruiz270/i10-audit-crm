@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>i10 Audit CRM — Documentação Técnica e de Processos</title>
+<style>
+  :root {
+    --navy: #0f2540;
+    --navy-2: #1a3a5c;
+    --mint: #1fb6a6;
+    --mint-d: #0f8a7d;
+    --cyan: #2d9cdb;
+    --amber: #f2a93b;
+    --rose: #e2556e;
+    --ink: #1d2733;
+    --ink-soft: #51606f;
+    --line: #e4e9f0;
+    --bg: #f6f8fb;
+    --card: #ffffff;
+    --code-bg: #0f2540;
+    --code-ink: #d7e6f5;
+    --radius: 14px;
+    --shadow: 0 1px 2px rgba(15,37,64,.05), 0 8px 24px rgba(15,37,64,.06);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+  .layout { display: grid; grid-template-columns: 288px 1fr; min-height: 100vh; }
+
+  /* Sidebar */
+  aside {
+    position: sticky; top: 0; align-self: start;
+    height: 100vh; overflow-y: auto;
+    background: var(--navy);
+    color: #cdd9e6;
+    padding: 28px 22px 60px;
+  }
+  aside .brand { display: flex; align-items: center; gap: 11px; margin-bottom: 6px; }
+  aside .brand .mark {
+    width: 40px; height: 40px; border-radius: 11px;
+    background: linear-gradient(135deg, var(--mint), var(--cyan));
+    display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 17px;
+    letter-spacing: -.5px;
+  }
+  aside .brand b { color: #fff; font-size: 16px; display: block; line-height: 1.2; }
+  aside .brand span { font-size: 12px; color: #8fa6bd; }
+  aside .ver { font-size: 11px; color: #6f88a1; margin: 14px 0 22px; padding-bottom: 18px; border-bottom: 1px solid rgba(255,255,255,.08); }
+  nav a {
+    display: block; color: #aebed0; text-decoration: none;
+    padding: 7px 12px; border-radius: 8px; font-size: 13.5px; margin: 1px 0;
+    transition: all .15s;
+  }
+  nav a:hover { background: rgba(255,255,255,.06); color: #fff; }
+  nav .grp { font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.3px; color: #5f7a96; margin: 20px 0 6px; padding-left: 12px; font-weight: 700; }
+
+  /* Main */
+  main { padding: 0; max-width: 980px; }
+  .wrap { padding: 56px 60px 120px; }
+  header.hero {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-2) 55%, #244a72 100%);
+    color: #fff; padding: 64px 60px 52px;
+  }
+  header.hero h1 { font-size: 34px; margin: 0 0 10px; letter-spacing: -.6px; line-height: 1.15; }
+  header.hero p { font-size: 16px; color: #b9cce0; max-width: 640px; margin: 0; }
+  header.hero .pills { margin-top: 26px; display: flex; flex-wrap: wrap; gap: 8px; }
+  header.hero .pills span {
+    background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16);
+    padding: 5px 13px; border-radius: 99px; font-size: 12.5px; color: #dceaf7;
+  }
+
+  section { scroll-margin-top: 24px; margin-bottom: 52px; }
+  h2 {
+    font-size: 23px; letter-spacing: -.4px; margin: 0 0 6px;
+    padding-bottom: 12px; border-bottom: 2px solid var(--line);
+    display: flex; align-items: center; gap: 11px;
+  }
+  h2 .n {
+    background: var(--navy); color: #fff; font-size: 13px; font-weight: 700;
+    width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; flex: none;
+  }
+  h3 { font-size: 17px; margin: 28px 0 8px; color: var(--navy); }
+  h4 { font-size: 14.5px; margin: 18px 0 4px; color: var(--ink); }
+  p { margin: 10px 0; color: var(--ink-soft); }
+  .lead { font-size: 15.5px; color: var(--ink); }
+  a.inline { color: var(--mint-d); text-decoration: none; border-bottom: 1px solid #b8e6df; }
+
+  code {
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    background: #eef2f7; color: #11406a; padding: 1.5px 6px; border-radius: 5px; font-size: 12.5px;
+  }
+  pre {
+    background: var(--code-bg); color: var(--code-ink); padding: 18px 20px;
+    border-radius: var(--radius); overflow-x: auto; font-size: 12.5px; line-height: 1.6;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    box-shadow: var(--shadow);
+  }
+  pre code { background: none; color: inherit; padding: 0; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 20px 24px; box-shadow: var(--shadow); margin: 16px 0;
+  }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 860px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow); }
+  .stat b { display: block; font-size: 26px; color: var(--navy); letter-spacing: -.5px; }
+  .stat span { font-size: 12.5px; color: var(--ink-soft); }
+
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13.5px; background: var(--card); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+  th { background: #f0f4f9; text-align: left; padding: 11px 14px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .6px; color: var(--ink-soft); border-bottom: 1px solid var(--line); }
+  td { padding: 11px 14px; border-bottom: 1px solid var(--line); color: var(--ink); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td code { white-space: nowrap; }
+
+  .flow { counter-reset: step; margin: 16px 0; }
+  .flow .s { position: relative; padding: 4px 0 18px 44px; border-left: 2px solid var(--line); margin-left: 14px; }
+  .flow .s:last-child { border-left-color: transparent; }
+  .flow .s::before {
+    counter-increment: step; content: counter(step);
+    position: absolute; left: -15px; top: 0; width: 28px; height: 28px;
+    background: var(--mint); color: #fff; border-radius: 50%; display: grid; place-items: center;
+    font-size: 13px; font-weight: 700; box-shadow: 0 0 0 4px var(--bg);
+  }
+  .flow .s b { color: var(--navy); }
+
+  .tag { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 11.5px; font-weight: 600; margin: 2px 3px 2px 0; }
+  .tag.mint { background: #d7f5f0; color: var(--mint-d); }
+  .tag.cyan { background: #d9eefb; color: #1c6fa8; }
+  .tag.amber { background: #fdeecd; color: #9a6a16; }
+  .tag.rose { background: #fbdde3; color: #b32e47; }
+  .tag.navy { background: #dde6f1; color: #1a3a5c; }
+
+  .callout { border-left: 4px solid var(--cyan); background: #eef7fd; padding: 14px 18px; border-radius: 0 10px 10px 0; margin: 16px 0; font-size: 14px; }
+  .callout.warn { border-color: var(--amber); background: #fef7ea; }
+  .callout.note { border-color: var(--mint); background: #ecfaf7; }
+  .callout b { color: var(--navy); }
+
+  .phase { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin: 18px 0; box-shadow: var(--shadow); }
+  .phase .head { padding: 16px 22px; display: flex; align-items: center; gap: 14px; color: #fff; }
+  .phase .head .badge { background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.3); padding: 3px 11px; border-radius: 99px; font-size: 12px; font-weight: 700; }
+  .phase .head h3 { color: #fff; margin: 0; font-size: 17px; }
+  .phase .head .effort { margin-left: auto; font-size: 12px; opacity: .9; }
+  .phase.p1 .head { background: linear-gradient(90deg, var(--mint-d), var(--mint)); }
+  .phase.p2 .head { background: linear-gradient(90deg, #1c6fa8, var(--cyan)); }
+  .phase.p3 .head { background: linear-gradient(90deg, #8a5a12, var(--amber)); }
+  .phase.p4 .head { background: linear-gradient(90deg, var(--navy), var(--navy-2)); }
+  .phase .body { padding: 18px 24px; background: var(--card); }
+  .phase ul { margin: 6px 0; padding-left: 18px; }
+  .phase li { margin: 6px 0; color: var(--ink); }
+  .phase li b { color: var(--navy); }
+  .why { font-size: 13px; color: var(--ink-soft); font-style: italic; margin-top: 10px; }
+
+  footer { padding: 30px 60px 60px; color: var(--ink-soft); font-size: 12.5px; border-top: 1px solid var(--line); background: var(--card); }
+  ul.clean { list-style: none; padding-left: 0; }
+  ul.clean li { padding: 4px 0 4px 22px; position: relative; color: var(--ink); }
+  ul.clean li::before { content: "→"; position: absolute; left: 0; color: var(--mint); font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside>
+    <div class="brand">
+      <div class="mark">i10</div>
+      <div><b>Audit CRM</b><span>Documentação técnica</span></div>
+    </div>
+    <div class="ver">Instituto i10 · CRM de captação municipal<br/>Gerado em 06/06/2026 · Next 16 · Neon · Vercel</div>
+    <nav>
+      <div class="grp">Visão geral</div>
+      <a href="#overview">1. O que é o CRM</a>
+      <a href="#stack">2. Stack &amp; arquitetura</a>
+      <a href="#data">3. Modelo de dados</a>
+      <a href="#auth">4. Autenticação &amp; papéis</a>
+      <div class="grp">Processos do CRM</div>
+      <a href="#lifecycle">5. Ciclo da oportunidade</a>
+      <a href="#pipeline">6. Pipeline &amp; qualificação</a>
+      <a href="#intake">7. Captação de leads</a>
+      <a href="#colab">8. Contatos, tarefas, reuniões</a>
+      <a href="#handoff">9. Handoff → BNCC</a>
+      <a href="#reports">10. Dashboard &amp; relatórios</a>
+      <a href="#admin">11. Admin &amp; treinamento</a>
+      <div class="grp">Engine de marketing</div>
+      <a href="#mkt-model">12. Modelo de marketing</a>
+      <a href="#mkt-send">13. Pipeline de envio</a>
+      <a href="#mkt-seq">14. Sequências &amp; tracking</a>
+      <a href="#mkt-lgpd">15. LGPD &amp; supressão</a>
+      <div class="grp">Operação</div>
+      <a href="#infra">16. Infra, cron &amp; env</a>
+      <div class="grp">Evolução</div>
+      <a href="#roadmap">17. Próximas fases</a>
+    </nav>
+  </aside>
+
+  <main>
+    <header class="hero">
+      <h1>i10 Audit CRM</h1>
+      <p>CRM de captação de municípios do Instituto i10 — do primeiro contato até o handoff transacional para o sistema de consultoria <b>BNCC-CAPTAÇÃO</b>, com engine de marketing multicanal nativa.</p>
+      <div class="pills">
+        <span>Next.js 16 · React 19</span>
+        <span>Drizzle ORM + Neon Postgres</span>
+        <span>NextAuth v5 (Google + senha)</span>
+        <span>Engine de e-mail/WhatsApp nativa</span>
+        <span>108/132 casos de uso ✓</span>
+      </div>
+    </header>
+
+    <div class="wrap">
+
+      <!-- 1 -->
+      <section id="overview">
+        <h2><span class="n">1</span> O que é o CRM</h2>
+        <p class="lead">O i10 Audit CRM é um <b>CRM B2B de pipeline de vendas</b> desenhado para um nicho específico: vender consultoria de auditoria educacional (FUNDEB/BNCC) para prefeituras e secretarias municipais de educação. Ele cobre o funil comercial inteiro e, ao fechar a venda, <b>cria automaticamente a consultoria</b> dentro do sistema operacional irmão (BNCC-CAPTAÇÃO).</p>
+        <div class="grid3">
+          <div class="stat"><b>3</b><span>schemas no mesmo banco: <code>crm.*</code>, <code>marketing.*</code> e referência <code>fundeb.*</code></span></div>
+          <div class="stat"><b>~25</b><span>tabelas (9 no core, 16 na engine de marketing)</span></div>
+          <div class="stat"><b>3</b><span>fontes de lead: intake público, campo (APM) e captura manual</span></div>
+        </div>
+        <p>O que diferencia este CRM de um Pipedrive/HubSpot genérico:</p>
+        <ul class="clean">
+          <li><b>Pipeline "process-aware"</b>: cada estágio exige campos antes de avançar — o Kanban é uma máquina de qualificação, não só um quadro visual.</li>
+          <li><b>Handoff transacional cross-schema</b>: ganhar um deal insere uma consultoria real no app de execução, no mesmo banco.</li>
+          <li><b>Sinais de progresso read-only</b>: o card da oportunidade mostra relatórios entregues, planos de ação concluídos/atrasados e documentos aprovados puxados do BNCC.</li>
+          <li><b>Marketing nativo</b>: campanhas de e-mail/WhatsApp, sequências de nutrição e tracking vivem dentro do próprio CRM — sem Mailchimp.</li>
+        </ul>
+      </section>
+
+      <!-- 2 -->
+      <section id="stack">
+        <h2><span class="n">2</span> Stack &amp; arquitetura</h2>
+        <div class="grid2">
+          <div class="card">
+            <h4>Aplicação</h4>
+            <ul class="clean">
+              <li>Next.js 16 (App Router) + React 19 + TypeScript 5</li>
+              <li>Tailwind 4 + Radix UI + componentes <code>src/components/ui</code></li>
+              <li>Server Actions como camada de escrita (sem REST interno)</li>
+              <li>Drag-and-drop com <code>@dnd-kit</code> no Kanban</li>
+              <li>Validação com <code>zod</code>, formulários com <code>react-hook-form</code></li>
+            </ul>
+          </div>
+          <div class="card">
+            <h4>Dados &amp; infra</h4>
+            <ul class="clean">
+              <li>Neon Postgres (serverless) via <code>@neondatabase/serverless</code></li>
+              <li>Drizzle ORM + Drizzle Kit para migrations</li>
+              <li>Deploy contínuo na Vercel (push em <code>main</code> → produção)</li>
+              <li>2 Cron Jobs Vercel (a cada minuto) p/ marketing</li>
+              <li>Provedores: AWS SES, Brevo (e-mail) e Twilio (WhatsApp)</li>
+            </ul>
+          </div>
+        </div>
+        <h3>O modelo de dois apps, um banco</h3>
+        <p>Esta é a decisão arquitetural central. CRM e BNCC-CAPTAÇÃO são <b>codebases independentes</b> que compartilham o mesmo Neon, isolados por schema:</p>
+        <pre><code>  i10 Audit CRM                          BNCC-CAPTAÇÃO
+  ─────────────                          ─────────────
+  crm.opportunities ──[ganhou]──INSERT──▶ fundeb.consultorias
+  crm.contacts                            fundeb.relatorios     ┐
+  crm.activities                          fundeb.action_plans   │ lidos como
+  crm.tasks / meetings                    fundeb.documents      │ "sinais"
+  crm.lead_forms / submissions            fundeb.scenarios      │ (read-only)
+  marketing.* (16 tabelas)                fundeb.evidences      ┘</code></pre>
+        <div class="callout note"><b>Regra de ouro do código:</b> o CRM só <b>escreve</b> em <code>fundeb.*</code> em um único ponto — o handoff (<code>src/lib/actions/handoff.ts</code>). Todo o resto de <code>fundeb.*</code> é <code>SELECT</code> puro (<code>src/lib/bncc-signals.ts</code>). Isso evita que dois apps corrompam os dados um do outro.</div>
+      </section>
+
+      <!-- 3 -->
+      <section id="data">
+        <h2><span class="n">3</span> Modelo de dados</h2>
+        <h3>Schema <code>crm.*</code> — núcleo</h3>
+        <table>
+          <tr><th>Tabela</th><th>Papel</th><th>Campos-chave</th></tr>
+          <tr><td><code>users</code></td><td>Equipe (consultores/gestores/admin)</td><td>role, approvalStatus, passwordHash, googleRefreshToken, displayName, signature</td></tr>
+          <tr><td><code>user_preferences</code></td><td>Preferências por usuário</td><td>notificações, timezone, horário de trabalho, filtro padrão do pipeline</td></tr>
+          <tr><td><code>opportunities</code></td><td>O deal — entidade central</td><td>stage, estimatedValue, closeDate, contractSigned, wonAt/lostAt, lostReasonCode, handedOffConsultoriaId, lastActivityAt, tags[]</td></tr>
+          <tr><td><code>pipeline_stages</code></td><td>Estágios configuráveis (DB)</td><td>order, probability, rotDays, isTerminal, isWon, isCustom</td></tr>
+          <tr><td><code>contacts</code></td><td>Pessoas do município</td><td>name, role, email/phone/whatsapp, isPrimary</td></tr>
+          <tr><td><code>activities</code></td><td>Timeline (14 tipos)</td><td>type, subject, body, actorId, metadata</td></tr>
+          <tr><td><code>tasks</code></td><td>Tarefas com prazo</td><td>dueAt, completedAt, priority, assignedTo</td></tr>
+          <tr><td><code>meetings</code></td><td>Reuniões + Google Calendar</td><td>kind, scheduledAt, googleEventId, meetLink, outcome</td></tr>
+          <tr><td><code>lead_forms</code> / <code>lead_submissions</code></td><td>Formulários públicos + capturas</td><td>fieldsSchema, payload, triaged, opportunityId</td></tr>
+          <tr><td><code>accounts / sessions / verification_tokens</code></td><td>Tabelas padrão do NextAuth (Drizzle adapter)</td><td>—</td></tr>
+        </table>
+
+        <h3>Schema <code>marketing.*</code> — engine (16 tabelas)</h3>
+        <p>Modelo completo de automação de marketing, independente do core:</p>
+        <table>
+          <tr><th>Grupo</th><th>Tabelas</th><th>Função</th></tr>
+          <tr><td>Estrutura</td><td><code>projects</code>, <code>audiences</code>, <code>list_members</code>, <code>contacts</code></td><td>Projeto (ex: "Webinar FUNDEB 2026") → audiências → contatos (e-mail canônico, atributos JSONB, base legal LGPD)</td></tr>
+          <tr><td>Conteúdo</td><td><code>templates</code>, <code>assets</code></td><td>Templates de e-mail/WhatsApp com <code>{{merge}}</code>; assets rastreáveis (downloads)</td></tr>
+          <tr><td>Disparo</td><td><code>campaigns</code>, <code>sends</code>, <code>queue_jobs</code></td><td>Campanha (1 template × 1 audiência) → 1 <code>send</code> por destinatário → job na fila</td></tr>
+          <tr><td>Automação</td><td><code>sequences</code>, <code>sequence_members</code></td><td>Drip multi-passo com delays em dias; enrollment e estado por contato</td></tr>
+          <tr><td>Tracking</td><td><code>events</code>, <code>webhook_log</code></td><td>open/click/bounce/download; log bruto de webhooks p/ auditoria e replay</td></tr>
+          <tr><td>Conformidade</td><td><code>suppressions</code>, <code>consent_log</code></td><td>Blocklist global por canal + trilha imutável de consentimento (LGPD)</td></tr>
+          <tr><td>Ponte</td><td><code>crm_bridge_log</code></td><td>Auditoria quando marketing cria/atualiza algo no CRM (ex: presença em webinar → oportunidade)</td></tr>
+        </table>
+      </section>
+
+      <!-- 4 -->
+      <section id="auth">
+        <h2><span class="n">4</span> Autenticação &amp; papéis</h2>
+        <p>NextAuth v5 com <b>duas estratégias</b> de login, separando o config edge-safe (<code>auth.config.ts</code>) do código Node (<code>auth.ts</code>, com DrizzleAdapter + bcrypt):</p>
+        <div class="grid2">
+          <div class="card">
+            <h4>Google OAuth</h4>
+            <p>Login primário. Escopo inclui <code>calendar.events</code> com <code>access_type=offline</code> para guardar o refresh token e criar eventos no Google Calendar do consultor.</p>
+          </div>
+          <div class="card">
+            <h4>E-mail + senha (bcrypt)</h4>
+            <p>Para signup self-service ou usuários criados pelo admin. Permite acesso sem conta Google.</p>
+          </div>
+        </div>
+        <h3>Fluxo de aprovação</h3>
+        <div class="flow">
+          <div class="s"><b>Signup público</b> (<code>/signup</code>) cria usuário com <code>approvalStatus='pending'</code> — login bloqueado.</div>
+          <div class="s"><b>Admin aprova</b> em <code>/admin/team</code> (ou pré-convida via <code>inviteMember()</code>, ou cria direto já aprovado).</div>
+          <div class="s"><b>Whitelist</b>: e-mails em <code>ADMIN_EMAILS</code> viram <code>role=admin</code> e são aprovados no primeiro login Google.</div>
+        </div>
+        <h3>Papéis</h3>
+        <p><span class="tag navy">admin</span> acesso total (team, stages, health, treinamento) &nbsp; <span class="tag cyan">gestor</span> co-administrador (convida/aprova, gerencia estágios) &nbsp; <span class="tag mint">consultor</span> uso do CRM, sem <code>/admin/*</code></p>
+        <p>O middleware (<code>src/proxy.ts</code>) protege tudo exceto rotas públicas: <code>/login</code>, <code>/signup</code>, <code>/intake/*</code>, <code>/apm*</code>, <code>/api/auth</code>, <code>/u/unsubscribe</code> e os endpoints de tracking/webhook de marketing.</p>
+      </section>
+
+      <!-- 5 -->
+      <section id="lifecycle">
+        <h2><span class="n">5</span> Ciclo de vida da oportunidade</h2>
+        <p>A oportunidade (<code>opportunities</code>) é o coração do CRM. Seu ciclo completo:</p>
+        <div class="flow">
+          <div class="s"><b>Criação</b> — via intake público, captura APM em campo, ou manual. <code>createOpportunity()</code> detecta duplicata por município (<code>checkDuplicateByMunicipality()</code>) e atribui ao usuário atual.</div>
+          <div class="s"><b>Qualificação</b> — adiciona contato principal, valor estimado, data de fechamento. Cada estágio só libera a saída quando seus <code>requiredFieldsToExit</code> estão preenchidos.</div>
+          <div class="s"><b>Movimentação no Kanban</b> — arrastar o card chama <code>changeStage()</code>, que valida com <code>canAdvance()</code> e registra atividade <code>stage_change</code>. Se faltar campo, um toast lista o que falta e o card volta.</div>
+          <div class="s"><b>Colaboração</b> — contatos, atividades, reuniões (Google Calendar) e tarefas se acumulam na página de detalhe (<code>/opportunities/[id]</code>).</div>
+          <div class="s"><b>Fechamento</b> — <span class="tag mint">ganhou</span> grava <code>wonAt</code>; <span class="tag rose">perdido</span> exige um <code>lostReasonCode</code> do picklist (9 motivos padronizados).</div>
+          <div class="s"><b>Handoff</b> — deal ganho dispara a criação da consultoria no BNCC-CAPTAÇÃO (ver §9).</div>
+        </div>
+        <h3>Detecção de deals "parados" (rot)</h3>
+        <p>Cada estágio tem um <code>rotDays</code>. <code>forecast.ts</code> compara <code>lastActivityAt</code> com esse limite: <code>isRotten()</code> sinaliza deals abandonados e <code>daysUntilRot()</code> mostra a contagem regressiva no card. Toda atividade inserida atualiza <code>lastActivityAt</code> (via <code>logActivity()</code>).</p>
+      </section>
+
+      <!-- 6 -->
+      <section id="pipeline">
+        <h2><span class="n">6</span> Pipeline &amp; qualificação</h2>
+        <p>8 estágios padrão definidos em <code>src/lib/pipeline.ts</code> (e configuráveis no banco via <code>pipeline_stages</code> + <code>/settings/stages</code>):</p>
+        <table>
+          <tr><th>Estágio</th><th>Prob.</th><th>Apodrece em</th><th>Exige para sair</th></tr>
+          <tr><td><span class="tag navy">Novo</span></td><td>5%</td><td>5 dias</td><td>município + contato principal</td></tr>
+          <tr><td><span class="tag cyan">Contato Inicial</span></td><td>15%</td><td>7 dias</td><td>—</td></tr>
+          <tr><td><span class="tag cyan">Diagnóstico Enviado</span></td><td>30%</td><td>10 dias</td><td>—</td></tr>
+          <tr><td><span class="tag navy">Follow-up</span></td><td>40%</td><td>14 dias</td><td>—</td></tr>
+          <tr><td><span class="tag amber">Reunião de Auditoria</span></td><td>60%</td><td>10 dias</td><td>—</td></tr>
+          <tr><td><span class="tag amber">Negociação</span></td><td>80%</td><td>7 dias</td><td>valor estimado + data de fechamento</td></tr>
+          <tr><td><span class="tag mint">Ganhou</span></td><td>100%</td><td>—</td><td>terminal · dispara handoff</td></tr>
+          <tr><td><span class="tag rose">Perdido</span></td><td>0%</td><td>—</td><td>terminal · exige motivo</td></tr>
+        </table>
+        <h3>Forecast ponderado</h3>
+        <p><code>weightedValue()</code> soma <code>estimatedValue × probability</code> de cada deal ativo — a métrica de "weighted pipeline" que aparece no dashboard e relatórios. Estágios terminais são descartados do cálculo.</p>
+        <h3>Motivos de perda padronizados</h3>
+        <p>9 códigos fixos (<code>lost-reasons.ts</code>) em vez de texto livre — permite agrupar perdas nos relatórios e treinar o time:</p>
+        <p>
+          <span class="tag rose">sem verba</span><span class="tag rose">não é prioridade</span><span class="tag rose">escolheu concorrente</span><span class="tag rose">troca de gestão</span><span class="tag rose">não decidiu</span><span class="tag rose">fora do escopo</span><span class="tag rose">timing inadequado</span><span class="tag rose">contato sumiu</span><span class="tag rose">outro</span>
+        </p>
+      </section>
+
+      <!-- 7 -->
+      <section id="intake">
+        <h2><span class="n">7</span> Captação de leads</h2>
+        <div class="grid3">
+          <div class="card">
+            <h4>1 · Intake público</h4>
+            <p><code>/intake/[slug]</code> — formulários configuráveis (<code>lead_forms</code>). <code>submitIntake()</code> tem honeypot anti-bot, valida campos e cria transacionalmente: submissão + oportunidade (<code>source=intake:{slug}</code>) + contato primário + atividade.</p>
+          </div>
+          <div class="card">
+            <h4>2 · APM (campo)</h4>
+            <p><code>/apm/cadastro</code> — para o time em campo (Associação Paulista de Municípios). Protegido por senha de gate (cookie de 30 dias). Captura múltiplos contatos por município de uma vez.</p>
+          </div>
+          <div class="card">
+            <h4>3 · Webinar / marketing</h4>
+            <p>CSV de presença de webinar (<code>importAttendanceCsv()</code>) cria oportunidades automaticamente, com round-robin entre consultores ativos e tag no contato de marketing.</p>
+          </div>
+        </div>
+        <p>Todas as submissões aparecem em <code>/leads</code>, onde o admin vê o payload e marca como <code>triaged</code>.</p>
+      </section>
+
+      <!-- 8 -->
+      <section id="colab">
+        <h2><span class="n">8</span> Contatos, tarefas e reuniões</h2>
+        <div class="grid3">
+          <div class="card"><h4>Contatos</h4><p>1+ por oportunidade, um <code>isPrimary</code> por vez (auto-rebaixa o anterior). Alimentam sugestão de participantes nas reuniões.</p></div>
+          <div class="card"><h4>Tarefas</h4><p>Com prazo e prioridade. <code>listMyOpenTasks()</code> no dashboard, <code>listOverdueTasks()</code> para alertas de equipe. Atrasada = <code>completedAt IS NULL AND dueAt &lt; NOW()</code>.</p></div>
+          <div class="card"><h4>Reuniões</h4><p><code>createMeeting()</code> integra com Google Calendar: cria evento + link do Meet usando o refresh token do consultor. Se falhar, salva a reunião mesmo assim e loga o aviso.</p></div>
+        </div>
+        <p>A <b>timeline de atividades</b> (14 tipos: note, call, email, whatsapp, diagnostic_sent, proposal_sent, contract_signed, stage_change, handoff…) é o registro auditável de tudo que acontece num deal. <code>logActivity()</code> insere e atualiza <code>lastActivityAt</code> atomicamente.</p>
+      </section>
+
+      <!-- 9 -->
+      <section id="handoff">
+        <h2><span class="n">9</span> Handoff → BNCC-CAPTAÇÃO</h2>
+        <p>Quando um deal chega em <span class="tag mint">ganhou</span>, o botão de handoff (<code>handoffToFundeb()</code>) executa uma transação cross-schema:</p>
+        <div class="flow">
+          <div class="s"><b>Coleta</b> município (obrigatório), data de kickoff, duração (padrão 12 meses, máx 36), nome do secretário e resumo do contato principal.</div>
+          <div class="s"><b>Monta o payload</b> via <code>buildConsultoriaPayload()</code>: status do contrato, datas, consultor (owner), notas e anotações de origem.</div>
+          <div class="s"><b>Insere</b> em <code>fundeb.consultorias</code>, grava <code>handedOffConsultoriaId</code> + <code>handedOffAt</code> na oportunidade e registra atividade <code>handoff</code>.</div>
+        </div>
+        <h3>Sinais de progresso (read-only)</h3>
+        <p>Após o handoff, o card da oportunidade passa a mostrar o andamento real da consultoria, puxado do BNCC (<code>getConsultoriaSignals()</code>): relatórios entregues, planos de ação concluídos/atrasados, documentos aprovados, cenários FUNDEB e evidências. <code>signalsToBadges()</code> os converte em pills coloridas.</p>
+        <p>
+          <span class="tag mint">📄 1º relatório entregue</span>
+          <span class="tag cyan">✓ 2 docs aprovados</span>
+          <span class="tag navy">3/5 planos concluídos</span>
+          <span class="tag rose">⏰ 1 plano atrasado</span>
+        </p>
+      </section>
+
+      <!-- 10 -->
+      <section id="reports">
+        <h2><span class="n">10</span> Dashboard &amp; relatórios</h2>
+        <div class="grid2">
+          <div class="card">
+            <h4>Dashboard (<code>/</code>)</h4>
+            <ul class="clean">
+              <li>Contadores: total de deals, em negociação, handoffs pendentes, leads não triados</li>
+              <li>Valor ponderado do pipeline + valor total</li>
+              <li>Deals parados (rotten)</li>
+              <li>Minhas tarefas (abertas + atrasadas)</li>
+              <li>Alertas de kickoff (esta semana / atrasados)</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h4>Relatórios (<code>/reports</code>)</h4>
+            <ul class="clean">
+              <li>Distribuição por estágio</li>
+              <li>Ganhos/perdas últimos 30d + win rate</li>
+              <li>Breakdown de motivos de perda</li>
+              <li>Handoffs pendentes e deals parados</li>
+              <li>Totais de atividades, reuniões e contatos</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- 11 -->
+      <section id="admin">
+        <h2><span class="n">11</span> Admin &amp; treinamento</h2>
+        <div class="grid2">
+          <div class="card">
+            <h4>Gestão de equipe (<code>/admin/team</code>)</h4>
+            <p>Listar, convidar, aprovar/rejeitar, mudar papel (com trava de auto-rebaixamento), ativar/desativar (soft-delete) e resetar senha.</p>
+          </div>
+          <div class="card">
+            <h4>Configuração de estágios (<code>/settings/stages</code>)</h4>
+            <p>Criar estágios customizados, editar label/cor/ordem/probabilidade/rotDays, desativar sem deletar (preserva deals). Estágios padrão não podem ser apagados.</p>
+          </div>
+          <div class="card">
+            <h4>Health (<code>/admin/health</code>)</h4>
+            <p>Painel operacional: leads não triados, oportunidades sem contato/sem owner, tarefas atrasadas, deals parados, consultorias ativas — com botões de correção rápida.</p>
+          </div>
+          <div class="card">
+            <h4>Treinamento (<code>/admin/treinamento</code>)</h4>
+            <p>Simulações em vídeo (~7 min) do fluxo ponta-a-ponta, por porte de município (pequeno/médio/grande). Metadados em <code>/public/treinamento/data/*.json</code>.</p>
+          </div>
+        </div>
+        <h3>Auto-serviço (<code>/me</code>)</h3>
+        <p>Cada usuário edita perfil (nome de exibição, telefone, assinatura), vê suas estatísticas e configura preferências em <code>/me/preferences</code> (notificações, timezone, horário de trabalho, filtro padrão do pipeline, modo compacto).</p>
+      </section>
+
+      <!-- 12 -->
+      <section id="mkt-model">
+        <h2><span class="n">12</span> Engine de marketing — modelo</h2>
+        <p class="lead">Um "mini-Mailchimp" embutido. A hierarquia: um <b>projeto</b> (ex: "Webinar FUNDEB Brasil 2026") agrupa <b>audiências</b> (listas), <b>templates</b>, <b>campanhas</b> e <b>sequências</b>. Contatos de marketing são globais e separados de <code>crm.contacts</code> (e-mail é a chave canônica).</p>
+        <div class="callout"><b>Importação de contatos:</b> <code>importContactsFromCsv()</code> faz upsert de contatos a partir de CSVs FUNDEB (com IBGE, município, UF) e os adiciona a uma audiência.</div>
+      </section>
+
+      <!-- 13 -->
+      <section id="mkt-send">
+        <h2><span class="n">13</span> Pipeline de envio</h2>
+        <p>O motor de disparo usa uma <b>fila em Postgres</b> drenada por cron — não um serviço externo. O padrão <code>FOR UPDATE SKIP LOCKED</code> permite claim concorrente sem bloqueio.</p>
+        <div class="flow">
+          <div class="s"><b>Launch</b> — <code>launchCampaign()</code> carrega a audiência, filtra supressões (<code>batchIsSuppressed()</code>), cria um <code>send</code> por destinatário (em lotes de 500, cada um com <code>trackingToken</code> único) e enfileira jobs <code>send_email</code> escalonados conforme <code>ratePerMinute</code>.</div>
+          <div class="s"><b>Drain</b> — o cron <code>/api/marketing/cron/drain</code> (a cada minuto) chama <code>claimJobs()</code>, despacha em lotes de 10 via <code>Promise.allSettled</code> e roteia por tipo em <code>dispatchJob()</code>.</div>
+          <div class="s"><b>Send</b> — <code>handleSendEmail()</code>/<code>handleSendWhatsApp()</code> renderiza o template, é idempotente (no-op se já enviado), re-checa supressão, respeita o <code>MARKETING_TEST_ALLOWLIST</code> e chama o provedor.</div>
+          <div class="s"><b>Retry</b> — falhas usam backoff exponencial (30s → 2m → 8m → 32m); após <code>maxAttempts</code>, o job vira <code>dead</code>.</div>
+        </div>
+        <h3>Provedores multicanal</h3>
+        <table>
+          <tr><th>Canal</th><th>Provedor</th><th>Como funciona</th></tr>
+          <tr><td>E-mail</td><td><b>Brevo</b></td><td>REST <code>api.brevo.com/v3/smtp/email</code>, header <code>api-key</code>, ~10/s</td></tr>
+          <tr><td>E-mail</td><td><b>AWS SES</b></td><td>SDK v3, configuration set p/ eventos SNS, ~5/s (sandbox)</td></tr>
+          <tr><td>WhatsApp</td><td><b>Twilio</b></td><td>Template Meta aprovado (contentSid) ou freeform (janela 24h); normaliza p/ <code>whatsapp:+E164</code></td></tr>
+        </table>
+        <p>Seleção: defaults globais (<code>MARKETING_EMAIL_PROVIDER</code>, <code>MARKETING_WHATSAPP_PROVIDER</code>) com override por campanha. Factory em <code>providers/index.ts</code>.</p>
+      </section>
+
+      <!-- 14 -->
+      <section id="mkt-seq">
+        <h2><span class="n">14</span> Sequências &amp; tracking</h2>
+        <h3>Sequências (drip)</h3>
+        <p>Definidas como passos <code>{ templateId, delayDays }</code>. <code>runSequences()</code> (cron a cada minuto) avança membros prontos (<code>nextSendAt &lt;= NOW</code>), respeita <code>exitOnTag</code> e pode auto-matricular numa próxima sequência ao concluir (<code>onCompleteEnrollSequenceId</code>). Enrollment via webhook de formulário ou ação do admin.</p>
+        <h3>Tracking</h3>
+        <table>
+          <tr><th>Sinal</th><th>Mecanismo</th><th>Rota</th></tr>
+          <tr><td>Abertura</td><td>Pixel 1×1 injetado antes de <code>&lt;/body&gt;</code></td><td><code>/api/marketing/t/o/[token]</code></td></tr>
+          <tr><td>Clique</td><td>Reescrita de todos os <code>&lt;a href&gt;</code> → redirect 302</td><td><code>/api/marketing/t/c/[token]</code></td></tr>
+          <tr><td>Download</td><td>Asset rastreável (com <code>{{ibge}}</code> resolvido)</td><td><code>/api/marketing/d/[assetId]</code></td></tr>
+          <tr><td>Entrega/bounce</td><td>Webhooks dos provedores → <code>webhook_log</code> → evento</td><td><code>/api/marketing/webhooks/{brevo,twilio,form}</code></td></tr>
+        </table>
+        <h3>Presença em webinar → CRM</h3>
+        <p>O bridge mais valioso: <code>importAttendanceCsv()</code> casa e-mails de presença com contatos de marketing, taggeia, e cria oportunidades no CRM com owner via round-robin — registrando tudo em <code>crm_bridge_log</code>. É como o marketing "entrega" leads quentes para o comercial.</p>
+      </section>
+
+      <!-- 15 -->
+      <section id="mkt-lgpd">
+        <h2><span class="n">15</span> LGPD &amp; supressão</h2>
+        <ul class="clean">
+          <li><b>Supressão global</b> (<code>suppressions</code>) por canal: unsubscribe, hard bounce, reclamação, manual, pedido LGPD. Checada no launch <b>e</b> no envio.</li>
+          <li><b>Trilha de consentimento</b> (<code>consent_log</code>) imutável: opt-in/opt-out, base legal, fonte, IP, user-agent — auditável.</li>
+          <li><b>Unsubscribe assinado</b>: token HMAC (<code>MARKETING_UNSUB_SECRET</code>), header <code>List-Unsubscribe</code> RFC 8058, página <code>/u/unsubscribe</code>.</li>
+          <li><b>Base legal por contato</b>: <code>legitimate_interest | consent | contract | legal_obligation</code>.</li>
+        </ul>
+        <div class="callout warn"><b>Modo de teste:</b> <code>MARKETING_TEST_ALLOWLIST</code> (e <code>_PHONE</code>) bloqueiam qualquer envio fora da lista — válvula de segurança defense-in-depth para dev/homologação.</div>
+      </section>
+
+      <!-- 16 -->
+      <section id="infra">
+        <h2><span class="n">16</span> Infra, cron &amp; variáveis</h2>
+        <h3>Cron Jobs (Vercel)</h3>
+        <pre><code>{
+  "crons": [
+    { "path": "/api/marketing/cron/drain",     "schedule": "* * * * *" },
+    { "path": "/api/marketing/cron/sequences", "schedule": "* * * * *" }
+  ]
+}</code></pre>
+        <p>Ambos protegidos por Bearer <code>CRON_SECRET</code>. Em <code>NODE_ENV != production</code>, permitem acesso sem auth (teste local).</p>
+        <h3>Variáveis de ambiente principais</h3>
+        <table>
+          <tr><th>Categoria</th><th>Variáveis</th></tr>
+          <tr><td>Core</td><td><code>DATABASE_URL</code>, <code>AUTH_SECRET</code>, <code>AUTH_GOOGLE_ID/SECRET</code>, <code>ADMIN_EMAILS</code></td></tr>
+          <tr><td>Marketing base</td><td><code>NEXT_PUBLIC_MARKETING_ENABLED</code>, <code>MARKETING_BASE_URL</code>, <code>MARKETING_UNSUB_SECRET</code>, <code>CRON_SECRET</code></td></tr>
+          <tr><td>E-mail</td><td><code>MARKETING_EMAIL_PROVIDER</code>, <code>MARKETING_FROM_EMAIL/NAME/REPLY_TO</code>, <code>BREVO_API_KEY</code>, <code>AWS_SES_*</code></td></tr>
+          <tr><td>WhatsApp</td><td><code>TWILIO_ACCOUNT_SID</code>, <code>TWILIO_AUTH_TOKEN</code>, <code>TWILIO_WHATSAPP_FROM</code></td></tr>
+          <tr><td>APM</td><td><code>APM_GATEWAY_PASSWORD</code></td></tr>
+          <tr><td>Teste</td><td><code>MARKETING_TEST_ALLOWLIST</code>, <code>MARKETING_TEST_ALLOWLIST_PHONE</code></td></tr>
+        </table>
+        <h3>Qualidade</h3>
+        <p>Suite de casos de uso (<code>npm run test:usecases</code>): <b>108/132 ✓</b> na última rodada (10/05/2026). Os 24 ✗ são majoritariamente cenários da engine de marketing ainda em estabilização.</p>
+      </section>
+
+      <!-- 17 ROADMAP -->
+      <section id="roadmap">
+        <h2><span class="n">17</span> Próximas fases de evolução</h2>
+        <p class="lead">Com o núcleo do CRM maduro e a engine de marketing já enviando, as próximas fases devem focar em <b>fechar o loop de dados</b> (marketing ↔ CRM ↔ BNCC), <b>tirar o consultor do trabalho manual</b> e <b>transformar dados em decisão</b>. Priorizei por impacto × esforço.</p>
+
+        <div class="phase p1">
+          <div class="head"><span class="badge">FASE 1</span><h3>Fechar o loop &amp; higiene de dados</h3><span class="effort">esforço baixo–médio · alto impacto</span></div>
+          <div class="body">
+            <ul>
+              <li><b>Notificações reais</b>: hoje as preferências (<code>notifyTaskOverdue</code>, <code>notifyNewLead</code>…) existem mas não disparam nada. Plugar na própria engine de marketing (SES) para enviar o digest diário de tarefas atrasadas, novos leads e alertas de kickoff. <b>O encanamento já existe — falta conectar.</b></li>
+              <li><b>Resolver os 24 casos de uso ✗</b>: estabilizar os cenários de marketing que ainda falham antes de construir em cima deles.</li>
+              <li><b>Engajamento de marketing no card do CRM</b>: hoje a ponte é unidirecional (presença → oportunidade). Mostrar no detalhe da oportunidade "abriu 3 e-mails, clicou no diagnóstico" usando <code>crmContactId</code> que já liga os dois mundos.</li>
+              <li><b>Atualizar README/AGENTS</b>: o roadmap do README ainda lista como "não construído" features que já existem (Kanban, intake, handoff, marketing). Documentação desatualizada gera retrabalho.</li>
+            </ul>
+            <p class="why">Por quê primeiro: são features de "última milha" sobre infraestrutura já pronta — o maior retorno por linha de código. Notificação que não dispara é a lacuna mais sentida no dia a dia do consultor.</p>
+          </div>
+        </div>
+
+        <div class="phase p2">
+          <div class="head"><span class="badge">FASE 2</span><h3>Inteligência &amp; produtividade do consultor</h3><span class="effort">esforço médio · alto impacto</span></div>
+          <div class="body">
+            <ul>
+              <li><b>Lead scoring</b>: combinar engajamento de marketing (aberturas/cliques), porte do município e sinais FUNDEB para ranquear quais leads o consultor deve atacar primeiro. Os dados já estão nas tabelas <code>events</code> e <code>fundeb.*</code>.</li>
+              <li><b>Próxima-melhor-ação por deal</b>: usar <code>rotDays</code> + estágio + última atividade para sugerir "ligar para X", "enviar diagnóstico" — transformando os sinais de rot passivos em recomendações ativas.</li>
+              <li><b>Inbound de WhatsApp</b>: o Twilio já envia; capturar respostas (webhook <code>wa_replied</code> já modelado em <code>events</code>) e materializá-las como atividades na oportunidade fecharia a conversa de duas vias.</li>
+              <li><b>Templates de e-mail/proposta dentro do deal</b>: enviar diagnóstico/proposta direto do detalhe da oportunidade usando os templates de marketing, com tracking automático.</li>
+              <li><b>Snapshot histórico de estágio</b>: tabela <code>stage_history</code> para medir tempo-em-estágio e gerar funil de conversão real (hoje só temos <code>stageUpdatedAt</code> atual, sem histórico).</li>
+            </ul>
+            <p class="why">Por quê: aqui o CRM deixa de ser "registro do que aconteceu" e vira "copiloto do que fazer a seguir" — o salto de valor que justifica o time usar a ferramenta todo dia.</p>
+          </div>
+        </div>
+
+        <div class="phase p3">
+          <div class="head"><span class="badge">FASE 3</span><h3>Escala, governança &amp; observabilidade</h3><span class="effort">esforço médio–alto · impacto crescente com volume</span></div>
+          <div class="body">
+            <ul>
+              <li><b>Dashboard de saúde da engine de marketing</b>: visibilidade sobre a fila (<code>queue_jobs</code> pending/dead), taxa de entrega, bounces e supressões. Hoje a fila é uma caixa-preta — sem painel, um job morto passa despercebido.</li>
+              <li><b>Otimizar <code>getConsultoriaSignalsBatch</code></b>: o código admite que faz fan-out (N queries) e que "<100 handoffs OK". Migrar para uma query agregada antes que o volume cresça.</li>
+              <li><b>RBAC mais fino</b>: hoje quase tudo de marketing exige <code>admin</code>. Separar "operador de marketing" de "admin do sistema"; territórios/carteiras por consultor (visibilidade só dos próprios deals).</li>
+              <li><b>Audit log unificado</b>: <code>activities</code>, <code>consent_log</code>, <code>webhook_log</code> e <code>crm_bridge_log</code> são trilhas separadas. Uma visão consolidada ajuda em compliance e debug.</li>
+              <li><b>Warm-up de SES + DKIM/SPF/DMARC</b>: estruturalmente pronto, mas precisa de reputação de envio para escalar e-mail sem cair em spam.</li>
+            </ul>
+            <p class="why">Por quê depois: estes itens só "doem" com volume. Investir cedo demais é otimização prematura; tarde demais vira incidente em produção.</p>
+          </div>
+        </div>
+
+        <div class="phase p4">
+          <div class="head"><span class="badge">FASE 4</span><h3>Plataforma &amp; expansão</h3><span class="effort">esforço alto · estratégico</span></div>
+          <div class="body">
+            <ul>
+              <li><b>Pós-venda / expansão de receita</b>: usar os sinais do BNCC (consultoria atrasada, planos concluídos) para disparar renovação/upsell automaticamente quando a consultoria se aproxima do <code>endDate</code>.</li>
+              <li><b>App mobile / PWA para campo</b>: o fluxo APM grita por mobile — captura de lead em campo, offline-first, com foto/áudio.</li>
+              <li><b>IA generativa assistiva</b>: rascunho de e-mail de follow-up por deal, resumo da timeline da oportunidade, e classificação automática de motivo de perda a partir das notas.</li>
+              <li><b>Relatórios self-service / export BI</b>: além das telas fixas, permitir filtros salvos e export para o time de gestão (e integração com o ecossistema i10-insights).</li>
+              <li><b>Multi-tenant / outras associações</b>: o módulo APM é específico de SP. Generalizar para outras associações estaduais abriria o produto para escala nacional.</li>
+            </ul>
+            <p class="why">Por quê por último: são apostas de produto, não de dívida técnica. Valem quando os fundamentos das fases 1–3 estiverem sólidos e o uso diário comprovado.</p>
+          </div>
+        </div>
+
+        <div class="callout note"><b>Resumo da recomendação:</b> comece pela <b>Fase 1</b> — ligar notificações e fechar o loop marketing↔CRM dá o maior retorno imediato sobre o que já está construído. A <b>Fase 2</b> (scoring + próxima ação) é onde o CRM vira um diferencial competitivo. Fases 3 e 4 acompanham o crescimento de volume e ambição de produto.</div>
+      </section>
+
+    </div>
+
+    <footer>
+      i10 Audit CRM · Documentação gerada por análise do código-fonte em 06/06/2026 ·
+      Repositório <code>github.com/Rruiz270/i10-audit-crm</code> · Deploy Vercel · Banco Neon (schemas <code>crm.*</code> / <code>marketing.*</code> / <code>fundeb.*</code>).<br/>
+      Base de evidências: <code>src/lib/schema.ts</code>, <code>schema-marketing.ts</code>, <code>pipeline.ts</code>, <code>qualification.ts</code>, <code>handoff.ts</code>, <code>forecast.ts</code>, <code>bncc-signals.ts</code>, <code>src/lib/marketing/*</code>, <code>src/lib/actions/*</code> e <code>USECASE_REPORT.md</code> (108/132 ✓).
+    </footer>
+  </main>
+</div>
+</body>
+</html>

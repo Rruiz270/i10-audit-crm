@@ -34,10 +34,18 @@ export async function createTemplate(formData: FormData): Promise<void> {
   const subject = String(formData.get('subject') ?? '').trim() || null;
   const html = String(formData.get('html') ?? '').trim() || null;
   const text = String(formData.get('text') ?? '').trim() || null;
+  // WhatsApp: Content SID (HX...) de um template aprovado pela Meta + idioma.
+  // Necessário pra disparar fora da janela de 24h (cold outreach a prefeitos).
+  const waTemplateName = String(formData.get('waTemplateName') ?? '').trim() || null;
+  const waTemplateLanguage = String(formData.get('waTemplateLanguage') ?? '').trim() || 'pt_BR';
 
   if (!projectId || !name) throw new Error('projectId e name obrigatórios');
   if (channel === 'email' && (!html || !subject)) {
     throw new Error('Email exige subject + html');
+  }
+  // Freeform precisa de text; template aprovado precisa do Content SID.
+  if (channel === 'whatsapp' && !text && !waTemplateName) {
+    throw new Error('WhatsApp exige a mensagem (freeform) OU um Content SID aprovado');
   }
 
   const allText = `${subject ?? ''} ${html ?? ''} ${text ?? ''}`;
@@ -50,6 +58,8 @@ export async function createTemplate(formData: FormData): Promise<void> {
     subject,
     html,
     text,
+    waTemplateName,
+    waTemplateLanguage,
     variables,
     status: 'active',
   });

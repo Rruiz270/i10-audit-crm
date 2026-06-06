@@ -4,6 +4,7 @@ import { isAdmin } from '@/lib/roles';
 import { requireUser } from '@/lib/session';
 import { getProject } from '@/lib/actions/marketing/projects';
 import { listTemplates, createTemplate } from '@/lib/actions/marketing/templates';
+import { ChannelBadge } from '@/components/marketing-channel';
 
 export const dynamic = 'force-dynamic';
 
@@ -110,15 +111,41 @@ export default async function TemplatesPage({
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">
-              Mensagem (texto + {`{{var}}`})
+              Mensagem freeform (texto + {`{{var}}`}) — só vale dentro da janela de 24h
             </label>
             <textarea
               name="text"
-              rows={6}
-              required
+              rows={5}
               placeholder="Olá {{prefeito_apelido}}! 👋\n\nMapeamos R$ {{valor_potencial}} que {{municipio}} pode captar a mais em FUNDEB..."
               className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm font-mono text-xs"
             />
+          </div>
+          <div className="grid grid-cols-3 gap-3 bg-emerald-50/60 border border-emerald-100 rounded-md p-3">
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Content SID — template aprovado pela Meta (HX…)
+              </label>
+              <input
+                name="waTemplateName"
+                type="text"
+                placeholder="HX538fe2cb3a1a8e7f70775226b9033283"
+                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm font-mono text-xs"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Idioma</label>
+              <input
+                name="waTemplateLanguage"
+                type="text"
+                defaultValue="pt_BR"
+                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
+              />
+            </div>
+            <p className="col-span-3 text-xs text-emerald-800/80">
+              Pra <b>iniciar conversa</b> com prefeitos (cold outreach) é obrigatório um template
+              aprovado. Cole aqui o Content SID do Twilio Content Template Builder. O status de
+              aprovação aparece no painel “Canal WhatsApp” do projeto.
+            </p>
           </div>
           <button
             type="submit"
@@ -141,9 +168,16 @@ export default async function TemplatesPage({
               <div key={t.id} className="p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <div className="font-medium text-slate-900">{t.name}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-slate-900">{t.name}</span>
+                      <ChannelBadge channel={t.channel} />
+                    </div>
                     <div className="text-xs text-slate-500 mt-0.5">
-                      {t.channel} · subject: {t.subject?.slice(0, 80) ?? '—'}
+                      {t.channel === 'whatsapp'
+                        ? t.waTemplateName
+                          ? `Content SID: ${t.waTemplateName}`
+                          : 'freeform (só janela 24h)'
+                        : `subject: ${t.subject?.slice(0, 80) ?? '—'}`}
                     </div>
                     <div className="text-xs text-slate-400 mt-1">
                       {(t.variables ?? []).length} variáveis: {(t.variables ?? []).slice(0, 8).join(', ')}

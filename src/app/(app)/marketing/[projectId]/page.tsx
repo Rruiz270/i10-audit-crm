@@ -6,6 +6,8 @@ import { getProject } from '@/lib/actions/marketing/projects';
 import { listAudiences } from '@/lib/actions/marketing/audiences';
 import { listTemplates } from '@/lib/actions/marketing/templates';
 import { listCampaigns } from '@/lib/actions/marketing/campaigns';
+import { getWhatsAppConfig, getTemplateApproval } from '@/lib/marketing/whatsapp-health';
+import { ChannelBadge, WhatsAppHealthPanel } from '@/components/marketing-channel';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +29,20 @@ export default async function ProjectDashboardPage({
     listTemplates(id),
     listCampaigns(id),
   ]);
+
+  // Canal WhatsApp: config + status de aprovação (ao vivo) dos templates com Content SID.
+  const waConfig = getWhatsAppConfig();
+  const waTpls = tpl.filter((t) => t.channel === 'whatsapp' && t.waTemplateName);
+  const waTemplates = await Promise.all(
+    waTpls.map(async (t) => ({
+      id: t.id,
+      name: t.name,
+      contentSid: t.waTemplateName as string,
+      approval: await getTemplateApproval(t.waTemplateName as string),
+    })),
+  );
+  // Mapa templateId → channel, pra badge nas campanhas.
+  const channelByTemplate = new Map(tpl.map((t) => [t.id, t.channel]));
 
   return (
     <div className="px-8 py-8 max-w-6xl">
@@ -73,6 +89,8 @@ export default async function ProjectDashboardPage({
         />
       </div>
 
+      <WhatsAppHealthPanel config={waConfig} templates={waTemplates} />
+
       {camp.length > 0 && (
         <section className="mb-8">
           <h2 className="text-base font-semibold text-slate-900 mb-3">Campanhas recentes</h2>
@@ -85,7 +103,10 @@ export default async function ProjectDashboardPage({
               >
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
-                    <div className="font-medium text-slate-900">{c.name}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-slate-900">{c.name}</span>
+                      <ChannelBadge channel={channelByTemplate.get(c.templateId)} />
+                    </div>
                     <div className="text-xs text-slate-500 mt-0.5">
                       {c.totalRecipients} destinatários · status {c.status}
                     </div>
