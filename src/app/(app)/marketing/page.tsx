@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation';
 import { isAdmin } from '@/lib/roles';
 import { requireUser } from '@/lib/session';
 import { listProjects, createProject } from '@/lib/actions/marketing/projects';
+import { getHubStats } from '@/lib/actions/marketing/hub';
+import { HubTile } from '@/components/marketing-hub';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,101 +12,152 @@ export default async function MarketingHomePage() {
   const user = await requireUser();
   if (!isAdmin(user.role)) redirect('/');
 
-  const projects = await listProjects();
+  const [projects, stats] = await Promise.all([listProjects(), getHubStats()]);
   const testAllowlist = process.env.MARKETING_TEST_ALLOWLIST;
 
   return (
-    <div className="px-8 py-8 max-w-5xl">
+    <div className="px-8 py-8 max-w-6xl">
+      <header className="mb-6">
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--i10-navy)' }}>
+          Marketing
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Hub omnichannel — WhatsApp, Email, Conversas e base de leads, com tracking e LGPD nativos.
+        </p>
+      </header>
+
       {testAllowlist && (
         <div className="mb-6 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-          <div className="flex items-start gap-3">
-            <span className="text-2xl leading-none">🛑</span>
-            <div>
-              <div className="font-bold">TEST MODE ativo</div>
-              <div className="mt-1">
-                Envios bloqueados pra qualquer email fora da allowlist. Permitidos:{' '}
-                <code className="bg-amber-100 px-1.5 py-0.5 rounded text-xs">{testAllowlist}</code>
-              </div>
-              <div className="text-xs mt-2 text-amber-700">
-                Pra desativar e liberar disparo geral: remove{' '}
-                <code>MARKETING_TEST_ALLOWLIST</code> do <code>.env.local</code> (dev) ou das env
-                vars Vercel (prod).
-              </div>
-            </div>
+          <div className="font-bold">Modo de teste ativo</div>
+          <div className="mt-1">
+            Envios bloqueados para quem está fora da allowlist (e-mail/telefone). Remova{' '}
+            <code>MARKETING_TEST_ALLOWLIST</code> / <code>MARKETING_TEST_ALLOWLIST_PHONE</code> nas env
+            vars para liberar disparo geral.
           </div>
         </div>
       )}
 
-      <header className="flex items-start justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--i10-navy)' }}>
-            Marketing engine
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Disparos nativos de email + WhatsApp com tracking completo, suppression LGPD e CRM bridge.
-          </p>
-        </div>
-      </header>
+      {/* ── Tiles do hub ── */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <HubTile
+          href="#projetos"
+          icon="msg"
+          tone="wa"
+          title="WhatsApp Campaigns"
+          metric={stats.waSent.toLocaleString('pt-BR')}
+          sub={`${stats.waCampaigns} campanhas · enviados`}
+          action="Nova campanha WhatsApp"
+        />
+        <HubTile
+          href="#projetos"
+          icon="mail"
+          tone="em"
+          title="Email Campaigns"
+          metric={stats.emailOpenRate != null ? `${stats.emailOpenRate}%` : '—'}
+          sub={`${stats.emailCampaigns} campanhas · taxa de abertura`}
+          action="Nova campanha Email"
+        />
+        <HubTile
+          href="/marketing/conversas"
+          icon="inbox"
+          tone="cv"
+          title="Conversas"
+          isNew
+          metric="—"
+          sub="inbox WhatsApp ao vivo (em construção)"
+          action="Abrir inbox"
+        />
+        <HubTile
+          href="/leads"
+          icon="users"
+          tone="ld"
+          title="Leads Hub"
+          metric={stats.contacts.toLocaleString('pt-BR')}
+          sub="base única de contatos · compartilhada"
+          action="Gerenciar base"
+        />
+        <HubTile
+          href="/marketing/social"
+          icon="mega"
+          tone="neutral"
+          title="Social Media"
+          metric="Meta"
+          sub="calendário e posts (app externo)"
+          action="Abrir calendário"
+        />
+        <HubTile
+          href="/marketing/insights"
+          icon="chart"
+          tone="neutral"
+          title="Insights"
+          metric="Analytics"
+          sub="conteúdo e métricas cross-canal"
+          action="Ver analytics"
+        />
+      </div>
 
-      <section className="mb-10">
-        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-          <h2 className="text-base font-semibold text-slate-900 mb-3">Novo projeto</h2>
-          <form action={createProject} className="space-y-3">
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">
-                Nome <span className="text-red-500">*</span>
-              </label>
-              <input
-                name="name"
-                type="text"
-                required
-                placeholder="Webinar FUNDEB Brasil 2026"
-                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
-              />
+      {/* ── Projetos ── */}
+      <section id="projetos" className="mt-10 scroll-mt-6">
+        <div className="mb-3 flex items-center justify-between gap-4">
+          <h2 className="text-base font-semibold text-slate-900">
+            Projetos ({projects.length})
+          </h2>
+          <details className="group relative">
+            <summary className="cursor-pointer list-none rounded-md bg-i10-700 px-4 py-2 text-sm font-medium text-white hover:bg-i10-800">
+              + Novo projeto
+            </summary>
+            <div className="absolute right-0 z-10 mt-2 w-96 rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
+              <form action={createProject} className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">
+                    Nome <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    name="name"
+                    type="text"
+                    required
+                    placeholder="Webinar FUNDEB Brasil 2026"
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600">Descrição</label>
+                  <textarea
+                    name="description"
+                    rows={2}
+                    placeholder="Captação de prefeitos e secretários…"
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="rounded-md bg-i10-700 px-4 py-2 text-sm font-medium text-white hover:bg-i10-800"
+                >
+                  Criar projeto
+                </button>
+              </form>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">
-                Descrição
-              </label>
-              <textarea
-                name="description"
-                rows={2}
-                placeholder="Captação de prefeitos e secretários para o webinar de 21/mai"
-                className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
-              />
-            </div>
-            <button
-              type="submit"
-              className="bg-i10-700 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-i10-800"
-            >
-              Criar projeto
-            </button>
-          </form>
+          </details>
         </div>
-      </section>
 
-      <section>
-        <h2 className="text-base font-semibold text-slate-900 mb-3">Projetos ({projects.length})</h2>
         {projects.length === 0 ? (
-          <p className="text-sm text-slate-500">Nenhum projeto ainda — crie o primeiro acima.</p>
+          <p className="text-sm text-slate-500">
+            Nenhum projeto ainda — use “+ Novo projeto” para criar o primeiro.
+          </p>
         ) : (
           <div className="grid gap-3">
             {projects.map((p) => (
               <Link
                 key={p.id}
                 href={`/marketing/${p.id}`}
-                className="block bg-white border border-slate-200 rounded-xl p-5 hover:border-i10-300 transition"
+                className="block rounded-xl border border-slate-200 bg-white p-5 transition hover:border-i10-300"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="text-base font-semibold text-slate-900">{p.name}</div>
-                    {p.description && (
-                      <div className="text-sm text-slate-500 mt-1 line-clamp-2">{p.description}</div>
-                    )}
-                    <div className="text-xs text-slate-400 mt-2">
-                      slug: {p.slug} · status: {p.status}
-                    </div>
-                  </div>
+                <div className="text-base font-semibold text-slate-900">{p.name}</div>
+                {p.description && (
+                  <div className="mt-1 line-clamp-2 text-sm text-slate-500">{p.description}</div>
+                )}
+                <div className="mt-2 text-xs text-slate-400">
+                  slug: {p.slug} · status: {p.status}
                 </div>
               </Link>
             ))}

@@ -31,6 +31,7 @@ const ADMIN_NAV: NavItem[] = [
 // Reúne engine de e-mail, leads, insights (newsletter) e social (Meta).
 const MARKETING_NAV: NavItem[] = [
   { href: '/marketing', label: 'Marketing engine' },
+  { href: '/marketing/conversas', label: 'Conversas' },
   { href: '/leads', label: 'Leads Hub' },
   { href: '/marketing/insights', label: 'Insights' },
   { href: '/marketing/social', label: 'Social Medias' },
