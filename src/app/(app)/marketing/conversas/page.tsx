@@ -3,14 +3,18 @@ import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/session';
 import { getWhatsAppConfig } from '@/lib/marketing/whatsapp-health';
 import { InboxAutoRefresh } from '@/components/inbox-auto-refresh';
+import { InboxComposer } from '@/components/inbox-composer';
 import {
   listConversations,
   getConversation,
-  sendConversationReply,
   claimConversation,
   closeConversation,
   markConversationRead,
   hasConversationAccess,
+  saveConversationContext,
+  getCannedResponses,
+  getConversationContext,
+  getApprovedTemplates,
 } from '@/lib/actions/marketing/conversations';
 
 export const dynamic = 'force-dynamic';
@@ -68,6 +72,15 @@ export default async function ConversasPage({
 
   const conv = selected?.conversation ?? null;
   const win = conv ? windowLabel(conv.windowExpiresAt) : null;
+
+  // F2.1 — dados extras do painel + composer (só para a conversa selecionada).
+  const [cannedResponses, ctx, approvedTemplates] = conv
+    ? await Promise.all([
+        getCannedResponses(conv.projectId),
+        getConversationContext(conv.id),
+        win?.expired ? getApprovedTemplates(conv.projectId) : Promise.resolve([]),
+      ])
+    : [[], { opportunity: null, campaignName: null, projectName: null }, []];
 
   return (
     <div className="grid h-[calc(100vh-0px)] grid-cols-[300px_1fr_280px]">
@@ -139,29 +152,12 @@ export default async function ConversasPage({
               ))}
             </div>
 
-            {win && !win.expired ? (
-              <form action={sendConversationReply} className="border-t border-slate-200 bg-white p-3">
-                <input type="hidden" name="conversationId" value={conv.id} />
-                <textarea
-                  name="body"
-                  required
-                  placeholder="Resposta (mensagem livre, dentro da janela de 24h)…"
-                  className="h-14 w-full resize-none rounded-lg border border-slate-300 p-2.5 text-sm"
-                />
-                <div className="mt-2 flex justify-end">
-                  <button className="rounded-md bg-gradient-to-r from-cyan-500 to-emerald-400 px-4 py-2 text-sm font-semibold text-[#06223e]">
-                    Enviar
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <div className="border-t border-slate-200 bg-white p-3">
-                <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
-                  <b>Janela de 24h expirada</b> — mensagem livre bloqueada (regra da Meta). Reabrir a
-                  conversa exige um <b>template aprovado</b> (chega numa próxima iteração do inbox).
-                </div>
-              </div>
-            )}
+            <InboxComposer
+              conversationId={conv.id}
+              windowExpired={Boolean(win?.expired)}
+              cannedResponses={cannedResponses}
+              approvedTemplates={approvedTemplates}
+            />
           </>
         ) : (
           <div className="grid flex-1 place-items-center text-sm text-slate-400">Selecione uma conversa</div>
@@ -175,6 +171,39 @@ export default async function ConversasPage({
             <h4 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-slate-500">Contato</h4>
             <div className="text-sm font-semibold text-slate-900">{conv.contactName ?? '—'}</div>
             <div className="text-sm text-slate-600">{conv.waPhone}</div>
+
+            <h4 className="mb-1 mt-4 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+              Oportunidade (CRM)
+            </h4>
+            {ctx.opportunity ? (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+                <div className="font-semibold text-slate-800">
+                  {ctx.opportunity.municipio ?? `Oportunidade #${ctx.opportunity.id}`}
+                </div>
+                <div className="text-xs text-slate-600">
+                  {ctx.opportunity.stageLabel}
+                  {ctx.opportunity.owner ? ` · ${ctx.opportunity.owner}` : ''}
+                </div>
+                <Link
+                  href={`/opportunities/${ctx.opportunity.id}`}
+                  className="mt-1 inline-block text-xs text-cyan-700 hover:underline"
+                >
+                  Abrir no CRM →
+                </Link>
+              </div>
+            ) : (
+              <div className="text-sm text-slate-400">— não vinculada</div>
+            )}
+
+            {(ctx.campaignName || ctx.projectName) && (
+              <>
+                <h4 className="mb-1 mt-4 text-[11px] font-bold uppercase tracking-wide text-slate-500">Origem</h4>
+                <div className="text-sm text-slate-700">
+                  {ctx.campaignName ?? (conv.campaignId ? `Campanha #${conv.campaignId}` : '—')}
+                </div>
+                {ctx.projectName && <div className="text-xs text-slate-500">{ctx.projectName}</div>}
+              </>
+            )}
 
             <h4 className="mb-1 mt-4 text-[11px] font-bold uppercase tracking-wide text-slate-500">Atribuição</h4>
             <div className="rounded-lg border border-cyan-100 bg-cyan-50 p-3">
@@ -201,14 +230,47 @@ export default async function ConversasPage({
               </div>
             </div>
 
+            <h4 className="mb-1 mt-4 text-[11px] font-bold uppercase tracking-wide text-slate-500">Tags</h4>
+            {conv.tags && conv.tags.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-1">
+                {conv.tags.map((tag) => (
+                  <span key={tag} className="rounded-full bg-cyan-100 px-2 py-0.5 text-[11px] font-medium text-cyan-800">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+            <form action={saveConversationContext} className="flex gap-1.5">
+              <input type="hidden" name="conversationId" value={conv.id} />
+              <input
+                name="tags"
+                defaultValue={(conv.tags ?? []).join(', ')}
+                placeholder="tag1, tag2…"
+                className="min-w-0 flex-1 rounded-md border border-slate-300 px-2 py-1 text-xs"
+              />
+              <button className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                Salvar
+              </button>
+            </form>
+
+            <h4 className="mb-1 mt-4 text-[11px] font-bold uppercase tracking-wide text-slate-500">Notas internas</h4>
+            <form action={saveConversationContext}>
+              <input type="hidden" name="conversationId" value={conv.id} />
+              <textarea
+                name="notes"
+                defaultValue={conv.notes ?? ''}
+                placeholder="Anotações privadas sobre este contato…"
+                className="h-20 w-full resize-none rounded-md border border-slate-300 p-2 text-xs"
+              />
+              <div className="mt-1.5 flex justify-end">
+                <button className="rounded-md border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                  Salvar notas
+                </button>
+              </div>
+            </form>
+
             <h4 className="mb-1 mt-4 text-[11px] font-bold uppercase tracking-wide text-slate-500">Status</h4>
             <div className="text-sm text-slate-700">{conv.status}</div>
-            {conv.campaignId && (
-              <>
-                <h4 className="mb-1 mt-4 text-[11px] font-bold uppercase tracking-wide text-slate-500">Origem</h4>
-                <div className="text-sm text-slate-700">Campanha #{conv.campaignId}</div>
-              </>
-            )}
           </>
         )}
       </div>
