@@ -45,6 +45,10 @@ export function MobileNav({
   const [open, setOpen] = React.useState(false);
   const [notifState, setNotifState] = React.useState<string>('idle');
   const showAdmin = isAdmin(userRole);
+  const marketingOn = process.env.NEXT_PUBLIC_MARKETING_ENABLED === 'true';
+  // F3: atalho do inbox de Conversas para agentes (consultor). A página redireciona
+  // quem não tem fila atribuída.
+  const showAgentInbox = !showAdmin && marketingOn;
 
   // Fecha o drawer sempre que a rota muda — usamos derived state do React:
   // compara path atual com um state "prevPath" e atualiza via setState condicional.
@@ -139,6 +143,29 @@ export function MobileNav({
                 </Link>
               );
             })}
+
+            {showAgentInbox && (
+              <>
+                <div
+                  className="mt-4 mb-2 px-3 text-[10px] font-bold uppercase"
+                  style={{ color: 'var(--i10-cyan-light)', letterSpacing: '3px' }}
+                >
+                  Marketing
+                </div>
+                <Link
+                  href="/marketing/conversas"
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-3 rounded-md text-sm font-medium transition-colors',
+                    pathname === '/marketing/conversas'
+                      ? 'bg-white/15 text-white'
+                      : 'text-white/75 hover:bg-white/10 hover:text-white',
+                  )}
+                >
+                  <span className="text-base" aria-hidden>💬</span>
+                  <span>Conversas</span>
+                </Link>
+              </>
+            )}
 
             {showAdmin && (
               <>

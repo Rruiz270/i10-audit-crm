@@ -37,7 +37,11 @@ const MARKETING_NAV: NavItem[] = [
 
 export function Sidebar({ userName, userRole }: { userName?: string | null; userRole?: string }) {
   const showAdmin = isAdmin(userRole);
-  const showMarketing = showAdmin && process.env.NEXT_PUBLIC_MARKETING_ENABLED === 'true';
+  const marketingOn = process.env.NEXT_PUBLIC_MARKETING_ENABLED === 'true';
+  const showMarketing = showAdmin && marketingOn;
+  // F3: agentes (consultor) chegam ao inbox por um atalho direto. A página em si
+  // redireciona quem não tem nenhuma fila atribuída, e as queries são escopadas.
+  const showAgentInbox = !showAdmin && marketingOn;
   return (
     <aside className="w-60 shrink-0 flex flex-col text-white i10-gradient-dark">
       {/* Header com wordmark sobre o gradient navy */}
@@ -103,6 +107,26 @@ export function Sidebar({ userName, userRole }: { userName?: string | null; user
                 </Link>
               ),
             )}
+          </>
+        )}
+
+        {showAgentInbox && (
+          <>
+            <div
+              className="mt-5 mb-2 px-3 text-[10px] font-bold uppercase"
+              style={{ color: 'var(--i10-cyan-light)', letterSpacing: '3px' }}
+            >
+              Marketing
+            </div>
+            <Link
+              href="/marketing/conversas"
+              className={cn(
+                'block px-3 py-2 rounded-md text-sm font-medium',
+                'text-white/75 hover:bg-white/10 hover:text-white transition-colors',
+              )}
+            >
+              Conversas
+            </Link>
           </>
         )}
 

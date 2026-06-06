@@ -445,6 +445,30 @@ export const conversations = marketingSchema.table(
   ],
 );
 
+// ─── user_projects (F3) — fila por projeto ─────────────────────────────────
+// Define quais projetos um usuário "agente" (consultor) pode ver no inbox de
+// Conversas. admin/gestor ignoram esta tabela (veem tudo, papel SUPERVISOR).
+// Um consultor (AGENTE) vê apenas conversas cujo project_id esteja aqui, mais
+// as que estiverem diretamente atribuídas a ele (assigned_to = user.id).
+export const userProjects = marketingSchema.table(
+  'user_projects',
+  {
+    id: serial('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    projectId: integer('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('mkt_user_projects_unique').on(t.userId, t.projectId),
+    index('mkt_user_projects_user_idx').on(t.userId),
+    index('mkt_user_projects_project_idx').on(t.projectId),
+  ],
+);
+
 export const messages = marketingSchema.table(
   'messages',
   {
