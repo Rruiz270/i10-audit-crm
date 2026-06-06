@@ -324,13 +324,15 @@ export async function sendTemplateReply(formData: FormData): Promise<void> {
 }
 
 // Enriquecimento do painel de contexto: oportunidade CRM (estágio + dono),
-// origem (campanha + projeto). Visibilidade já garantida no caller (getConversation).
-export async function getConversationContext(conv: ConversationRow): Promise<{
+// origem (campanha + projeto). Recebe conversationId e re-carrega com guard de
+// visibilidade (F3) — NÃO confiar num ConversationRow vindo do cliente (IDOR).
+export async function getConversationContext(conversationId: number): Promise<{
   opportunity: { id: number; municipio: string | null; stageLabel: string; owner: string | null } | null;
   campaignName: string | null;
   projectName: string | null;
 }> {
-  await requireUser();
+  const user = await requireUser();
+  const conv = await loadVisibleConversation(user, conversationId);
 
   let opportunity: {
     id: number;

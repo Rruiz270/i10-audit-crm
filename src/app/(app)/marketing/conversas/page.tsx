@@ -77,7 +77,7 @@ export default async function ConversasPage({
   const [cannedResponses, ctx, approvedTemplates] = conv
     ? await Promise.all([
         getCannedResponses(conv.projectId),
-        getConversationContext(conv),
+        getConversationContext(conv.id),
         win?.expired ? getApprovedTemplates(conv.projectId) : Promise.resolve([]),
       ])
     : [[], { opportunity: null, campaignName: null, projectName: null }, []];
