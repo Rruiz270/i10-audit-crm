@@ -59,13 +59,15 @@ export async function POST(request: NextRequest) {
       .limit(1);
 
     if (sendRows.length === 0) {
-      // Pode ser que o webhook chegou ANTES do send.providerId ser persistido
-      // (race condition). Marcar como received e tentar de novo depois.
+      // Webhook chegou ANTES do send.providerId ser persistido (race condition).
+      // Retornamos 503 (não 200) DE PROPÓSITO: assim o Twilio re-tenta o callback
+      // naturalmente até o send existir. Retornar ok:true faria o Twilio parar de
+      // tentar e o status (inclusive opt-out p/ supressão LGPD) seria perdido.
       await db
         .update(webhookLog)
-        .set({ status: 'received', errorMessage: 'send not found yet (race?)' })
+        .set({ status: 'received', errorMessage: 'send not found yet (race?) — pedindo retry ao Twilio' })
         .where(eq(webhookLog.id, logEntry.id));
-      return Response.json({ ok: true, deferred: true });
+      return Response.json({ ok: false, deferred: true, retry: true }, { status: 503 });
     }
 
     const send = sendRows[0];

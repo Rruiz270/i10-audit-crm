@@ -14,11 +14,30 @@ export type HubStats = {
   emailOpenRate: number | null;
 };
 
-// Métricas agregadas pro Marketing Hub. Tudo best-effort com counts simples.
+const EMPTY_STATS: HubStats = {
+  contacts: 0,
+  projects: 0,
+  waCampaigns: 0,
+  waSent: 0,
+  emailCampaigns: 0,
+  emailOpenRate: null,
+};
+
+// Métricas agregadas pro Marketing Hub. Best-effort de verdade: se o DB tossir,
+// retorna zeros em vez de derrubar a página inteira do marketing (stats são
+// decorativas; projetos/campanhas são load-bearing).
 export async function getHubStats(): Promise<HubStats> {
   const user = await requireUser();
   requireRole(user, ['admin']);
+  try {
+    return await computeHubStats();
+  } catch (err) {
+    console.error('getHubStats falhou, degradando p/ zeros:', err);
+    return EMPTY_STATS;
+  }
+}
 
+async function computeHubStats(): Promise<HubStats> {
   const [contactsRow] = await db.select({ n: sql<number>`count(*)::int` }).from(contacts);
   const [projectsRow] = await db.select({ n: sql<number>`count(*)::int` }).from(projects);
 

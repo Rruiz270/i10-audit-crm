@@ -92,11 +92,22 @@ export async function launchCampaign(formData: FormData): Promise<void> {
     throw new Error(`campaign já está ${camp.status}`);
   }
 
-  // Carregar contacts da audience
+  // Canal da campanha = canal do template (email | whatsapp). Define como
+  // filtramos elegíveis, qual destino gravamos e qual job enfileiramos.
+  const tplRow = await db
+    .select({ channel: templates.channel })
+    .from(templates)
+    .where(eq(templates.id, camp.templateId))
+    .limit(1);
+  const isWhatsApp = tplRow[0]?.channel === 'whatsapp';
+
+  // Carregar contacts da audience (inclui phone/whatsapp p/ o canal WhatsApp)
   const audienceContacts = await db
     .select({
       id: contacts.id,
       email: contacts.email,
+      phone: contacts.phone,
+      whatsapp: contacts.whatsapp,
       name: contacts.name,
       ibge: contacts.ibge,
       municipio: contacts.municipio,
@@ -114,12 +125,15 @@ export async function launchCampaign(formData: FormData): Promise<void> {
     throw new Error('audience vazia ou sem contatos ativos');
   }
 
-  // Filtrar suppressions
-  const allEmails = audienceContacts.filter((c) => c.email).map((c) => c.email!);
-  const suppressedSet = await batchIsSuppressed(allEmails, 'email');
-  const eligible = audienceContacts.filter(
-    (c) => c.email && !suppressedSet.has(c.email),
-  );
+  // Destino + supressão por canal
+  const destOf = (c: (typeof audienceContacts)[number]) =>
+    isWhatsApp ? c.whatsapp ?? c.phone ?? null : c.email ?? null;
+  const dests = audienceContacts.map(destOf).filter((d): d is string => Boolean(d));
+  const suppressedSet = await batchIsSuppressed(dests, isWhatsApp ? 'whatsapp' : 'email');
+  const eligible = audienceContacts.filter((c) => {
+    const d = destOf(c);
+    return d && !suppressedSet.has(d);
+  });
 
   // Aplicar limit (pra dry-run)
   const final = eligible.slice(0, limit);
@@ -163,7 +177,8 @@ export async function launchCampaign(formData: FormData): Promise<void> {
           return {
             campaignId,
             contactId: c.id,
-            toEmail: c.email,
+            toEmail: isWhatsApp ? null : c.email,
+            toPhone: isWhatsApp ? c.whatsapp ?? c.phone : null,
             mergeVars,
             status: 'queued',
             trackingToken: generateTrackingToken(),
@@ -178,10 +193,10 @@ export async function launchCampaign(formData: FormData): Promise<void> {
     const jobsToEnqueue = insertedSends.map((s, idx) => {
       const offsetMs = ((i + idx) / camp.ratePerMinute!) * 60_000;
       return {
-        type: 'send_email' as const,
+        type: (isWhatsApp ? 'send_whatsapp' : 'send_email') as 'send_whatsapp' | 'send_email',
         payload: { sendId: s.id },
         runAt: new Date(Date.now() + offsetMs),
-        rateBucket: camp.provider ?? 'brevo',
+        rateBucket: isWhatsApp ? camp.provider ?? 'twilio' : camp.provider ?? 'brevo',
       };
     });
     await bulkEnqueueJobs(jobsToEnqueue);

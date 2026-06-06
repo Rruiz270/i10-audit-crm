@@ -36,9 +36,16 @@ export type TemplateApproval = {
   rejectionReason: string | null;
 };
 
+// Cache em memória com TTL — evita disparar N fetches ao Twilio a cada render do
+// dashboard (status de aprovação muda raramente). Instâncias serverless reusadas
+// aproveitam o cache; pior caso é um fetch por instância a cada 5 min.
+const APPROVAL_TTL_MS = 5 * 60 * 1000;
+const approvalCache = new Map<string, { at: number; value: TemplateApproval }>();
+
 /**
  * Consulta o status de aprovação WhatsApp de um Content SID (HX...) no Twilio.
- * Best-effort com timeout curto — nunca lança (painel não pode quebrar a página).
+ * Best-effort, com cache TTL e timeout curto — nunca lança (painel não pode
+ * quebrar a página). Não pega `Date.now` em workflow; aqui é server action normal.
  */
 export async function getTemplateApproval(contentSid: string): Promise<TemplateApproval> {
   const sid = process.env.TWILIO_ACCOUNT_SID;
@@ -51,6 +58,9 @@ export async function getTemplateApproval(contentSid: string): Promise<TemplateA
   };
   if (!sid || !token || !contentSid.startsWith('HX')) return base;
 
+  const cached = approvalCache.get(contentSid);
+  if (cached && Date.now() - cached.at < APPROVAL_TTL_MS) return cached.value;
+
   const auth = Buffer.from(`${sid}:${token}`).toString('base64');
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 4000);
@@ -60,19 +70,28 @@ export async function getTemplateApproval(contentSid: string): Promise<TemplateA
       signal: ctrl.signal,
       cache: 'no-store',
     });
-    if (!res.ok) return base;
+    if (!res.ok) {
+      // 401/403 = credenciais rejeitadas (rotação/erro) — operador precisa saber.
+      if (res.status === 401 || res.status === 403) {
+        console.error(`getTemplateApproval: Twilio rejeitou credenciais (${res.status}) p/ ${contentSid}`);
+      }
+      return base;
+    }
     const data = (await res.json()) as {
       whatsapp?: { status?: string; category?: string; rejection_reason?: string };
     };
     const w = data.whatsapp ?? {};
     const status = (w.status ?? 'unknown') as TemplateApproval['status'];
-    return {
+    const value: TemplateApproval = {
       contentSid,
       status,
       category: w.category ?? null,
       rejectionReason: w.rejection_reason ?? null,
     };
-  } catch {
+    approvalCache.set(contentSid, { at: Date.now(), value });
+    return value;
+  } catch (err) {
+    console.error(`getTemplateApproval: erro consultando ${contentSid}:`, err);
     return base;
   } finally {
     clearTimeout(timer);
