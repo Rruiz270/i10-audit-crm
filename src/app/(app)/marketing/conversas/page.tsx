@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/session';
 import { getWhatsAppConfig } from '@/lib/marketing/whatsapp-health';
+import { InboxAutoRefresh } from '@/components/inbox-auto-refresh';
 import {
   listConversations,
   getConversation,
@@ -43,6 +44,7 @@ export default async function ConversasPage({
   if (convs.length === 0) {
     return (
       <div className="px-8 py-8 max-w-3xl">
+        <InboxAutoRefresh />
         <div className="mb-4 text-xs text-slate-500">
           <Link href="/marketing" className="text-cyan-700 hover:underline">Marketing</Link> › Conversas
         </div>
@@ -69,6 +71,7 @@ export default async function ConversasPage({
 
   return (
     <div className="grid h-[calc(100vh-0px)] grid-cols-[300px_1fr_280px]">
+      <InboxAutoRefresh />
       {/* lista */}
       <div className="overflow-auto border-r border-slate-200 bg-white">
         <div className="border-b border-slate-200 p-4">
