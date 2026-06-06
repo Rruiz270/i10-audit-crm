@@ -28,13 +28,11 @@ const ADMIN_NAV: NavItem[] = [
 ];
 
 // Nav do hub de Marketing — gated por NEXT_PUBLIC_MARKETING_ENABLED.
-// Reúne engine de e-mail, leads, insights (newsletter) e social (Meta).
+// Entry point único: "Marketing engine" abre o hub de tiles (WhatsApp, Email,
+// Conversas, Leads Hub, Insights, Social). Não duplicamos os tiles aqui na
+// sidebar pra não ficar redundante.
 const MARKETING_NAV: NavItem[] = [
   { href: '/marketing', label: 'Marketing engine' },
-  { href: '/marketing/conversas', label: 'Conversas' },
-  { href: '/leads', label: 'Leads Hub' },
-  { href: '/marketing/insights', label: 'Insights' },
-  { href: '/marketing/social', label: 'Social Medias' },
 ];
 
 export function Sidebar({ userName, userRole }: { userName?: string | null; userRole?: string }) {
