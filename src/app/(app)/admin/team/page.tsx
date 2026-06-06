@@ -2,6 +2,11 @@ import { isAdmin, requireUser } from '@/lib/session';
 import { RestrictedGate } from '@/components/restricted-gate';
 import { listTeam } from '@/lib/actions/team';
 import { TeamManager } from '@/components/team-manager';
+import { ConversationQueuesManager } from '@/components/conversation-queues-manager';
+import {
+  listAssignableProjects,
+  listAllMemberships,
+} from '@/lib/actions/marketing/user-projects';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +22,10 @@ export default async function AdminTeamPage() {
     );
   }
   const team = await listTeam();
+  const marketingOn = process.env.NEXT_PUBLIC_MARKETING_ENABLED === 'true';
+  const [projects, memberships] = marketingOn
+    ? await Promise.all([listAssignableProjects(), listAllMemberships()])
+    : [[], []];
   return (
     <div className="px-8 py-8 max-w-5xl">
       <header className="mb-6">
@@ -36,6 +45,21 @@ export default async function AdminTeamPage() {
       </header>
 
       <TeamManager team={team} selfId={user.id} />
+
+      {marketingOn && (
+        <section className="mt-10">
+          <div className="i10-eyebrow mb-2">Conversas WhatsApp · Filas por projeto</div>
+          <h2 className="text-xl font-extrabold" style={{ color: 'var(--i10-navy)' }}>
+            Acesso ao inbox por projeto
+          </h2>
+          <div className="i10-divider mt-3 mb-4" />
+          <ConversationQueuesManager
+            team={team.map((m) => ({ id: m.id, name: m.name, email: m.email, role: m.role }))}
+            projects={projects}
+            memberships={memberships}
+          />
+        </section>
+      )}
     </div>
   );
 }

@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { isAdmin } from '@/lib/roles';
 import { requireUser } from '@/lib/session';
 import { getWhatsAppConfig } from '@/lib/marketing/whatsapp-health';
 import {
@@ -10,6 +9,7 @@ import {
   claimConversation,
   closeConversation,
   markConversationRead,
+  hasConversationAccess,
 } from '@/lib/actions/marketing/conversations';
 
 export const dynamic = 'force-dynamic';
@@ -29,7 +29,9 @@ export default async function ConversasPage({
   searchParams: Promise<{ c?: string }>;
 }) {
   const user = await requireUser();
-  if (!isAdmin(user.role)) redirect('/');
+  // F3: admin/gestor (supervisor) sempre entram; consultor (agente) só entra
+  // se tiver ≥1 fila por projeto. Quem não tem acesso algum cai pra raiz.
+  if (!(await hasConversationAccess())) redirect('/');
   const wa = getWhatsAppConfig();
 
   const { c } = await searchParams;
