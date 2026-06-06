@@ -434,6 +434,9 @@ export const conversations = marketingSchema.table(
     lastMessageAt: timestamp('last_message_at').defaultNow(),
     lastInboundAt: timestamp('last_inbound_at'),
     unread: boolean('unread').notNull().default(true),
+    // F2.1 inbox power-ups: notas internas + tags livres por conversa.
+    notes: text('notes'),
+    tags: text('tags').array().default([]),
     createdAt: timestamp('created_at').defaultNow(),
     closedAt: timestamp('closed_at'),
   },
@@ -467,6 +470,24 @@ export const userProjects = marketingSchema.table(
     index('mkt_user_projects_user_idx').on(t.userId),
     index('mkt_user_projects_project_idx').on(t.projectId),
   ],
+);
+
+// ─── canned_responses (F2.1) — respostas rápidas reutilizáveis no inbox ─────
+// scope 'global' = disponível em qualquer conversa; 'project' = só conversas do
+// projeto referenciado. Inseridas no composer (free-form, editáveis antes de
+// enviar). project_id null quando scope='global'.
+export const cannedResponses = marketingSchema.table(
+  'canned_responses',
+  {
+    id: serial('id').primaryKey(),
+    scope: text('scope').notNull().default('global'), // 'global' | 'project'
+    projectId: integer('project_id').references(() => projects.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    body: text('body').notNull(),
+    createdBy: text('created_by').references(() => users.id),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (t) => [index('mkt_canned_scope_project_idx').on(t.scope, t.projectId)],
 );
 
 export const messages = marketingSchema.table(

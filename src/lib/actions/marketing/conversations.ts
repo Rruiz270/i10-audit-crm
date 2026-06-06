@@ -1,12 +1,22 @@
 'use server';
 
-import { eq, desc, and, or, inArray, type SQL } from 'drizzle-orm';
+import { eq, desc, and, or, inArray, isNull, type SQL } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/db';
-import { conversations, messages, userProjects } from '@/lib/schema-marketing';
+import {
+  conversations,
+  messages,
+  userProjects,
+  cannedResponses,
+  projects,
+  campaigns,
+  templates,
+} from '@/lib/schema-marketing';
+import { opportunities, users, pipelineStages, fundebMunicipalities } from '@/lib/schema';
 import { requireUser, type SessionUser } from '@/lib/session';
 import { isAdmin } from '@/lib/roles';
 import { getWhatsAppProvider } from '@/lib/marketing/providers';
+import { getTemplateApproval } from '@/lib/marketing/whatsapp-health';
 
 export type ConversationRow = typeof conversations.$inferSelect;
 
@@ -198,4 +208,213 @@ export async function closeConversation(formData: FormData): Promise<void> {
     .set({ status: 'closed', closedAt: new Date() })
     .where(eq(conversations.id, conversationId));
   revalidatePath('/marketing/conversas');
+}
+
+// ─── F2.1 — inbox power-ups ────────────────────────────────────────────────
+
+// Salva notas internas + tags (csv) de uma conversa. Visibilidade garantida.
+export async function saveConversationContext(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const conversationId = Number(formData.get('conversationId'));
+  if (!conversationId) throw new Error('conversationId obrigatório');
+  // Re-checa visibilidade ANTES de qualquer mutação (guarda contra id adivinhado).
+  await loadVisibleConversation(user, conversationId);
+
+  const notesRaw = formData.get('notes');
+  const tagsRaw = formData.get('tags');
+
+  const set: Partial<typeof conversations.$inferInsert> = {};
+  // notes só é atualizado se o campo veio no form (permite salvar só tags).
+  if (notesRaw !== null) {
+    const notes = String(notesRaw).trim();
+    set.notes = notes.length ? notes : null;
+  }
+  if (tagsRaw !== null) {
+    const tags = String(tagsRaw)
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+    set.tags = tags;
+  }
+  if (Object.keys(set).length === 0) return;
+
+  await db.update(conversations).set(set).where(eq(conversations.id, conversationId));
+  revalidatePath('/marketing/conversas');
+}
+
+export type CannedResponse = typeof cannedResponses.$inferSelect;
+
+// Respostas rápidas: globais + (opcionalmente) as do projeto da conversa.
+export async function getCannedResponses(projectId?: number | null): Promise<CannedResponse[]> {
+  await requireUser();
+  const scopeClause = projectId
+    ? or(eq(cannedResponses.scope, 'global'), eq(cannedResponses.projectId, projectId))
+    : isNull(cannedResponses.projectId);
+  return db
+    .select()
+    .from(cannedResponses)
+    .where(scopeClause)
+    .orderBy(cannedResponses.scope, cannedResponses.title);
+}
+
+// Envia um template Meta aprovado (contentSid HX...). Funciona mesmo com a
+// janela de 24h expirada — é o caminho para reabrir a conversa. Visibilidade
+// garantida via loadVisibleConversation (sem vazamento cross-project).
+export async function sendTemplateReply(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const conversationId = Number(formData.get('conversationId'));
+  const contentSid = String(formData.get('contentSid') ?? '').trim();
+  if (!conversationId || !contentSid) throw new Error('conversationId e contentSid obrigatórios');
+
+  const conv = await loadVisibleConversation(user, conversationId);
+
+  if (blockedByTestAllowlist(conv.waPhone)) {
+    throw new Error('Modo de teste: número fora da allowlist. Resposta bloqueada.');
+  }
+
+  // Variáveis ordenadas opcionais (var_1, var_2, …) → { "1": ..., "2": ... }
+  const variables: Record<string, string> = {};
+  for (let i = 1; i <= 10; i++) {
+    const v = formData.get(`var_${i}`);
+    if (v === null) continue;
+    const val = String(v).trim();
+    if (val) variables[String(i)] = val;
+  }
+
+  const provider = getWhatsAppProvider();
+  const result = await provider.send({
+    fromNumber: process.env.TWILIO_WHATSAPP_FROM ?? 'whatsapp:+14155238886',
+    toNumber: conv.waPhone,
+    templateName: contentSid,
+    // O provider exige templateVariables truthy mesmo p/ templates sem variável.
+    templateVariables: variables,
+  });
+
+  // Resumo legível guardado como body (template real é renderizado pela Meta).
+  const summary = `[Template ${contentSid}]${
+    Object.keys(variables).length ? ` ${Object.values(variables).join(' · ')}` : ''
+  }`;
+
+  await db.insert(messages).values({
+    conversationId,
+    twilioSid: result.ok ? result.providerId : null,
+    direction: 'outbound',
+    authorUserId: user.id,
+    body: summary,
+    isTemplate: true,
+    templateSid: contentSid,
+    status: result.ok ? 'sent' : 'failed',
+  });
+
+  await db
+    .update(conversations)
+    .set({
+      lastMessageAt: new Date(),
+      unread: false,
+      assignedTo: conv.assignedTo ?? user.id,
+      status: conv.status === 'closed' ? 'open' : conv.status,
+    })
+    .where(eq(conversations.id, conversationId));
+
+  if (!result.ok) {
+    throw new Error(`Falha no envio do template: ${result.error}`);
+  }
+
+  revalidatePath('/marketing/conversas');
+}
+
+// Enriquecimento do painel de contexto: oportunidade CRM (estágio + dono),
+// origem (campanha + projeto). Visibilidade já garantida no caller (getConversation).
+export async function getConversationContext(conv: ConversationRow): Promise<{
+  opportunity: { id: number; municipio: string | null; stageLabel: string; owner: string | null } | null;
+  campaignName: string | null;
+  projectName: string | null;
+}> {
+  await requireUser();
+
+  let opportunity: {
+    id: number;
+    municipio: string | null;
+    stageLabel: string;
+    owner: string | null;
+  } | null = null;
+  if (conv.opportunityId) {
+    const [row] = await db
+      .select({
+        id: opportunities.id,
+        municipio: fundebMunicipalities.nome,
+        stage: opportunities.stage,
+        stageLabel: pipelineStages.label,
+        owner: users.name,
+      })
+      .from(opportunities)
+      .leftJoin(fundebMunicipalities, eq(opportunities.municipalityId, fundebMunicipalities.id))
+      .leftJoin(pipelineStages, eq(opportunities.stage, pipelineStages.key))
+      .leftJoin(users, eq(opportunities.ownerId, users.id))
+      .where(eq(opportunities.id, conv.opportunityId))
+      .limit(1);
+    if (row) {
+      opportunity = {
+        id: row.id,
+        municipio: row.municipio,
+        stageLabel: row.stageLabel ?? row.stage,
+        owner: row.owner,
+      };
+    }
+  }
+
+  let campaignName: string | null = null;
+  if (conv.campaignId) {
+    const [c] = await db
+      .select({ name: campaigns.name })
+      .from(campaigns)
+      .where(eq(campaigns.id, conv.campaignId))
+      .limit(1);
+    campaignName = c?.name ?? null;
+  }
+
+  let projectName: string | null = null;
+  if (conv.projectId) {
+    const [p] = await db
+      .select({ name: projects.name })
+      .from(projects)
+      .where(eq(projects.id, conv.projectId))
+      .limit(1);
+    projectName = p?.name ?? null;
+  }
+
+  return { opportunity, campaignName, projectName };
+}
+
+// Templates WhatsApp aprovados pela Meta, escopados ao projeto da conversa
+// (ou globais se sem projeto). Filtra por status de aprovação no Twilio.
+export async function getApprovedTemplates(
+  projectId?: number | null,
+): Promise<{ contentSid: string; name: string }[]> {
+  await requireUser();
+  if (!projectId) return [];
+  const rows = await db
+    .select({ name: templates.name, waTemplateName: templates.waTemplateName })
+    .from(templates)
+    .where(
+      and(
+        eq(templates.projectId, projectId),
+        eq(templates.channel, 'whatsapp'),
+        eq(templates.status, 'active'),
+      ),
+    );
+
+  const withSid = rows.filter(
+    (r): r is { name: string; waTemplateName: string } =>
+      !!r.waTemplateName && r.waTemplateName.startsWith('HX'),
+  );
+
+  // Confirma aprovação na Meta/Twilio (best-effort, com cache TTL).
+  const checked = await Promise.all(
+    withSid.map(async (r) => {
+      const approval = await getTemplateApproval(r.waTemplateName);
+      return { contentSid: r.waTemplateName, name: r.name, approved: approval.status === 'approved' };
+    }),
+  );
+  return checked.filter((t) => t.approved).map(({ contentSid, name }) => ({ contentSid, name }));
 }
