@@ -407,3 +407,63 @@ export const crmBridgeLog = marketingSchema.table('crm_bridge_log', {
   notes: text('notes'),
   createdAt: timestamp('created_at').defaultNow(),
 });
+
+// ─── Conversas (F2) — inbox WhatsApp de duas vias ──────────────────────────
+// 1 número oficial → N conversas (uma por telefone de contato). Inbound chega
+// pelo webhook do Twilio (incoming messages) e faz upsert aqui. Escopo de quem
+// vê o quê = project_id + (futuro) papel/fila. Trava da janela de 24h via
+// windowExpiresAt (último inbound + 24h): fora dela, só template aprovado.
+export const conversations = marketingSchema.table(
+  'conversations',
+  {
+    id: serial('id').primaryKey(),
+    channel: text('channel').notNull().default('whatsapp'),
+    // Telefone do contato (E.164, sem prefixo whatsapp:) — chave do upsert.
+    waPhone: text('wa_phone').notNull(),
+    contactName: text('contact_name'),
+    // Vínculos (todos opcionais — inbound pode vir de número desconhecido)
+    contactId: integer('contact_id').references(() => contacts.id, { onDelete: 'set null' }),
+    crmContactId: integer('crm_contact_id'),
+    projectId: integer('project_id').references(() => projects.id, { onDelete: 'set null' }),
+    opportunityId: integer('opportunity_id'),
+    campaignId: integer('campaign_id').references(() => campaigns.id, { onDelete: 'set null' }),
+    // open | pending | closed
+    status: text('status').notNull().default('open'),
+    assignedTo: text('assigned_to').references(() => users.id, { onDelete: 'set null' }),
+    windowExpiresAt: timestamp('window_expires_at'),
+    lastMessageAt: timestamp('last_message_at').defaultNow(),
+    lastInboundAt: timestamp('last_inbound_at'),
+    unread: boolean('unread').notNull().default(true),
+    createdAt: timestamp('created_at').defaultNow(),
+    closedAt: timestamp('closed_at'),
+  },
+  (t) => [
+    uniqueIndex('conversations_channel_phone_uniq').on(t.channel, t.waPhone),
+    index('conversations_project_idx').on(t.projectId),
+    index('conversations_status_idx').on(t.status),
+    index('conversations_assigned_idx').on(t.assignedTo),
+  ],
+);
+
+export const messages = marketingSchema.table(
+  'messages',
+  {
+    id: serial('id').primaryKey(),
+    conversationId: integer('conversation_id')
+      .notNull()
+      .references(() => conversations.id, { onDelete: 'cascade' }),
+    twilioSid: text('twilio_sid'),
+    // inbound (do contato) | outbound (do nosso time)
+    direction: text('direction').notNull(),
+    // Quem enviou (null = o contato/cliente)
+    authorUserId: text('author_user_id').references(() => users.id, { onDelete: 'set null' }),
+    body: text('body'),
+    mediaUrls: jsonb('media_urls').notNull().default([]),
+    isTemplate: boolean('is_template').notNull().default(false),
+    templateSid: text('template_sid'),
+    // Status de entrega (outbound): queued|sent|delivered|read|failed
+    status: text('status'),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (t) => [index('messages_conversation_idx').on(t.conversationId, t.createdAt)],
+);

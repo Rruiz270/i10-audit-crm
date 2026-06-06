@@ -63,8 +63,8 @@ export default async function MarketingHomePage() {
           tone="cv"
           title="Conversas"
           isNew
-          metric="—"
-          sub="inbox WhatsApp ao vivo (em construção)"
+          metric={stats.openConversations.toLocaleString('pt-BR')}
+          sub="conversas abertas · inbox WhatsApp ao vivo"
           action="Abrir inbox"
         />
         <HubTile

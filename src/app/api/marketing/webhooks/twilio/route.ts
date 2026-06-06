@@ -3,6 +3,10 @@ import { sql, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { webhookLog, sends, events, campaigns } from '@/lib/schema-marketing';
 import { addSuppression } from '@/lib/marketing/suppression';
+import { handleInboundWhatsApp } from '@/lib/marketing/inbound';
+
+// Statuses de entrega (callback). Se não for um desses e tiver Body → é inbound.
+const DELIVERY_STATUSES = ['queued', 'sending', 'sent', 'delivered', 'read', 'failed', 'undelivered'];
 
 // ─── /api/marketing/webhooks/twilio ───────────────────────────────────────
 // Twilio envia StatusCallback POST com application/x-www-form-urlencoded.
@@ -30,6 +34,30 @@ export async function POST(request: NextRequest) {
   const messageSid = payload.MessageSid ?? payload.SmsSid;
   const messageStatus = payload.MessageStatus ?? payload.SmsStatus;
   const errorCode = payload.ErrorCode;
+
+  // ── INBOUND (mensagem recebida do contato) ──────────────────────────────
+  // Não é um status de entrega E tem Body/mídia → é uma mensagem que chegou.
+  // Vai pra inbox de Conversas (upsert da conversa + insere message).
+  const isInbound =
+    !DELIVERY_STATUSES.includes(messageStatus ?? '') &&
+    Boolean(payload.From?.startsWith('whatsapp:')) &&
+    (Boolean(payload.Body) || Number(payload.NumMedia ?? '0') > 0);
+
+  if (isInbound) {
+    await db.insert(webhookLog).values({
+      provider: 'twilio',
+      eventType: 'inbound',
+      rawPayload: payload,
+    });
+    try {
+      const convId = await handleInboundWhatsApp(payload);
+      return Response.json({ ok: true, inbound: true, conversationId: convId });
+    } catch (err) {
+      const m = err instanceof Error ? err.message : String(err);
+      // 500 → Twilio re-tenta (não perdemos a mensagem do contato)
+      return Response.json({ ok: false, error: m }, { status: 500 });
+    }
+  }
 
   // Log o webhook bruto pra debug
   const [logEntry] = await db

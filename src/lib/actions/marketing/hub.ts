@@ -2,7 +2,7 @@
 
 import { sql, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { campaigns, templates, contacts, projects } from '@/lib/schema-marketing';
+import { campaigns, templates, contacts, projects, conversations } from '@/lib/schema-marketing';
 import { requireUser, requireRole } from '@/lib/session';
 
 export type HubStats = {
@@ -12,6 +12,7 @@ export type HubStats = {
   waSent: number;
   emailCampaigns: number;
   emailOpenRate: number | null;
+  openConversations: number;
 };
 
 const EMPTY_STATS: HubStats = {
@@ -21,6 +22,7 @@ const EMPTY_STATS: HubStats = {
   waSent: 0,
   emailCampaigns: 0,
   emailOpenRate: null,
+  openConversations: 0,
 };
 
 // Métricas agregadas pro Marketing Hub. Best-effort de verdade: se o DB tossir,
@@ -54,6 +56,11 @@ async function computeHubStats(): Promise<HubStats> {
     .leftJoin(templates, eq(campaigns.templateId, templates.id))
     .groupBy(templates.channel);
 
+  const [convRow] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(conversations)
+    .where(eq(conversations.status, 'open'));
+
   const wa = rows.find((r) => r.channel === 'whatsapp');
   const em = rows.find((r) => r.channel === 'email');
   const emailOpenRate =
@@ -66,5 +73,6 @@ async function computeHubStats(): Promise<HubStats> {
     waSent: wa?.sent ?? 0,
     emailCampaigns: em?.n ?? 0,
     emailOpenRate,
+    openConversations: convRow?.n ?? 0,
   };
 }
