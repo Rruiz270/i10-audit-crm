@@ -10,7 +10,7 @@ import { extractVariables, renderEmail, generateTrackingToken } from '@/lib/mark
 
 export async function listTemplates(projectId: number) {
   const user = await requireUser();
-  requireRole(user, ['admin']);
+  requireRole(user, ['admin', 'gestor']);
   return db
     .select()
     .from(templates)
@@ -20,14 +20,14 @@ export async function listTemplates(projectId: number) {
 
 export async function getTemplate(id: number) {
   const user = await requireUser();
-  requireRole(user, ['admin']);
+  requireRole(user, ['admin', 'gestor']);
   const rows = await db.select().from(templates).where(eq(templates.id, id)).limit(1);
   return rows[0] ?? null;
 }
 
 export async function createTemplate(formData: FormData): Promise<void> {
   const user = await requireUser();
-  requireRole(user, ['admin']);
+  requireRole(user, ['admin', 'gestor']);
   const projectId = Number(formData.get('projectId'));
   const name = String(formData.get('name') ?? '').trim();
   const channel = String(formData.get('channel') ?? 'email');
@@ -71,7 +71,7 @@ export async function createTemplate(formData: FormData): Promise<void> {
 
 export async function previewTemplate(formData: FormData) {
   const user = await requireUser();
-  requireRole(user, ['admin']);
+  requireRole(user, ['admin', 'gestor']);
   const html = String(formData.get('html') ?? '');
   const subject = String(formData.get('subject') ?? '');
   // Sample merge vars — usar valores do primeiro município pro preview ficar realista

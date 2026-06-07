@@ -11,7 +11,7 @@ import { batchIsSuppressed } from '@/lib/marketing/suppression';
 
 export async function listAudiences(projectId: number) {
   const user = await requireUser();
-  requireRole(user, ['admin']);
+  requireRole(user, ['admin', 'gestor']);
   return db
     .select()
     .from(audiences)
@@ -21,7 +21,7 @@ export async function listAudiences(projectId: number) {
 
 export async function createAudience(formData: FormData): Promise<void> {
   const user = await requireUser();
-  requireRole(user, ['admin']);
+  requireRole(user, ['admin', 'gestor']);
   const projectId = Number(formData.get('projectId'));
   const name = String(formData.get('name') ?? '').trim();
   const description = String(formData.get('description') ?? '').trim() || null;
@@ -85,7 +85,7 @@ function isValidEmail(email: string): boolean {
 
 export async function importContactsFromCsv(formData: FormData): Promise<void> {
   const user = await requireUser();
-  requireRole(user, ['admin']);
+  requireRole(user, ['admin', 'gestor']);
   const projectId = Number(formData.get('projectId'));
   const audienceId = Number(formData.get('audienceId'));
   const csvFile = formData.get('csv') as File | null;

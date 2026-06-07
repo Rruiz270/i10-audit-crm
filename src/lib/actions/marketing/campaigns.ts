@@ -19,7 +19,7 @@ import { bulkEnqueueJobs } from '@/lib/marketing/queue';
 
 export async function listCampaigns(projectId: number) {
   const user = await requireUser();
-  requireRole(user, ['admin']);
+  requireRole(user, ['admin', 'gestor']);
   return db
     .select()
     .from(campaigns)
@@ -29,14 +29,14 @@ export async function listCampaigns(projectId: number) {
 
 export async function getCampaign(id: number) {
   const user = await requireUser();
-  requireRole(user, ['admin']);
+  requireRole(user, ['admin', 'gestor']);
   const rows = await db.select().from(campaigns).where(eq(campaigns.id, id)).limit(1);
   return rows[0] ?? null;
 }
 
 export async function createCampaign(formData: FormData): Promise<void> {
   const user = await requireUser();
-  requireRole(user, ['admin']);
+  requireRole(user, ['admin', 'gestor']);
   const projectId = Number(formData.get('projectId'));
   const audienceId = Number(formData.get('audienceId'));
   const templateId = Number(formData.get('templateId'));
@@ -77,7 +77,7 @@ export async function createCampaign(formData: FormData): Promise<void> {
 // ─── Launch — gera 1 send + 1 queue job por contato da audience ──────────
 export async function launchCampaign(formData: FormData): Promise<void> {
   const user = await requireUser();
-  requireRole(user, ['admin']);
+  requireRole(user, ['admin', 'gestor']);
   const campaignId = Number(formData.get('campaignId'));
   const dryRunOnly = String(formData.get('dryRun') ?? '') === '1';
   const limitInput = Number(formData.get('limit') ?? 0);
@@ -208,7 +208,7 @@ export async function launchCampaign(formData: FormData): Promise<void> {
 
 export async function pauseCampaign(formData: FormData): Promise<void> {
   const user = await requireUser();
-  requireRole(user, ['admin']);
+  requireRole(user, ['admin', 'gestor']);
   const campaignId = Number(formData.get('campaignId'));
   await db.update(campaigns).set({ status: 'paused' }).where(eq(campaigns.id, campaignId));
   revalidatePath(`/marketing/${campaignId}`);
@@ -216,7 +216,7 @@ export async function pauseCampaign(formData: FormData): Promise<void> {
 
 export async function getCampaignStats(campaignId: number) {
   const user = await requireUser();
-  requireRole(user, ['admin']);
+  requireRole(user, ['admin', 'gestor']);
   const c = await db
     .select({
       id: campaigns.id,
@@ -257,7 +257,7 @@ export async function getCampaignStats(campaignId: number) {
 // Lista os destinatários que deram bounce (clicável no dashboard da campanha)
 export async function getBouncedRecipients(campaignId: number) {
   const user = await requireUser();
-  requireRole(user, ['admin']);
+  requireRole(user, ['admin', 'gestor']);
   return db
     .select({
       email: sends.toEmail,

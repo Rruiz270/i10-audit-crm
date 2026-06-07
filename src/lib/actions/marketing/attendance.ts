@@ -50,7 +50,7 @@ function findIbgeColumn(rowKeys: string[]): string | null {
 
 export async function importAttendanceCsv(formData: FormData): Promise<void> {
   const user = await requireUser();
-  requireRole(user, ['admin']);
+  requireRole(user, ['admin', 'gestor']);
 
   const projectId = Number(formData.get('projectId'));
   const eventLabel = String(formData.get('eventLabel') ?? '').trim() || 'webinar';

@@ -30,7 +30,7 @@ const EMPTY_STATS: HubStats = {
 // decorativas; projetos/campanhas são load-bearing).
 export async function getHubStats(): Promise<HubStats> {
   const user = await requireUser();
-  requireRole(user, ['admin']);
+  requireRole(user, ['admin', 'gestor']);
   try {
     return await computeHubStats();
   } catch (err) {

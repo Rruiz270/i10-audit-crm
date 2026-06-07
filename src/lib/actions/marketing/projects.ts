@@ -19,20 +19,20 @@ function slugify(text: string): string {
 
 export async function listProjects() {
   const user = await requireUser();
-  requireRole(user, ['admin']);
+  requireRole(user, ['admin', 'gestor']);
   return db.select().from(projects).orderBy(desc(projects.createdAt));
 }
 
 export async function getProject(id: number) {
   const user = await requireUser();
-  requireRole(user, ['admin']);
+  requireRole(user, ['admin', 'gestor']);
   const rows = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
   return rows[0] ?? null;
 }
 
 export async function createProject(formData: FormData): Promise<void> {
   const user = await requireUser();
-  requireRole(user, ['admin']);
+  requireRole(user, ['admin', 'gestor']);
   const name = String(formData.get('name') ?? '').trim();
   const description = String(formData.get('description') ?? '').trim() || null;
   if (!name) throw new Error('Nome é obrigatório');

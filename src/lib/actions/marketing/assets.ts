@@ -9,7 +9,7 @@ import { requireUser, requireRole } from '@/lib/session';
 
 export async function listAssets(projectId: number) {
   const user = await requireUser();
-  requireRole(user, ['admin']);
+  requireRole(user, ['admin', 'gestor']);
   return db
     .select()
     .from(assets)
@@ -22,7 +22,7 @@ export async function listAssets(projectId: number) {
 // e só registramos o pointer + tracking. Upload pra Vercel Blob fica pra fase posterior.
 export async function createAsset(formData: FormData): Promise<void> {
   const user = await requireUser();
-  requireRole(user, ['admin']);
+  requireRole(user, ['admin', 'gestor']);
   const projectId = Number(formData.get('projectId'));
   const name = String(formData.get('name') ?? '').trim();
   const kind = String(formData.get('kind') ?? 'pdf');

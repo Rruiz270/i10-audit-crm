@@ -31,6 +31,32 @@ export async function POST(request: NextRequest) {
     payload[key] = String(value);
   }
 
+  // ── Verificação de assinatura X-Twilio-Signature ────────────────────────
+  // Sem isso, o endpoint é público e qualquer um pode forjar inbound/status.
+  // Validamos o HMAC do Twilio sobre (URL pública + params). Pode ser desligado
+  // em dev/sandbox via TWILIO_VALIDATE_SIGNATURE=false.
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const validateSig = authToken && process.env.TWILIO_VALIDATE_SIGNATURE !== 'false';
+  if (validateSig) {
+    const signature = request.headers.get('x-twilio-signature') ?? '';
+    const fullUrl = `${(process.env.MARKETING_BASE_URL ?? '').replace(/\/$/, '')}/api/marketing/webhooks/twilio`;
+    try {
+      const twilioMod = await import('twilio');
+      const validate = (twilioMod.default ?? twilioMod).validateRequest as (
+        token: string,
+        sig: string,
+        url: string,
+        params: Record<string, string>,
+      ) => boolean;
+      if (!validate(authToken, signature, fullUrl, payload)) {
+        return Response.json({ ok: false, error: 'invalid signature' }, { status: 403 });
+      }
+    } catch (err) {
+      console.error('twilio signature validation error:', err);
+      return Response.json({ ok: false, error: 'signature check failed' }, { status: 403 });
+    }
+  }
+
   const messageSid = payload.MessageSid ?? payload.SmsSid;
   const messageStatus = payload.MessageStatus ?? payload.SmsStatus;
   const errorCode = payload.ErrorCode;
