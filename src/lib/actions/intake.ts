@@ -13,6 +13,8 @@ import {
   opportunities,
 } from '@/lib/schema';
 import { logActivity } from '@/lib/activity';
+import { autoTagOpportunity } from '@/lib/actions/tags';
+import { regionTagForUf } from '@/lib/uf';
 
 export type FieldDef = {
   name: string;
@@ -67,16 +69,18 @@ export async function submitIntake(formData: FormData) {
 
   // Optional: if the form captured a municipality name/ID, try to resolve.
   let municipalityId: number | null = null;
+  let municipalityUf: string | null = null;
   const munField = fields.find((f) => f.type === 'municipality');
   if (munField) {
     const v = payload[munField.name];
     if (v) {
       const mun = await db
-        .select({ id: fundebMunicipalities.id })
+        .select({ id: fundebMunicipalities.id, uf: fundebMunicipalities.uf })
         .from(fundebMunicipalities)
         .where(eq(fundebMunicipalities.nome, v))
         .limit(1);
       municipalityId = mun[0]?.id ?? null;
+      municipalityUf = mun[0]?.uf ?? null;
     }
   }
 
@@ -138,6 +142,13 @@ export async function submitIntake(formData: FormData) {
     body: JSON.stringify(payload, null, 2),
     metadata: { formSlug: form.slug, submissionId: submission.id },
   });
+
+  // Auto-tag por origem + região (resiliente).
+  const regionTag = regionTagForUf(municipalityUf);
+  await autoTagOpportunity(
+    op.id,
+    ['Formulário FUNDEB', ...(regionTag ? [regionTag] : [])],
+  );
 
   revalidatePath('/leads');
   revalidatePath('/opportunities');

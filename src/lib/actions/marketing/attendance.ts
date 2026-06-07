@@ -18,6 +18,7 @@ import {
   activities,
 } from '@/lib/schema';
 import { requireUser, requireRole } from '@/lib/session';
+import { autoTagOpportunity } from '@/lib/actions/tags';
 
 // ─── importAttendanceCsv ──────────────────────────────────────────────────
 // Sobe CSV de attendance (Google Meet/Zoom/Teams export) e:
@@ -226,6 +227,9 @@ export async function importAttendanceCsv(formData: FormData): Promise<void> {
         importedBy: user.id,
       },
     });
+
+    // Auto-tag por origem (resiliente).
+    await autoTagOpportunity(newOpp.id, ['Webinar FUNDEB'], { actorId: user.id });
 
     // Audit
     await db.insert(crmBridgeLog).values({

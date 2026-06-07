@@ -13,6 +13,8 @@ import {
   opportunities,
 } from '@/lib/schema';
 import { logActivity } from '@/lib/activity';
+import { autoTagOpportunity } from '@/lib/actions/tags';
+import { regionTagForUf } from '@/lib/uf';
 
 /**
  * LP da APM — form operacional preenchido pela equipe APM ao captar
@@ -162,6 +164,10 @@ export async function submitApmCadastro(data: ApmCadastroInput) {
       contactCount: payload.contacts.length,
     },
   });
+
+  // Auto-tag por origem + região (resiliente).
+  const regionTag = regionTagForUf(mun.uf);
+  await autoTagOpportunity(op.id, ['APM FUNDEB', ...(regionTag ? [regionTag] : [])]);
 
   revalidatePath('/leads');
   revalidatePath('/opportunities');

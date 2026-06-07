@@ -25,6 +25,7 @@ const ADMIN_NAV: NavItem[] = [
   { href: '/admin/team', label: 'Time & permissões' },
   { href: '/admin/health', label: 'Saúde operacional' },
   { href: '/settings/stages', label: 'Estágios do pipeline' },
+  { href: '/settings/tags', label: 'Tags de oportunidade' },
 ];
 
 // Nav do hub de Marketing — gated por NEXT_PUBLIC_MARKETING_ENABLED.

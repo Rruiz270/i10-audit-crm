@@ -22,6 +22,14 @@ const CARDS: AdminCard[] = [
     status: 'ready',
   },
   {
+    title: 'Tags de oportunidade',
+    href: '/settings/tags',
+    eyebrow: 'Taxonomia',
+    description:
+      'Taxonomia gerenciada de tags (origem/produto). Auto-aplicadas na criação (manual, formulário, APM, webinar). Adicionar tags customizadas, cores e ativar/desativar.',
+    status: 'ready',
+  },
+  {
     title: 'Time & permissões',
     href: '/admin/team',
     eyebrow: 'Acesso',

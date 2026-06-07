@@ -104,6 +104,18 @@ export const opportunities = crmSchema.table('opportunities', {
   updatedAt: timestamp('updated_at').defaultNow(),
 });
 
+export const tags = crmSchema.table('tags', {
+  id: serial('id').primaryKey(),
+  label: text('label').notNull(),
+  slug: text('slug').unique(),
+  // 'origem' | 'produto' | 'outro'
+  category: text('category').notNull().default('outro'),
+  color: text('color').notNull().default('slate'),
+  isActive: boolean('is_active').notNull().default(true),
+  isCustom: boolean('is_custom').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
 export const pipelineStages = crmSchema.table('pipeline_stages', {
   key: text('key').primaryKey(),
   label: text('label').notNull(),
