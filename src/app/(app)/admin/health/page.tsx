@@ -9,11 +9,15 @@ import {
   leadSubmissions,
   opportunities,
   tasks,
+  users,
 } from '@/lib/schema';
 import { ACTIVE_STAGES } from '@/lib/pipeline';
 import { isRotten } from '@/lib/forecast';
 import { getConsultoriaSignalsBatch } from '@/lib/bncc-signals';
 import { listConsultoriasByKickoffWindow } from '@/lib/actions/handoff';
+import { KpiTile, type Tone } from '@/components/ui/kpi-tile';
+import { Card } from '@/components/ui/card';
+import { Icon } from '@/components/ui/icon';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +32,10 @@ export default async function AdminHealthPage() {
       />
     );
   }
+
+  // Referência de "agora" — usada nas queries e nos badges de dias.
+  const nowDate = new Date();
+  const nowMs = nowDate.getTime();
 
   // Coletas em paralelo
   const [
@@ -72,10 +80,12 @@ export default async function AdminHealthPage() {
         title: tasks.title,
         dueAt: tasks.dueAt,
         assignedTo: tasks.assignedTo,
+        assigneeName: users.name,
         opportunityId: tasks.opportunityId,
       })
       .from(tasks)
-      .where(and(isNull(tasks.completedAt), lte(tasks.dueAt, new Date())))
+      .leftJoin(users, eq(tasks.assignedTo, users.id))
+      .where(and(isNull(tasks.completedAt), lte(tasks.dueAt, nowDate)))
       .orderBy(tasks.dueAt)
       .limit(50),
     db
@@ -85,12 +95,14 @@ export default async function AdminHealthPage() {
         lastActivityAt: opportunities.lastActivityAt,
         municipalityName: fundebMunicipalities.nome,
         ownerId: opportunities.ownerId,
+        ownerName: users.name,
       })
       .from(opportunities)
       .leftJoin(
         fundebMunicipalities,
         eq(opportunities.municipalityId, fundebMunicipalities.id),
-      ),
+      )
+      .leftJoin(users, eq(opportunities.ownerId, users.id)),
     listConsultoriasByKickoffWindow({}),
   ]);
 
@@ -120,50 +132,78 @@ export default async function AdminHealthPage() {
     );
   });
 
-  const sections = [
+  const noOwnerCount = Number(opsNoOwner[0]?.n ?? 0);
+
+  type Metric = {
+    label: string;
+    count: number;
+    href: string;
+    hint: string;
+    tone: Tone;
+    icon: string;
+    bad: boolean;
+  };
+
+  const metrics: Metric[] = [
     {
       label: 'Leads não triados',
       count: untriagedLeads.length,
       href: '/leads',
       hint: 'Submissões públicas aguardando 1º contato.',
-      tone: untriagedLeads.length > 0 ? 'amber' : 'ok',
+      icon: 'inbox',
+      bad: untriagedLeads.length > 0,
+      tone: untriagedLeads.length > 0 ? 'amber' : 'mint',
     },
     {
       label: 'Oportunidades sem contato',
       count: opsNoContact.length,
       href: '/opportunities',
       hint: 'Não podem avançar de "Novo" sem contato principal (canAdvance guarda).',
-      tone: opsNoContact.length > 0 ? 'amber' : 'ok',
+      icon: 'user',
+      bad: opsNoContact.length > 0,
+      tone: opsNoContact.length > 0 ? 'amber' : 'mint',
     },
     {
       label: 'Oportunidades sem dono',
-      count: Number(opsNoOwner[0]?.n ?? 0),
+      count: noOwnerCount,
       href: '/opportunities',
       hint: 'Precisam de atribuição. Considere usar bulk reassign.',
-      tone: Number(opsNoOwner[0]?.n ?? 0) > 0 ? 'rose' : 'ok',
+      icon: 'flag',
+      bad: noOwnerCount > 0,
+      tone: noOwnerCount > 0 ? 'rose' : 'mint',
     },
     {
       label: 'Tarefas atrasadas (time todo)',
       count: overdueTasks.length,
       href: '/tasks?filter=all',
       hint: 'Vencidas e ainda abertas.',
-      tone: overdueTasks.length > 0 ? 'rose' : 'ok',
+      icon: 'clock',
+      bad: overdueTasks.length > 0,
+      tone: overdueTasks.length > 0 ? 'rose' : 'mint',
     },
     {
       label: 'Oportunidades paradas',
       count: rottenOps.length,
       href: '/pipeline',
       hint: 'Sem atividade há mais tempo que o rot_days do estágio.',
-      tone: rottenOps.length > 0 ? 'amber' : 'ok',
+      icon: 'alert-triangle',
+      bad: rottenOps.length > 0,
+      tone: rottenOps.length > 0 ? 'amber' : 'mint',
     },
     {
       label: 'Consultorias BNCC sem sinal',
       count: silentConsultorias.length,
       href: '/reports',
       hint: 'Handoff feito mas nenhum relatório/plano/evidência no outro sistema.',
-      tone: silentConsultorias.length > 0 ? 'rose' : 'ok',
+      icon: 'activity',
+      bad: silentConsultorias.length > 0,
+      tone: silentConsultorias.length > 0 ? 'rose' : 'mint',
     },
   ];
+
+  const allHealthy = metrics.every((m) => !m.bad);
+  const daysAgo = (d: Date | null) =>
+    d ? Math.max(0, Math.floor((nowMs - new Date(d).getTime()) / 86_400_000)) : null;
 
   return (
     <div className="px-8 py-8 max-w-6xl">
@@ -182,83 +222,104 @@ export default async function AdminHealthPage() {
         </p>
       </header>
 
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-        {sections.map((s) => {
-          const toneBg =
-            s.tone === 'rose'
-              ? 'bg-rose-50 border-rose-200'
-              : s.tone === 'amber'
-                ? 'bg-amber-50 border-amber-200'
-                : 'bg-emerald-50 border-emerald-200';
-          const toneText =
-            s.tone === 'rose'
-              ? 'text-rose-900'
-              : s.tone === 'amber'
-                ? 'text-amber-900'
-                : 'text-emerald-900';
-          return (
-            <Link
-              key={s.label}
-              href={s.href}
-              className={`block rounded-lg border p-5 transition-colors hover:shadow-sm ${toneBg}`}
-            >
-              <div className={`text-xs font-semibold uppercase tracking-wider ${toneText}`}>
-                {s.label}
-              </div>
-              <div className={`text-3xl font-extrabold mt-2 ${toneText}`}>{s.count}</div>
-              <div className={`text-xs mt-2 ${toneText} opacity-80`}>{s.hint}</div>
-            </Link>
-          );
-        })}
-      </section>
-
-      {rottenOps.length > 0 && (
-        <section className="bg-white border border-slate-200 rounded-lg p-6 mb-6">
-          <h2 className="text-sm font-semibold text-slate-900 mb-4">
-            Top {Math.min(rottenOps.length, 10)} oportunidades mais paradas
-          </h2>
-          <ul className="divide-y divide-slate-100">
-            {rottenOps.slice(0, 10).map((o) => (
-              <li key={o.id} className="py-2 flex items-center justify-between text-sm">
-                <Link
-                  href={`/opportunities/${o.id}`}
-                  className="text-slate-900 hover:text-[var(--i10-navy)]"
-                >
-                  {o.municipalityName ?? `#${o.id}`}
-                </Link>
-                <span className="text-xs text-slate-500">
-                  {o.stage} ·{' '}
-                  {o.lastActivityAt
-                    ? new Date(o.lastActivityAt).toLocaleDateString('pt-BR')
-                    : '—'}
-                </span>
-              </li>
-            ))}
-          </ul>
+      {allHealthy && (
+        <section
+          className="mb-8 flex items-center gap-4 rounded-2xl border border-i10-mint/40 bg-i10-mint-wash p-5"
+        >
+          <div className="grid h-12 w-12 place-items-center rounded-xl bg-white text-i10-mint-dark">
+            <Icon name="check" size={26} />
+          </div>
+          <div>
+            <div className="text-base font-bold" style={{ color: 'var(--i10-navy)' }}>
+              Operação saudável
+            </div>
+            <div className="text-sm text-i10-mint-dark">
+              Nenhum sinal de atenção nos seis indicadores. O funil está fluindo.
+            </div>
+          </div>
         </section>
       )}
 
+      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+        {metrics.map((m) => (
+          <KpiTile
+            key={m.label}
+            href={m.href}
+            icon={m.icon}
+            tone={m.tone}
+            value={m.count}
+            label={m.label}
+            badge={m.bad ? { text: 'ação', tone: m.tone } : undefined}
+          />
+        ))}
+      </section>
+
+      {rottenOps.length > 0 && (
+        <Card className="mb-6 p-6">
+          <h2 className="mb-4 text-sm font-semibold text-slate-900">
+            Top {Math.min(rottenOps.length, 10)} oportunidades mais paradas
+          </h2>
+          <ul className="space-y-2">
+            {rottenOps.slice(0, 10).map((o) => {
+              const d = daysAgo(o.lastActivityAt);
+              return (
+                <li
+                  key={o.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/50 px-3 py-2.5 text-sm"
+                >
+                  <div className="min-w-0">
+                    <Link
+                      href={`/opportunities/${o.id}`}
+                      className="font-medium text-slate-900 hover:text-[var(--i10-navy)]"
+                    >
+                      {o.municipalityName ?? `#${o.id}`}
+                    </Link>
+                    <div className="text-xs text-slate-500">
+                      {o.stage} · {o.ownerName ?? 'sem dono'}
+                    </div>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+                    {d != null ? `parada ${d}d` : '—'}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      )}
+
       {overdueTasks.length > 0 && (
-        <section className="bg-white border border-slate-200 rounded-lg p-6 mb-6">
-          <h2 className="text-sm font-semibold text-slate-900 mb-4">
+        <Card className="mb-6 p-6">
+          <h2 className="mb-4 text-sm font-semibold text-slate-900">
             {overdueTasks.length} tarefa{overdueTasks.length === 1 ? '' : 's'} atrasada{overdueTasks.length === 1 ? '' : 's'}
           </h2>
-          <ul className="divide-y divide-slate-100">
-            {overdueTasks.slice(0, 10).map((t) => (
-              <li key={t.id} className="py-2 flex items-center justify-between text-sm">
-                <Link
-                  href={`/opportunities/${t.opportunityId}`}
-                  className="text-slate-900 hover:text-[var(--i10-navy)] truncate"
+          <ul className="space-y-2">
+            {overdueTasks.slice(0, 10).map((t) => {
+              const d = daysAgo(t.dueAt);
+              return (
+                <li
+                  key={t.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/50 px-3 py-2.5 text-sm"
                 >
-                  {t.title}
-                </Link>
-                <span className="text-xs text-rose-700">
-                  {new Date(t.dueAt).toLocaleDateString('pt-BR')}
-                </span>
-              </li>
-            ))}
+                  <div className="min-w-0">
+                    <Link
+                      href={`/opportunities/${t.opportunityId}`}
+                      className="truncate font-medium text-slate-900 hover:text-[var(--i10-navy)]"
+                    >
+                      {t.title}
+                    </Link>
+                    <div className="text-xs text-slate-500">
+                      {t.assigneeName ?? 'sem responsável'}
+                    </div>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-700">
+                    {d != null ? `venceu há ${d}d` : new Date(t.dueAt).toLocaleDateString('pt-BR')}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
-        </section>
+        </Card>
       )}
     </div>
   );
