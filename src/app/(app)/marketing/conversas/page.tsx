@@ -230,7 +230,7 @@ export default async function ConversasPage({
                     )}
                     {m.body && <div>{m.body}</div>}
                     <div className="mt-1 text-right text-[10px] text-slate-400">
-                      {m.createdAt ? new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}
+                      {m.createdAt ? new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }) : ''}
                       {m.direction === 'outbound' && <MessageTicks status={m.status} />}
                     </div>
                   </div>
