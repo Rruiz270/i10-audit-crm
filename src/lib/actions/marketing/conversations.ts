@@ -369,19 +369,34 @@ export async function sendMediaUrlReply(
     };
   }
 
+  // O WhatsApp recusa mídia > 16MB (erro 63019). Para arquivos grandes,
+  // enviamos como LINK de download (URL pública do Blob) em vez de anexo
+  // nativo — assim qualquer tamanho chega (o destinatário clica e baixa).
+  const WA_MEDIA_MAX = 16 * 1024 * 1024;
+  let asLink = false;
+  try {
+    const head = await fetch(mediaUrl, { method: 'HEAD' });
+    if (Number(head.headers.get('content-length') ?? '0') > WA_MEDIA_MAX) asLink = true;
+  } catch {
+    /* sem content-length → tenta como mídia mesmo */
+  }
+
   const provider = getWhatsAppProvider();
-  const result = await provider.send({
-    fromNumber: process.env.TWILIO_WHATSAPP_FROM ?? 'whatsapp:+14155238886',
-    toNumber: conv.waPhone,
-    mediaUrl,
-  });
+  const fromNumber = process.env.TWILIO_WHATSAPP_FROM ?? 'whatsapp:+14155238886';
+  const result = asLink
+    ? await provider.send({
+        fromNumber,
+        toNumber: conv.waPhone,
+        body: `${filename}\n${mediaUrl}`,
+      })
+    : await provider.send({ fromNumber, toNumber: conv.waPhone, mediaUrl });
 
   await db.insert(messages).values({
     conversationId,
     twilioSid: result.ok ? result.providerId : null,
     direction: 'outbound',
     authorUserId: user.id,
-    body: `[arquivo] ${filename}`,
+    body: asLink ? `[arquivo] ${filename} (link)` : `[arquivo] ${filename}`,
     mediaUrls: [{ url: mediaUrl, contentType, filename }],
     status: result.ok ? 'sent' : 'failed',
   });
