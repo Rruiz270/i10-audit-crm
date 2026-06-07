@@ -47,10 +47,10 @@ function runFfmpeg(args: string[]): Promise<{ code: number; stderr: string }> {
  * reencoda com libopus. Nunca lança por falha de conversão — devolve
  * {ok:false,error} pra que o chamador trate como erro de negócio.
  */
-export async function transcodeToOggOpus(input: Buffer): Promise<TranscodeResult> {
+export async function transcodeToMp3(input: Buffer): Promise<TranscodeResult> {
   const id = randomUUID();
   const inPath = join(tmpdir(), `voice-${id}.in`);
-  const outPath = join(tmpdir(), `voice-${id}.ogg`);
+  const outPath = join(tmpdir(), `voice-${id}.mp3`);
 
   const cleanup = async () => {
     await Promise.allSettled([unlink(inPath), unlink(outPath)]);
@@ -59,21 +59,21 @@ export async function transcodeToOggOpus(input: Buffer): Promise<TranscodeResult
   try {
     await writeFile(inPath, input);
 
-    // Re-encode com libopus → ogg/opus LIMPO (OpusHead/OpusTags corretos,
-    // granule positions próprias). Não usamos remux (-c:a copy): ele é aceito
-    // no envio (✓✓) mas o player do WhatsApp marca "no longer available" ao
-    // tocar, porque o framing herdado do webm não é um ogg/opus canônico.
-    // Voz: 48 kHz, mono, 32 kbps, perfil voip (padrão de nota de voz).
+    // Converte para MP3 (mono, 64 kbps). Testamos ogg/opus (nota de voz nativa)
+    // mas o WhatsApp neste número entrega mas NÃO toca o ogg ("no longer
+    // available") — provável quirk de mídia do caminho Twilio→Meta deste WABA.
+    // MP3 toca de forma confiável (validado: o mp3 demo tocou). Trade-off: vira
+    // arquivo de áudio com play, não o bubble swipável de nota de voz.
     const enc = await runFfmpeg([
       '-hide_banner', '-loglevel', 'error', '-y',
       '-i', inPath,
       '-vn', '-map', '0:a:0',
-      '-c:a', 'libopus', '-b:a', '32k', '-ar', '48000', '-ac', '1', '-application', 'voip',
-      '-f', 'ogg',
+      '-c:a', 'libmp3lame', '-b:a', '64k', '-ac', '1',
+      '-f', 'mp3',
       outPath,
     ]);
     if (enc.code !== 0) {
-      return { ok: false, error: `ffmpeg falhou ao re-encodar: ${enc.stderr.trim()}` };
+      return { ok: false, error: `ffmpeg falhou ao converter p/ mp3: ${enc.stderr.trim()}` };
     }
 
     const data = await readFile(outPath);

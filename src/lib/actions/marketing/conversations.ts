@@ -17,7 +17,7 @@ import { requireUser, type SessionUser } from '@/lib/session';
 import { isAdmin } from '@/lib/roles';
 import { getWhatsAppProvider } from '@/lib/marketing/providers';
 import { getTemplateApproval } from '@/lib/marketing/whatsapp-health';
-import { transcodeToOggOpus } from '@/lib/marketing/transcode-audio';
+import { transcodeToMp3 } from '@/lib/marketing/transcode-audio';
 
 export type ConversationRow = typeof conversations.$inferSelect;
 
@@ -244,18 +244,18 @@ export async function sendAudioReply(
   // não suportado). O WhatsApp só aceita ogg(opus)/aac/amr/mp3/mp4 — e só ogg
   // vira nota de voz nativa. Inbound já chega como ogg e toca normalmente.
   const inputBytes = Buffer.from(await audio.arrayBuffer());
-  const transcoded = await transcodeToOggOpus(inputBytes);
+  const transcoded = await transcodeToMp3(inputBytes);
   if (!transcoded.ok) {
     return { ok: false as const, error: 'Falha ao converter áudio.' };
   }
 
   // Upload pro Vercel Blob (público) → URL fetchável pelo Twilio. Sempre ogg.
-  const contentType = 'audio/ogg';
+  const contentType = 'audio/mpeg';
   let blobUrl: string;
   try {
     const { put } = await import('@vercel/blob');
     const blob = await put(
-      `marketing/voice/${conversationId}-${Date.now()}.ogg`,
+      `marketing/voice/${conversationId}-${Date.now()}.mp3`,
       transcoded.data,
       { access: 'public', contentType, addRandomSuffix: true },
     );
