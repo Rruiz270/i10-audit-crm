@@ -23,6 +23,7 @@ import {
   LOST_REASONS_BY_CODE,
   type LostReasonCode,
 } from '@/lib/lost-reasons';
+import { autoTagOpportunity } from '@/lib/actions/tags';
 
 const createSchema = z.object({
   municipalityId: z.coerce.number().int().positive().optional(),
@@ -114,6 +115,9 @@ export async function createOpportunity(formData: FormData): Promise<void> {
     subject: 'Oportunidade criada',
     actorId: user.id,
   });
+
+  // Auto-tag por origem (resiliente — não quebra a criação).
+  await autoTagOpportunity(created.id, ['Manual FUNDEB'], { actorId: user.id });
 
   revalidatePath('/opportunities');
   revalidatePath('/pipeline');

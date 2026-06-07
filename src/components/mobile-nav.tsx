@@ -28,6 +28,7 @@ const ADMIN_NAV = [
   { href: '/admin/team', label: 'Time & permissões', icon: '👥' },
   { href: '/admin/health', label: 'Saúde operacional', icon: '🩺' },
   { href: '/settings/stages', label: 'Estágios', icon: '🔁' },
+  { href: '/settings/tags', label: 'Tags', icon: '🏷️' },
 ];
 
 /**

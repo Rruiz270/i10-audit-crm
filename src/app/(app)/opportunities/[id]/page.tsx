@@ -15,6 +15,7 @@ import { HandoffButton } from '@/components/handoff-button';
 import { MeetingForm } from '@/components/meeting-form';
 import { TasksPanel } from '@/components/tasks-panel';
 import { TagEditor } from '@/components/tag-editor';
+import { listTags } from '@/lib/actions/tags';
 import { setPrimaryContact, deleteContact } from '@/lib/actions/contacts';
 import { STAGES_BY_KEY, type StageKey } from '@/lib/pipeline';
 import { isRotten, daysUntilRot } from '@/lib/forecast';
@@ -144,11 +145,12 @@ export default async function OpportunityDetailPage({
   const op = await getOpportunity(opId);
   if (!op) notFound();
 
-  const [municipalities, opTasks, teamUsers, consultoria] = await Promise.all([
+  const [municipalities, opTasks, teamUsers, consultoria, taxonomy] = await Promise.all([
     allMunicipalities(),
     listTasksForOpportunity(opId),
     listUsersForAssignment(),
     getConsultoriaFor(opId),
+    listTags({ activeOnly: true }),
   ]);
   const bnccSignals = consultoria?.consultoriaId
     ? await getConsultoriaSignals(
@@ -535,7 +537,11 @@ export default async function OpportunityDetailPage({
             <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">
               Tags
             </h3>
-            <TagEditor opportunityId={op.id} initialTags={(op.tags as string[] | null) ?? []} />
+            <TagEditor
+              opportunityId={op.id}
+              initialTags={(op.tags as string[] | null) ?? []}
+              taxonomy={taxonomy.map((t) => ({ label: t.label, category: t.category, color: t.color }))}
+            />
           </section>
           <section className="bg-white border border-slate-200 rounded-lg p-5 text-xs">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">

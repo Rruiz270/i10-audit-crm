@@ -4,6 +4,7 @@ import { getMyPreferences } from '@/lib/actions/me';
 import { Button } from '@/components/ui/button';
 import { OpportunitiesTable } from '@/components/opportunities-table';
 import { requireUser } from '@/lib/session';
+import { getTagStyleMap } from '@/lib/actions/tags';
 import type { StageKey } from '@/lib/pipeline';
 
 export const dynamic = 'force-dynamic';
@@ -27,7 +28,7 @@ export default async function OpportunitiesPage({
     stage: params.stage as StageKey | undefined,
     ownerId: mine ? user.id : undefined,
   });
-  const users = await listUsersForAssignment();
+  const [users, tagStyles] = await Promise.all([listUsersForAssignment(), getTagStyleMap()]);
 
   const canBulk = ['admin', 'gestor'].includes(user.role);
   const filteredCount = params.tag
@@ -88,7 +89,7 @@ export default async function OpportunitiesPage({
         </div>
       </header>
 
-      <OpportunitiesTable rows={rows} users={users} canBulk={canBulk} isAdmin={user.role === 'admin'} tagFilter={params.tag} />
+      <OpportunitiesTable rows={rows} users={users} canBulk={canBulk} isAdmin={user.role === 'admin'} tagFilter={params.tag} tagStyles={tagStyles} />
     </div>
   );
 }

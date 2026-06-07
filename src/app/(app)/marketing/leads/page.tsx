@@ -4,11 +4,11 @@ import { isAdmin } from '@/lib/roles';
 import { requireUser } from '@/lib/session';
 import {
   getLeadsHubData,
-  createAudienceFromFilter,
   listProjectsForLeads,
 } from '@/lib/actions/marketing/leads';
 import type { Facet, LeadFilters } from '@/lib/actions/marketing/leads-types';
 import { Icon } from '@/components/marketing-hub';
+import { CreateAudiencePopover } from '@/components/marketing/create-audience-popover';
 
 export const dynamic = 'force-dynamic';
 
@@ -224,64 +224,11 @@ export default async function LeadsHubPage({
             <div className="text-sm text-slate-500">
               {total.toLocaleString('pt-BR')} contato{total === 1 ? '' : 's'} no recorte atual
             </div>
-            <details className="group relative">
-              <summary className="cursor-pointer list-none rounded-md bg-i10-700 px-4 py-2 text-sm font-medium text-white hover:bg-i10-800">
-                Criar audiência com este filtro
-              </summary>
-              <div className="absolute right-0 z-10 mt-2 w-96 rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
-                {projectsList.length === 0 ? (
-                  <p className="text-sm text-slate-500">
-                    Crie um projeto em Marketing antes de gerar audiências.
-                  </p>
-                ) : (
-                  <form action={createAudienceFromFilter} className="space-y-3">
-                    <input type="hidden" name="q" value={filterSnapshot.q} />
-                    <input type="hidden" name="source" value={filterSnapshot.source} />
-                    <input type="hidden" name="uf" value={filterSnapshot.uf} />
-                    <input type="hidden" name="role" value={filterSnapshot.role} />
-                    <input type="hidden" name="status" value={filterSnapshot.status} />
-                    <input type="hidden" name="audienceId" value={filterSnapshot.audienceId} />
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-slate-600">
-                        Nome da audiência <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        name="name"
-                        required
-                        placeholder="Segmento PB · prefeitos"
-                        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-slate-600">
-                        Projeto <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        name="projectId"
-                        required
-                        className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                      >
-                        {projectsList.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <p className="text-xs text-slate-500">
-                      Inclui todos os {total.toLocaleString('pt-BR')} contatos do filtro (não só a
-                      página). Você cai no wizard de campanha com ela pré-selecionada.
-                    </p>
-                    <button
-                      type="submit"
-                      className="rounded-md bg-i10-700 px-4 py-2 text-sm font-medium text-white hover:bg-i10-800"
-                    >
-                      Criar e ir para campanha
-                    </button>
-                  </form>
-                )}
-              </div>
-            </details>
+            <CreateAudiencePopover
+              projectsList={projectsList}
+              filterSnapshot={filterSnapshot}
+              total={total}
+            />
           </div>
 
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/input';
 import { bulkReassign, deleteOpportunityById, bulkDeleteOpportunities } from '@/lib/actions/opportunities';
 import { isRotten } from '@/lib/forecast';
+import { tagChipStyle } from '@/lib/tag-colors';
 import type { StageKey } from '@/lib/pipeline';
 
 type Row = {
@@ -41,12 +42,14 @@ export function OpportunitiesTable({
   canBulk,
   isAdmin,
   tagFilter,
+  tagStyles,
 }: {
   rows: Row[];
   users: User[];
   canBulk: boolean;
   isAdmin: boolean;
   tagFilter?: string;
+  tagStyles?: Record<string, { color: string; category: string }>;
 }) {
   const router = useRouter();
   const [selected, setSelected] = React.useState<Set<number>>(new Set());
@@ -214,7 +217,11 @@ export function OpportunitiesTable({
                     {(r.tags?.length ?? 0) > 0 ? (
                       <div className="flex flex-wrap gap-1 max-w-xs">
                         {r.tags!.slice(0, 3).map((t) => (
-                          <span key={t} className="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
+                          <span
+                            key={t}
+                            className="text-[11px] px-1.5 py-0.5 rounded font-medium"
+                            style={tagChipStyle(tagStyles?.[t]?.color)}
+                          >
                             {t}
                           </span>
                         ))}
