@@ -1,11 +1,32 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
+import { Paperclip } from 'lucide-react';
 import {
   sendConversationReply,
   sendTemplateReply,
   sendAudioReply,
+  sendMediaReply,
 } from '@/lib/actions/marketing/conversations';
+
+// Tipos aceitos no <input accept> + drag-drop. Espelha MEDIA_ALLOWED_TYPES no
+// server (a validação real é server-side; isto é só UX).
+const FILE_ACCEPT = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain',
+  'text/csv',
+  'video/mp4',
+].join(',');
 
 // Escolhe o melhor mimeType de gravação suportado. WhatsApp só renderiza bolha
 // nativa de voice note pra audio/ogg;codecs=opus — preferimos ogg quando o
@@ -116,6 +137,35 @@ export function InboxComposer({
   const popoversRef = useRef<HTMLDivElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+  // Contador de dragenter/leave: drags sobre filhos disparam leave do pai senão.
+  const dragDepth = useRef(0);
+
+  // Envia um arquivo (paperclip ou drag-drop) via sendMediaReply.
+  function uploadAndSendFile(file: File) {
+    if (isPending) return;
+    if (!file || file.size === 0) {
+      setError('Arquivo vazio.');
+      return;
+    }
+    if (windowExpired) {
+      setError('Janela de 24h expirada — fora dela só template.');
+      return;
+    }
+    setError(null);
+    const fd = new FormData();
+    fd.set('conversationId', String(conversationId));
+    fd.set('file', file);
+    startTransition(async () => {
+      try {
+        const r = await sendMediaReply(fd);
+        if (r && !r.ok) setError(r.error);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Falha ao enviar arquivo.');
+      }
+    });
+  }
 
   // Encerra qualquer gravação em andamento ao desmontar.
   useEffect(() => {
@@ -349,7 +399,51 @@ export function InboxComposer({
 
   // ── Dentro da janela: freeform + emoji + respostas rápidas ──
   return (
-    <div className="relative border-t border-slate-200 bg-white p-3">
+    <div
+      className="relative border-t border-slate-200 bg-white p-3"
+      onDragEnter={(e) => {
+        if (!e.dataTransfer?.types?.includes('Files')) return;
+        e.preventDefault();
+        dragDepth.current += 1;
+        setDragging(true);
+      }}
+      onDragOver={(e) => {
+        // Necessário p/ habilitar o drop e evitar o browser abrir o arquivo (bug).
+        if (e.dataTransfer?.types?.includes('Files')) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+        }
+      }}
+      onDragLeave={(e) => {
+        if (!e.dataTransfer?.types?.includes('Files')) return;
+        dragDepth.current = Math.max(0, dragDepth.current - 1);
+        if (dragDepth.current === 0) setDragging(false);
+      }}
+      onDrop={(e) => {
+        if (!e.dataTransfer?.types?.includes('Files')) return;
+        e.preventDefault();
+        dragDepth.current = 0;
+        setDragging(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file) uploadAndSendFile(file);
+      }}
+    >
+      {dragging && (
+        <div className="absolute inset-0 z-20 m-2 flex items-center justify-center rounded-xl border-2 border-dashed border-cyan-400 bg-cyan-50/90 text-sm font-semibold text-cyan-800">
+          Solte o arquivo para enviar
+        </div>
+      )}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={FILE_ACCEPT}
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) uploadAndSendFile(file);
+          e.target.value = ''; // permite reenviar o mesmo arquivo
+        }}
+      />
       {error && <div className="mb-2 text-xs font-medium text-rose-600">{error}</div>}
 
       <textarea
@@ -482,6 +576,18 @@ export function InboxComposer({
               </div>
             )}
           </div>
+
+          {/* Anexar arquivo (paperclip → input file oculto) */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isPending}
+            title="Anexar arquivo"
+            aria-label="Anexar arquivo"
+            className="rounded-md border border-slate-300 px-2.5 py-1.5 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Paperclip className="h-4 w-4" aria-hidden="true" />
+          </button>
 
           {/* Nota de voz (MediaRecorder) */}
           {recording ? (

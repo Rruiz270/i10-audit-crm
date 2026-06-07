@@ -17,7 +17,7 @@ import { getConversation } from '@/lib/actions/marketing/conversations';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-type MediaItem = { url: string; contentType: string | null } | string;
+type MediaItem = { url: string; contentType: string | null; filename?: string | null } | string;
 
 export async function GET(
   request: NextRequest,
@@ -110,7 +110,25 @@ export async function GET(
     'audio/ogg', 'audio/opus', 'application/ogg', 'audio/webm', 'audio/mpeg',
     'audio/mp4', 'audio/aac', 'audio/wav', 'audio/x-wav', 'audio/3gpp',
     'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'application/pdf',
+    // documentos office / texto (servidos como attachment/download, nunca inline)
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/plain', 'text/csv',
   ]);
+
+  // Tipos servidos INLINE no browser (imagem/áudio/vídeo/pdf). O resto (docs
+  // office, csv, txt) é forçado a download mesmo estando na allowlist — evita
+  // que o navegador renderize/execute conteúdo na nossa origem.
+  const INLINE = (ct: string) =>
+    ct.startsWith('image/') ||
+    ct.startsWith('audio/') ||
+    ct.startsWith('video/') ||
+    ct === 'application/ogg' ||
+    ct === 'application/pdf';
   const rawCt = (
     upstream.headers.get('content-type') ||
     (typeof item === 'object' ? item.contentType : null) ||
@@ -120,12 +138,21 @@ export async function GET(
     .trim()
     .toLowerCase();
   const allowed = ALLOWED.has(rawCt);
+  const inline = allowed && INLINE(rawCt);
+
+  // Nome de download (de mediaUrls[idx].filename), sanitizado p/ caber no header
+  // sem quebrar (sem aspas / quebras de linha / path).
+  const rawName = typeof item === 'object' && item.filename ? item.filename : 'arquivo';
+  const safeName = rawName.replace(/[^\w.\-]+/g, '_').slice(0, 120) || 'arquivo';
+  const disposition = inline
+    ? 'inline'
+    : `attachment; filename="${safeName}"`;
 
   return new Response(upstream.body, {
     status: 200,
     headers: {
       'Content-Type': allowed ? rawCt : 'application/octet-stream',
-      'Content-Disposition': allowed ? 'inline' : 'attachment; filename="media"',
+      'Content-Disposition': disposition,
       'X-Content-Type-Options': 'nosniff',
       'Content-Security-Policy': "default-src 'none'; sandbox",
       'Cache-Control': 'private, max-age=3600',
