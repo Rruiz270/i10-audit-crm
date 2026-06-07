@@ -43,14 +43,41 @@ function parseCard(payload: unknown): {
     }
     return null;
   };
-  const name = pick('name', 'nome', 'contact_name', 'responsavel') ?? '(sem nome)';
-  const municipio = pick('municipio', 'município', 'cidade', 'municipality', 'city');
+  // Alguns formulários (ex: APM) aninham o lead em contacts[0] e usam
+  // municipalityName — não as chaves de topo. Olhamos os dois lugares.
+  const firstContact =
+    Array.isArray(obj.contacts) && obj.contacts[0] && typeof obj.contacts[0] === 'object'
+      ? (obj.contacts[0] as Record<string, unknown>)
+      : null;
+  const fromContact = (...keys: string[]) => {
+    for (const k of keys) {
+      const v = firstContact?.[k];
+      if (typeof v === 'string' && v.trim()) return v.trim();
+    }
+    return null;
+  };
+
+  const name =
+    pick('name', 'nome', 'contact_name', 'responsavel') ?? fromContact('name', 'nome') ?? '(sem nome)';
+  const municipio = pick('municipio', 'município', 'cidade', 'municipality', 'municipalityName', 'city');
   const uf = pick('uf', 'estado', 'state');
   const local = municipio ? `${municipio}${uf ? `/${uf}` : ''}` : uf;
-  const role = pick('role', 'cargo', 'funcao', 'função');
-  const entries = Object.entries(obj)
-    .filter(([, v]) => v != null && String(v).trim() !== '')
-    .map(([k, v]) => [k, String(v)] as [string, string]);
+  const role = pick('role', 'cargo', 'funcao', 'função') ?? fromContact('role', 'cargo');
+
+  // "Ver dados": achata o primeiro contato e ignora objetos crus (evita
+  // "[object Object]" pra arrays/objetos como `contacts`).
+  const entries: [string, string][] = [];
+  for (const [k, v] of Object.entries(obj)) {
+    if (v == null || (typeof v === 'string' && !v.trim())) continue;
+    if (k === 'contacts' && firstContact) {
+      for (const [ck, cv] of Object.entries(firstContact)) {
+        if (cv != null && String(cv).trim()) entries.push([`contato · ${ck}`, String(cv)]);
+      }
+      continue;
+    }
+    if (typeof v === 'object') continue;
+    entries.push([k, String(v)]);
+  }
   return { name, local, role, entries };
 }
 
