@@ -7,6 +7,7 @@ import {
   listProjectsForLeads,
 } from '@/lib/actions/marketing/leads';
 import type { Facet, LeadFilters } from '@/lib/actions/marketing/leads-types';
+import { startConversationWithContact } from '@/lib/actions/marketing/inbox-contacts';
 import { Icon } from '@/components/marketing-hub';
 import { CreateAudiencePopover } from '@/components/marketing/create-audience-popover';
 
@@ -269,9 +270,22 @@ export default async function LeadsHubPage({
                         <span className={r.phone ? 'text-slate-600' : ''} title="Telefone">
                           <Icon name="phone" size={15} />
                         </span>
-                        <span className={r.whatsapp ? 'text-emerald-600' : ''} title="WhatsApp">
-                          <Icon name="msg" size={15} />
-                        </span>
+                        {r.whatsapp || r.phone ? (
+                          <form action={startConversationWithContact} className="inline-flex">
+                            <input type="hidden" name="contactId" value={r.id} />
+                            <button
+                              type="submit"
+                              className="text-emerald-600 hover:text-emerald-700"
+                              title="Iniciar conversa no inbox"
+                            >
+                              <Icon name="msg" size={15} />
+                            </button>
+                          </form>
+                        ) : (
+                          <span title="Sem WhatsApp/telefone">
+                            <Icon name="msg" size={15} />
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3">

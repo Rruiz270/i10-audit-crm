@@ -52,30 +52,82 @@ export async function GET(
   const mediaUrl = typeof item === 'string' ? item : item.url;
   if (!mediaUrl) return new Response('not found', { status: 404 });
 
-  // Twilio media → Basic auth. Outras URLs (Vercel Blob público) → sem auth.
-  const isTwilio = /\.twilio\.com\//i.test(mediaUrl);
-  const headers: Record<string, string> = {};
-  if (isTwilio) {
+  // Allowlist EXATA de host (match por hostname, não substring) — evita bypass
+  // tipo "https://evil.com/.twilio.com/" e SSRF. Só duas famílias: mídia do
+  // Twilio (precisa de auth) e Vercel Blob (público, sem auth).
+  const isTwilioHost = (h: string) => h.endsWith('.twilio.com') || h.endsWith('.twiliocdn.com');
+  const isBlobHost = (h: string) => h.endsWith('.blob.vercel-storage.com');
+  const allowedHost = (h: string) => isTwilioHost(h) || isBlobHost(h);
+
+  let parsed: URL;
+  try {
+    parsed = new URL(mediaUrl);
+  } catch {
+    return new Response('bad media url', { status: 400 });
+  }
+  if (parsed.protocol !== 'https:' || !allowedHost(parsed.hostname.toLowerCase())) {
+    return new Response('media host not allowed', { status: 400 });
+  }
+
+  // Credencial Twilio SÓ para host Twilio; nunca é repassada num redirect.
+  let auth: string | undefined;
+  if (isTwilioHost(parsed.hostname.toLowerCase())) {
     const sid = process.env.TWILIO_ACCOUNT_SID;
     const token = process.env.TWILIO_AUTH_TOKEN;
     if (!sid || !token) return new Response('twilio creds missing', { status: 503 });
-    headers.Authorization = `Basic ${Buffer.from(`${sid}:${token}`).toString('base64')}`;
+    auth = `Basic ${Buffer.from(`${sid}:${token}`).toString('base64')}`;
   }
 
-  const upstream = await fetch(mediaUrl, { headers, redirect: 'follow' });
-  if (!upstream.ok || !upstream.body) {
+  // Redirect manual: a Media URL do Twilio redireciona pro CDN assinado.
+  // Só seguimos pra host permitido e SEM levar credencial adiante.
+  let url = parsed.toString();
+  let upstream: Response | null = null;
+  for (let hop = 0; hop < 4; hop++) {
+    const reqHeaders: Record<string, string> = {};
+    if (auth) reqHeaders.Authorization = auth;
+    const res = await fetch(url, { headers: reqHeaders, redirect: 'manual' });
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get('location');
+      if (!loc) return new Response('bad redirect', { status: 502 });
+      const next = new URL(loc, url);
+      if (next.protocol !== 'https:' || !allowedHost(next.hostname.toLowerCase())) {
+        return new Response('redirect host not allowed', { status: 502 });
+      }
+      url = next.toString();
+      auth = undefined; // CDN assinado não precisa de credencial — nunca vaza
+      continue;
+    }
+    upstream = res;
+    break;
+  }
+  if (!upstream || !upstream.ok || !upstream.body) {
     return new Response('upstream error', { status: 502 });
   }
 
-  const contentType =
+  // Content-Type forçado por allowlist (evita XSS armazenado na nossa origem):
+  // tipos perigosos (text/html, svg, js) viram octet-stream + attachment.
+  const ALLOWED = new Set([
+    'audio/ogg', 'audio/opus', 'application/ogg', 'audio/webm', 'audio/mpeg',
+    'audio/mp4', 'audio/aac', 'audio/wav', 'audio/x-wav', 'audio/3gpp',
+    'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'application/pdf',
+  ]);
+  const rawCt = (
     upstream.headers.get('content-type') ||
     (typeof item === 'object' ? item.contentType : null) ||
-    'application/octet-stream';
+    ''
+  )
+    .split(';')[0]
+    .trim()
+    .toLowerCase();
+  const allowed = ALLOWED.has(rawCt);
 
   return new Response(upstream.body, {
     status: 200,
     headers: {
-      'Content-Type': contentType,
+      'Content-Type': allowed ? rawCt : 'application/octet-stream',
+      'Content-Disposition': allowed ? 'inline' : 'attachment; filename="media"',
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'none'; sandbox",
       'Cache-Control': 'private, max-age=3600',
       'Accept-Ranges': 'bytes',
     },

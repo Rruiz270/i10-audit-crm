@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Icon } from '@/components/ui/icon';
+import { startConversationWithContact } from '@/lib/actions/marketing/inbox-contacts';
 import { KpiTile } from '@/components/ui/kpi-tile';
 import { Chip } from '@/components/ui/chip';
 import { FacetGroup } from '@/components/ui/facet-group';
@@ -217,15 +218,16 @@ export default async function ContactsPage({
                             </span>
                           )}
                           {wa ? (
-                            <a
-                              href={`https://wa.me/${wa}`}
-                              target="_blank"
-                              rel="noopener"
-                              className="text-emerald-600 hover:text-emerald-700"
-                              title="WhatsApp"
-                            >
-                              <Icon name="msg" size={16} />
-                            </a>
+                            <form action={startConversationWithContact} className="inline-flex">
+                              <input type="hidden" name="contactId" value={c.id} />
+                              <button
+                                type="submit"
+                                className="text-emerald-600 hover:text-emerald-700"
+                                title="Iniciar conversa no inbox"
+                              >
+                                <Icon name="msg" size={16} />
+                              </button>
+                            </form>
                           ) : (
                             <span title="Sem WhatsApp">
                               <Icon name="msg" size={16} />
