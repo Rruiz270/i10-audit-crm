@@ -38,6 +38,9 @@ export type WhatsAppSendInput = {
   templateName?: string;
   templateLanguage?: string;
   templateVariables?: Record<string, string>; // { "1": "valor", "2": ... }
+  // Modo 3: mídia (ex: voice note). URL PÚBLICA fetchável pelo Twilio
+  // (ex: Vercel Blob). Combinável com body (legenda) — ou sozinha.
+  mediaUrl?: string;
   // Tag interna pra correlação com webhook
   tag?: string;
 };

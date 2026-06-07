@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { sql, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { webhookLog, sends, events, campaigns } from '@/lib/schema-marketing';
+import { webhookLog, sends, events, campaigns, messages } from '@/lib/schema-marketing';
 import { addSuppression } from '@/lib/marketing/suppression';
 import { handleInboundWhatsApp } from '@/lib/marketing/inbound';
 
@@ -100,6 +100,21 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // ── Status de mensagem do INBOX (Conversas) ────────────────────────────
+    // Independente de campanha: callbacks de delivery/read das respostas do
+    // inbox (sendConversationReply/sendTemplateReply/sendAudioReply) atualizam
+    // marketing.messages pelo twilioSid → status (sent/delivered/read/failed).
+    // Read receipts no thread (✓ / ✓✓ / ✓✓ azul) leem messages.status.
+    let inboxMessageUpdated = false;
+    if (messageStatus) {
+      const updatedMsg = await db
+        .update(messages)
+        .set({ status: messageStatus })
+        .where(eq(messages.twilioSid, messageSid))
+        .returning({ id: messages.id });
+      inboxMessageUpdated = updatedMsg.length > 0;
+    }
+
     // Resolver send pelo providerId (MessageSid foi salvo lá)
     const sendRows = await db
       .select({
@@ -113,6 +128,17 @@ export async function POST(request: NextRequest) {
       .limit(1);
 
     if (sendRows.length === 0) {
+      // Se o callback era de uma mensagem do INBOX (não de campanha), já
+      // atualizamos messages acima — está tudo certo, devolve ok e não pede
+      // retry (não existe send pra esse SID e nunca vai existir).
+      if (inboxMessageUpdated) {
+        await db
+          .update(webhookLog)
+          .set({ status: 'processed', processedAt: new Date() })
+          .where(eq(webhookLog.id, logEntry.id));
+        return Response.json({ ok: true, inboxMessage: true, messageStatus });
+      }
+
       // Webhook chegou ANTES do send.providerId ser persistido (race condition).
       // Retornamos 503 (não 200) DE PROPÓSITO: assim o Twilio re-tenta o callback
       // naturalmente até o send existir. Retornar ok:true faria o Twilio parar de
