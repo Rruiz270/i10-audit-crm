@@ -4,6 +4,9 @@ import { requireUser } from '@/lib/session';
 import { getWhatsAppConfig } from '@/lib/marketing/whatsapp-health';
 import { InboxAutoRefresh } from '@/components/inbox-auto-refresh';
 import { InboxComposer } from '@/components/inbox-composer';
+import { InboxContactHeader } from '@/components/inbox-contact-header';
+import { isAdmin } from '@/lib/roles';
+import { getInboxContact, type InboxContactDetail } from '@/lib/actions/marketing/inbox-contacts';
 import {
   listConversations,
   getConversation,
@@ -38,6 +41,7 @@ export default async function ConversasPage({
   // se tiver ≥1 fila por projeto. Quem não tem acesso algum cai pra raiz.
   if (!(await hasConversationAccess())) redirect('/');
   const wa = getWhatsAppConfig();
+  const admin = isAdmin(user.role);
 
   const { c } = await searchParams;
   const convs = await listConversations();
@@ -53,6 +57,11 @@ export default async function ConversasPage({
           <Link href="/marketing" className="text-cyan-700 hover:underline">Marketing</Link> › Conversas
         </div>
         <h1 className="text-2xl font-bold" style={{ color: 'var(--i10-navy)' }}>Conversas WhatsApp</h1>
+        {admin && (
+          <div className="mt-4 max-w-sm">
+            <InboxContactHeader />
+          </div>
+        )}
         <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6">
           <div className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
             Inbox ativo · aguardando mensagens
@@ -82,6 +91,10 @@ export default async function ConversasPage({
       ])
     : [[], { opportunity: null, campaignName: null, projectName: null }, []];
 
+  // Enriquecimento do painel: dados do contato de marketing vinculado.
+  const inboxContact: InboxContactDetail | null =
+    admin && conv?.contactId ? await getInboxContact(conv.contactId) : null;
+
   return (
     <div className="grid h-[calc(100vh-0px)] grid-cols-[300px_1fr_280px]">
       <InboxAutoRefresh />
@@ -90,6 +103,11 @@ export default async function ConversasPage({
         <div className="border-b border-slate-200 p-4">
           <div className="text-sm font-bold" style={{ color: 'var(--i10-navy)' }}>Conversas</div>
           <Link href="/marketing" className="text-xs text-cyan-700 hover:underline">← Hub</Link>
+          {admin && (
+            <div className="mt-3">
+              <InboxContactHeader />
+            </div>
+          )}
         </div>
         {convs.map((cv) => {
           const w = windowLabel(cv.windowExpiresAt);
@@ -169,8 +187,28 @@ export default async function ConversasPage({
         {conv && (
           <>
             <h4 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-slate-500">Contato</h4>
-            <div className="text-sm font-semibold text-slate-900">{conv.contactName ?? '—'}</div>
+            <div className="text-sm font-semibold text-slate-900">
+              {inboxContact?.name ?? conv.contactName ?? '—'}
+            </div>
             <div className="text-sm text-slate-600">{conv.waPhone}</div>
+            {inboxContact && (
+              <div className="mt-1.5 space-y-0.5 text-xs text-slate-500">
+                {(inboxContact.municipio || inboxContact.uf) && (
+                  <div>
+                    {inboxContact.municipio ?? '—'}
+                    {inboxContact.uf ? `/${inboxContact.uf}` : ''}
+                  </div>
+                )}
+                {inboxContact.source && (
+                  <div>
+                    Origem: <span className="font-medium text-slate-600">{inboxContact.source}</span>
+                  </div>
+                )}
+                <div className="inline-flex rounded-full bg-cyan-50 px-2 py-0.5 text-[10px] font-bold text-cyan-700">
+                  base unificada
+                </div>
+              </div>
+            )}
 
             <h4 className="mb-1 mt-4 text-[11px] font-bold uppercase tracking-wide text-slate-500">
               Oportunidade (CRM)
