@@ -59,32 +59,21 @@ export async function transcodeToOggOpus(input: Buffer): Promise<TranscodeResult
   try {
     await writeFile(inPath, input);
 
-    // 1) Remux lossless: opus(webm) → opus(ogg) sem re-encode.
-    const copy = await runFfmpeg([
+    // Re-encode com libopus → ogg/opus LIMPO (OpusHead/OpusTags corretos,
+    // granule positions próprias). Não usamos remux (-c:a copy): ele é aceito
+    // no envio (✓✓) mas o player do WhatsApp marca "no longer available" ao
+    // tocar, porque o framing herdado do webm não é um ogg/opus canônico.
+    // Voz: 48 kHz, mono, 32 kbps, perfil voip (padrão de nota de voz).
+    const enc = await runFfmpeg([
       '-hide_banner', '-loglevel', 'error', '-y',
       '-i', inPath,
       '-vn', '-map', '0:a:0',
-      '-c:a', 'copy',
+      '-c:a', 'libopus', '-b:a', '32k', '-ar', '48000', '-ac', '1', '-application', 'voip',
       '-f', 'ogg',
       outPath,
     ]);
-
-    if (copy.code !== 0) {
-      // 2) Fallback: re-encode com libopus (mono, 32 kbps — ótimo p/ voz).
-      const enc = await runFfmpeg([
-        '-hide_banner', '-loglevel', 'error', '-y',
-        '-i', inPath,
-        '-vn', '-map', '0:a:0',
-        '-c:a', 'libopus', '-b:a', '32k', '-ac', '1',
-        '-f', 'ogg',
-        outPath,
-      ]);
-      if (enc.code !== 0) {
-        return {
-          ok: false,
-          error: `ffmpeg falhou (copy: ${copy.stderr.trim()} | encode: ${enc.stderr.trim()})`,
-        };
-      }
+    if (enc.code !== 0) {
+      return { ok: false, error: `ffmpeg falhou ao re-encodar: ${enc.stderr.trim()}` };
     }
 
     const data = await readFile(outPath);
