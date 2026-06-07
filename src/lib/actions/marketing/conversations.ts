@@ -305,6 +305,142 @@ export async function sendAudioReply(
   return { ok: true as const };
 }
 
+// Tipos de arquivo aceitos pelo WhatsApp (Twilio) p/ envio como mídia. Mantido
+// alinhado com a allowlist do proxy de mídia e do <input accept> no composer.
+const MEDIA_ALLOWED_TYPES = new Set<string>([
+  // imagens
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  // documentos
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain',
+  'text/csv',
+  // vídeo
+  'video/mp4',
+]);
+
+const MEDIA_MAX_BYTES = 16 * 1024 * 1024; // 16MB — teto de mídia do WhatsApp.
+
+// Envia um arquivo (imagem/documento/vídeo) na conversa (dentro da janela 24h).
+// Mesmo fluxo do sendAudioReply: valida → Vercel Blob público → provider com
+// mediaUrl → insere mensagem outbound com mediaUrls (incl. filename). Erros de
+// negócio voltam {ok,error} (não throw). Mesmos guards de visibilidade/janela/
+// allowlist/Blob.
+export async function sendMediaReply(
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await requireUser();
+  const conversationId = Number(formData.get('conversationId'));
+  const file = formData.get('file');
+  if (!conversationId) throw new Error('conversationId obrigatório');
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false as const, error: 'Arquivo ausente ou vazio.' };
+  }
+
+  // Validação de tipo + tamanho ANTES de qualquer trabalho pesado.
+  if (!MEDIA_ALLOWED_TYPES.has(file.type)) {
+    return {
+      ok: false as const,
+      error: `Tipo de arquivo não suportado (${file.type || 'desconhecido'}).`,
+    };
+  }
+  if (file.size > MEDIA_MAX_BYTES) {
+    return {
+      ok: false as const,
+      error: 'Arquivo acima de 16MB (limite do WhatsApp).',
+    };
+  }
+
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    return {
+      ok: false as const,
+      error: 'Storage de mídia não configurado (BLOB_READ_WRITE_TOKEN).',
+    };
+  }
+
+  const conv = await loadVisibleConversation(user, conversationId);
+
+  // Trava da janela de 24h (mídia freeform também é bloqueada fora dela).
+  const expired = !conv.windowExpiresAt || new Date(conv.windowExpiresAt).getTime() < Date.now();
+  if (expired) {
+    return {
+      ok: false as const,
+      error: 'Janela de 24h expirada — fora dela só template.',
+    };
+  }
+
+  if (blockedByTestAllowlist(conv.waPhone)) {
+    return {
+      ok: false as const,
+      error: 'Modo de teste: número fora da allowlist (MARKETING_TEST_ALLOWLIST_PHONE).',
+    };
+  }
+
+  // Nome seguro p/ a key do Blob (sem path traversal / caracteres exóticos).
+  const safeName = (file.name || 'arquivo')
+    .replace(/[^\w.\-]+/g, '_')
+    .replace(/_{2,}/g, '_')
+    .slice(0, 120);
+
+  const bytes = Buffer.from(await file.arrayBuffer());
+  let blobUrl: string;
+  try {
+    const { put } = await import('@vercel/blob');
+    const blob = await put(
+      `marketing/files/${conversationId}-${Date.now()}-${safeName}`,
+      bytes,
+      { access: 'public', contentType: file.type, addRandomSuffix: true },
+    );
+    blobUrl = blob.url;
+  } catch (e) {
+    return {
+      ok: false as const,
+      error: `Falha ao armazenar arquivo: ${e instanceof Error ? e.message : String(e)}`,
+    };
+  }
+
+  const provider = getWhatsAppProvider();
+  const result = await provider.send({
+    fromNumber: process.env.TWILIO_WHATSAPP_FROM ?? 'whatsapp:+14155238886',
+    toNumber: conv.waPhone,
+    mediaUrl: blobUrl,
+  });
+
+  await db.insert(messages).values({
+    conversationId,
+    twilioSid: result.ok ? result.providerId : null,
+    direction: 'outbound',
+    authorUserId: user.id,
+    body: `[arquivo] ${file.name}`,
+    mediaUrls: [{ url: blobUrl, contentType: file.type, filename: file.name }],
+    status: result.ok ? 'sent' : 'failed',
+  });
+
+  await db
+    .update(conversations)
+    .set({
+      lastMessageAt: new Date(),
+      unread: false,
+      assignedTo: conv.assignedTo ?? user.id,
+      status: conv.status === 'closed' ? 'open' : conv.status,
+    })
+    .where(eq(conversations.id, conversationId));
+
+  revalidatePath('/marketing/conversas');
+  if (!result.ok) {
+    return { ok: false as const, error: `Falha no envio do arquivo: ${result.error}` };
+  }
+  return { ok: true as const };
+}
+
 export async function claimConversation(formData: FormData): Promise<void> {
   const user = await requireUser();
   const conversationId = Number(formData.get('conversationId'));

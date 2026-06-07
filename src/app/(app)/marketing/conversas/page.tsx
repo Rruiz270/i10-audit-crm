@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { FileText } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/session';
 import { getWhatsAppConfig } from '@/lib/marketing/whatsapp-health';
@@ -58,6 +59,26 @@ function audioFromMedia(mediaUrls: unknown): boolean {
     }
     return false;
   });
+}
+
+// Normaliza mediaUrls (jsonb legado string[] ou {url,contentType,filename}[])
+// numa lista tipada. Usada pra decidir como renderizar cada anexo no thread.
+type NormalizedMedia = { contentType: string; url: string; filename: string | null };
+function normalizeMedia(mediaUrls: unknown): NormalizedMedia[] {
+  if (!Array.isArray(mediaUrls)) return [];
+  return mediaUrls.map((m) => {
+    if (typeof m === 'string') return { contentType: '', url: m, filename: null };
+    if (m && typeof m === 'object') {
+      const o = m as { contentType?: string; url?: string; filename?: string };
+      return { contentType: o.contentType ?? '', url: o.url ?? '', filename: o.filename ?? null };
+    }
+    return { contentType: '', url: '', filename: null };
+  });
+}
+
+const IMG_EXT = /\.(jpe?g|png|webp|gif)(\?|$)/i;
+function isImageMedia(m: NormalizedMedia): boolean {
+  return m.contentType.startsWith('image/') || IMG_EXT.test(m.url);
 }
 
 function windowLabel(expiresAt: Date | null): { text: string; tone: string; expired: boolean } {
@@ -211,6 +232,15 @@ export default async function ConversasPage({
             <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto p-5">
               {selected!.messages.map((m) => {
                 const audio = audioFromMedia(m.mediaUrls);
+                const media = normalizeMedia(m.mediaUrls);
+                // Itens não-áudio renderizados como imagem ou file card.
+                const attachments = audio
+                  ? []
+                  : media
+                      .map((mm, idx) => ({ ...mm, idx }))
+                      .filter((mm) => mm.url);
+                // Suprime o corpo "[arquivo] …" duplicado quando há anexo.
+                const hideBody = attachments.length > 0 && /^\[arquivo\]/.test(m.body ?? '');
                 return (
                   <div
                     key={m.id}
@@ -228,7 +258,41 @@ export default async function ConversasPage({
                         className="mb-1 h-9 w-56 max-w-full"
                       />
                     )}
-                    {m.body && <div>{m.body}</div>}
+                    {attachments.map((mm) =>
+                      isImageMedia(mm) ? (
+                        <a
+                          key={mm.idx}
+                          href={`/api/marketing/media/${m.id}/${mm.idx}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mb-1 block"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={`/api/marketing/media/${m.id}/${mm.idx}`}
+                            alt={mm.filename ?? 'imagem'}
+                            className="max-h-64 max-w-full rounded-lg"
+                          />
+                        </a>
+                      ) : (
+                        <a
+                          key={mm.idx}
+                          href={`/api/marketing/media/${m.id}/${mm.idx}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mb-1 flex items-center gap-2 rounded-lg border border-slate-200 bg-white/70 px-2.5 py-2 hover:bg-white"
+                        >
+                          <FileText className="h-5 w-5 shrink-0 text-slate-500" aria-hidden="true" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-xs font-medium text-slate-800">
+                              {mm.filename ?? (m.body?.replace(/^\[arquivo\]\s*/, '') || 'arquivo')}
+                            </span>
+                            <span className="text-[11px] text-cyan-700">abrir</span>
+                          </span>
+                        </a>
+                      ),
+                    )}
+                    {m.body && !hideBody && <div>{m.body}</div>}
                     <div className="mt-1 text-right text-[10px] text-slate-400">
                       {m.createdAt ? new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }) : ''}
                       {m.direction === 'outbound' && <MessageTicks status={m.status} />}
