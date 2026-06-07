@@ -107,8 +107,17 @@ export function InboxComposer({
       recorderRef.current = rec;
       rec.start();
       setRecording(true);
-    } catch {
-      setError('Não foi possível acessar o microfone (permissão negada?).');
+    } catch (e) {
+      // Permissão negada (NotAllowedError / 'not-allowed') → instrução clara
+      // de como reabilitar o microfone na barra de endereço.
+      const name = e instanceof DOMException ? e.name : '';
+      if (name === 'NotAllowedError' || name === 'SecurityError') {
+        setError(
+          'Microfone bloqueado — permita no cadeado 🔒 da barra de endereço e recarregue.',
+        );
+      } else {
+        setError('Não foi possível acessar o microfone (permissão negada?).');
+      }
     }
   }
 
