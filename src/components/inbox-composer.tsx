@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { sendConversationReply, sendTemplateReply } from '@/lib/actions/marketing/conversations';
 
 const EMOJIS = [
@@ -29,6 +29,30 @@ export function InboxComposer({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const popoversRef = useRef<HTMLDivElement>(null);
+
+  // Fecha emoji / respostas rápidas ao clicar fora ou apertar Escape.
+  useEffect(() => {
+    if (!emojiOpen && !cannedOpen) return;
+    function onPointerDown(e: MouseEvent) {
+      if (popoversRef.current && !popoversRef.current.contains(e.target as Node)) {
+        setEmojiOpen(false);
+        setCannedOpen(false);
+      }
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setEmojiOpen(false);
+        setCannedOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [emojiOpen, cannedOpen]);
 
   function insertAtCursor(text: string) {
     const ta = taRef.current;
@@ -138,7 +162,7 @@ export function InboxComposer({
       />
 
       <div className="mt-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div ref={popoversRef} className="flex items-center gap-2">
           {/* Emoji */}
           <div className="relative">
             <button

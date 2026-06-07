@@ -2,9 +2,10 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { isAdmin } from '@/lib/roles';
 import { requireUser } from '@/lib/session';
-import { listProjects, createProject } from '@/lib/actions/marketing/projects';
+import { listProjects } from '@/lib/actions/marketing/projects';
 import { getHubStats } from '@/lib/actions/marketing/hub';
 import { HubTile } from '@/components/marketing-hub';
+import { NewProjectPopover } from '@/components/marketing/new-project-popover';
 
 export const dynamic = 'force-dynamic';
 
@@ -103,42 +104,7 @@ export default async function MarketingHomePage() {
           <h2 className="text-base font-semibold text-slate-900">
             Projetos ({projects.length})
           </h2>
-          <details className="group relative">
-            <summary className="cursor-pointer list-none rounded-md bg-i10-700 px-4 py-2 text-sm font-medium text-white hover:bg-i10-800">
-              + Novo projeto
-            </summary>
-            <div className="absolute right-0 z-10 mt-2 w-96 rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
-              <form action={createProject} className="space-y-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600">
-                    Nome <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    name="name"
-                    type="text"
-                    required
-                    placeholder="Webinar FUNDEB Brasil 2026"
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600">Descrição</label>
-                  <textarea
-                    name="description"
-                    rows={2}
-                    placeholder="Captação de prefeitos e secretários…"
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="rounded-md bg-i10-700 px-4 py-2 text-sm font-medium text-white hover:bg-i10-800"
-                >
-                  Criar projeto
-                </button>
-              </form>
-            </div>
-          </details>
+          <NewProjectPopover />
         </div>
 
         {projects.length === 0 ? (
