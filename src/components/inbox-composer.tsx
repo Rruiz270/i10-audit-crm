@@ -2,12 +2,17 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { Paperclip } from 'lucide-react';
+import { upload } from '@vercel/blob/client';
 import {
   sendConversationReply,
   sendTemplateReply,
   sendAudioReply,
-  sendMediaReply,
+  sendMediaUrlReply,
 } from '@/lib/actions/marketing/conversations';
+
+// Teto de upload (browser → Vercel Blob client-direct). Espelha
+// MEDIA_MAX_UPLOAD_BYTES no server; pré-checagem só p/ UX (real é server-side).
+const MAX_FILE_BYTES = 50 * 1024 * 1024;
 
 // Tipos aceitos no <input accept> + drag-drop. Espelha MEDIA_ALLOWED_TYPES no
 // server (a validação real é server-side; isto é só UX).
@@ -142,11 +147,19 @@ export function InboxComposer({
   // Contador de dragenter/leave: drags sobre filhos disparam leave do pai senão.
   const dragDepth = useRef(0);
 
-  // Envia um arquivo (paperclip ou drag-drop) via sendMediaReply.
+  // Envia um arquivo (paperclip ou drag-drop). Fluxo CLIENT-DIRECT: faz upload
+  // do File direto pro Vercel Blob via upload() do @vercel/blob/client (a rota
+  // /api/marketing/blob-upload emite o token gated). Isso contorna o limite de
+  // body da função serverless (~4.5MB) e o de 1MB do Server Action — PDF/PPT
+  // grandes (até 50MB) passam. Depois chama sendMediaUrlReply só com a URL.
   function uploadAndSendFile(file: File) {
     if (isPending) return;
     if (!file || file.size === 0) {
       setError('Arquivo vazio.');
+      return;
+    }
+    if (file.size > MAX_FILE_BYTES) {
+      setError('Arquivo acima de 50MB.');
       return;
     }
     if (windowExpired) {
@@ -154,12 +167,19 @@ export function InboxComposer({
       return;
     }
     setError(null);
-    const fd = new FormData();
-    fd.set('conversationId', String(conversationId));
-    fd.set('file', file);
     startTransition(async () => {
       try {
-        const r = await sendMediaReply(fd);
+        const blob = await upload(file.name, file, {
+          access: 'public',
+          handleUploadUrl: '/api/marketing/blob-upload',
+          contentType: file.type,
+        });
+        const fd = new FormData();
+        fd.set('conversationId', String(conversationId));
+        fd.set('mediaUrl', blob.url);
+        fd.set('contentType', file.type);
+        fd.set('filename', file.name);
+        const r = await sendMediaUrlReply(fd);
         if (r && !r.ok) setError(r.error);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Falha ao enviar arquivo.');
