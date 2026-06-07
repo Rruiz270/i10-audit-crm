@@ -1,9 +1,13 @@
 import Link from 'next/link';
-import { and, count, desc, eq, isNull, sum } from 'drizzle-orm';
-import { STAGES, ACTIVE_STAGES } from '@/lib/pipeline';
+import { and, count, desc, eq, isNull } from 'drizzle-orm';
+import { ACTIVE_STAGES } from '@/lib/pipeline';
 import { db } from '@/lib/db';
 import { opportunities, leadSubmissions, activities, fundebMunicipalities } from '@/lib/schema';
-import { StageBadge } from '@/components/ui/stage-badge';
+import { StageBadge, stageAccentColor } from '@/components/ui/stage-badge';
+import { KpiTile } from '@/components/ui/kpi-tile';
+import { Card, CardTitle } from '@/components/ui/card';
+import { Icon } from '@/components/ui/icon';
+import { Button } from '@/components/ui/button';
 import { listMyOpenTasks, listOverdueTasks } from '@/lib/actions/tasks';
 import { listConsultoriasByKickoffWindow } from '@/lib/actions/handoff';
 import {
@@ -14,11 +18,13 @@ import { requireUser } from '@/lib/session';
 import { weightedValue, isRotten } from '@/lib/forecast';
 import type { StageKey } from '@/lib/pipeline';
 
+const brl = (n: number) =>
+  n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
   const user = await requireUser();
-  const [counts] = await db.select({ n: count() }).from(opportunities);
 
   const [negCount] = await db
     .select({ n: count() })
@@ -78,9 +84,16 @@ export default async function DashboardPage() {
     isRotten({ stage: o.stage, lastActivityAt: o.lastActivityAt }),
   );
 
-  const [pipelineTotal] = await db
-    .select({ total: sum(opportunities.estimatedValue) })
-    .from(opportunities);
+  // Mini-funil: por estágio ativo, count + valor ponderado. Reusa activeOnly
+  // (mesmo dataset do forecast acima). maxW serve de escala das barras.
+  const funnel = ACTIVE_STAGES.map((s) => {
+    const ops = activeOnly.filter((o) => o.stage === s.key);
+    const weightedStage = weightedValue(
+      ops.map((o) => ({ stage: o.stage, estimatedValue: o.estimatedValue })),
+    );
+    return { key: s.key as StageKey, label: s.label, color: s.color, count: ops.length, weighted: weightedStage };
+  });
+  const maxW = Math.max(1, ...funnel.map((f) => f.weighted));
 
   const myTasks = await listMyOpenTasks(user.id);
   const overdueTeam = await listOverdueTasks();
@@ -113,69 +126,69 @@ export default async function DashboardPage() {
     0,
   );
 
-  const cards = [
-    { label: 'Total oportunidades', value: counts?.n ?? 0, href: '/opportunities' },
-    {
-      label: 'Pipeline (nominal)',
-      value: Number(pipelineTotal?.total ?? 0).toLocaleString('pt-BR', {
-        style: 'currency',
-        currency: 'BRL',
-        maximumFractionDigits: 0,
-      }),
-      href: '/reports',
-    },
-    {
-      label: 'Forecast (ponderado)',
-      value: weighted.toLocaleString('pt-BR', {
-        style: 'currency',
-        currency: 'BRL',
-        maximumFractionDigits: 0,
-      }),
-      href: '/reports',
-    },
-    { label: 'Em negociação', value: negCount?.n ?? 0, href: '/opportunities?stage=negociacao' },
-    { label: 'Handoffs pendentes', value: pendingHandoff?.n ?? 0, href: '/opportunities?stage=ganhou' },
-    { label: 'Leads não triados', value: newLeads?.n ?? 0, href: '/leads' },
-    {
-      label: 'Tarefas em aberto (minhas)',
-      value: myTasks.length,
-      href: '/tasks?filter=mine',
-    },
-    {
-      label: 'Oportunidades paradas',
-      value: rottenList.length,
-      href: '/opportunities',
-    },
-  ];
-
   return (
     <div className="px-8 py-8 max-w-6xl">
-      <header className="mb-8">
-        <div className="i10-eyebrow mb-2">Instituto i10 · Captação</div>
-        <h1 className="text-3xl font-extrabold" style={{ color: 'var(--i10-navy)' }}>
-          Dashboard
-        </h1>
-        <div className="i10-divider mt-3" />
-        <p
-          className="text-slate-600 mt-4 max-w-2xl"
-          style={{ fontFamily: 'var(--font-source-serif), serif', fontSize: '17px', lineHeight: 1.7 }}
-        >
-          Visão geral do pipeline — onde estão as oportunidades, o que vence
-          esta semana e onde o fluxo está parado.
-        </p>
+      <header className="mb-8 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <div className="i10-eyebrow mb-2">Instituto i10 · Captação</div>
+          <h1 className="text-3xl font-extrabold" style={{ color: 'var(--i10-navy)' }}>
+            Dashboard
+          </h1>
+          <div className="i10-divider mt-3" />
+          <p
+            className="text-slate-600 mt-4 max-w-2xl"
+            style={{ fontFamily: 'var(--font-source-serif), serif', fontSize: '17px', lineHeight: 1.7 }}
+          >
+            Visão geral do pipeline — onde estão as oportunidades, o que vence
+            esta semana e onde o fluxo está parado.
+          </p>
+        </div>
+        <Link href="/opportunities/new">
+          <Button variant="accent">
+            <Icon name="plus" size={16} /> Nova oportunidade
+          </Button>
+        </Link>
       </header>
 
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-        {cards.map((c) => (
-          <Link
-            key={c.label}
-            href={c.href}
-            className="bg-white border border-slate-200 rounded-lg p-4 hover:border-i10-300 transition-colors"
-          >
-            <div className="text-xs text-slate-500">{c.label}</div>
-            <div className="text-xl font-bold text-slate-900 mt-1">{String(c.value)}</div>
-          </Link>
-        ))}
+      <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
+        <KpiTile
+          href="/reports"
+          icon="chart"
+          tone="cyan"
+          value={brl(weighted)}
+          label="forecast ponderado"
+        />
+        <KpiTile
+          href="/opportunities?stage=negociacao"
+          icon="briefcase"
+          tone="navy"
+          value={negCount?.n ?? 0}
+          label="em negociação"
+        />
+        <KpiTile
+          href="/opportunities?stage=ganhou"
+          icon="users"
+          tone="mint"
+          value={pendingHandoff?.n ?? 0}
+          label="handoffs pendentes"
+          badge={(pendingHandoff?.n ?? 0) > 0 ? { text: String(pendingHandoff?.n ?? 0), tone: 'mint' } : undefined}
+        />
+        <KpiTile
+          href="/leads"
+          icon="inbox"
+          tone="amber"
+          value={newLeads?.n ?? 0}
+          label="leads não triados"
+          badge={(newLeads?.n ?? 0) > 0 ? { text: 'novo', tone: 'amber' } : undefined}
+        />
+        <KpiTile
+          href="/opportunities"
+          icon="clock"
+          tone="rose"
+          value={rottenList.length}
+          label="oportunidades paradas"
+          badge={rottenList.length > 0 ? { text: 'ação', tone: 'rose' } : undefined}
+        />
       </section>
 
       {/* ─── Meu pipeline (visão pessoal do consultor) ───────────────────── */}
@@ -255,55 +268,48 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      {/* Kickoff de consultorias — o "handshake" com BNCC-CAPTACAO */}
+      {/* Kickoff de consultorias — strip horizontal de chips (handshake BNCC) */}
       {(kickoffsThisWeek.length > 0 || kickoffsPast.length > 0) && (
-        <section
-          className="mb-6 rounded-lg p-5 text-white"
-          style={{ background: 'var(--i10-gradient-main)' }}
-        >
-          <div className="flex items-start justify-between gap-6">
-            <div>
-              <div
-                className="text-[11px] font-bold uppercase"
-                style={{ color: 'var(--i10-cyan-light)', letterSpacing: '3px' }}
-              >
-                Handshake com o sistema de auditoria
-              </div>
-              <div className="mt-1 text-lg font-bold">
-                Consultorias iniciando esta semana · {kickoffsThisWeek.length}
-              </div>
-              {kickoffsPast.length > 0 && (
-                <div className="text-xs text-white/70 mt-0.5">
-                  + {kickoffsPast.length} já ativa{kickoffsPast.length === 1 ? '' : 's'} (start_date no passado)
-                </div>
-              )}
-            </div>
+        <section className="mb-6 rounded-xl border border-slate-200 bg-white p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="grid h-7 w-7 place-items-center rounded-lg bg-i10-cyan-wash text-i10-cyan-dark">
+              <Icon name="git-branch" size={16} />
+            </span>
+            <CardTitle>
+              Kickoffs esta semana · {kickoffsThisWeek.length}
+            </CardTitle>
+            {kickoffsPast.length > 0 && (
+              <span className="text-xs text-slate-400">
+                + {kickoffsPast.length} já ativa{kickoffsPast.length === 1 ? '' : 's'}
+              </span>
+            )}
           </div>
-          {kickoffsThisWeek.length > 0 && (
-            <ul className="mt-4 grid grid-cols-2 gap-3">
-              {kickoffsThisWeek.slice(0, 6).map((k) => {
+          {kickoffsThisWeek.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {kickoffsThisWeek.slice(0, 8).map((k) => {
                 const d = Math.round(
                   (new Date(k.startDate!).getTime() - nowMs) / (24 * 3600_000),
                 );
                 return (
-                  <li
+                  <Link
                     key={k.consultoriaId}
-                    className="rounded-md bg-white/10 px-3 py-2 backdrop-blur-sm"
+                    href={`/opportunities/${k.opportunityId}`}
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs hover:border-cyan-300 hover:bg-white transition"
                   >
-                    <Link
-                      href={`/opportunities/${k.opportunityId}`}
-                      className="text-sm font-semibold text-white hover:underline"
-                    >
+                    <span className="font-semibold" style={{ color: 'var(--i10-navy)' }}>
                       {k.municipalityName ?? `#${k.opportunityId}`}
-                    </Link>
-                    <div className="text-[11px] text-white/70 mt-0.5">
-                      Kickoff em {d === 0 ? 'hoje' : `${d}d`} ·{' '}
-                      {k.consultantName ?? 'consultor pendente'}
-                    </div>
-                  </li>
+                    </span>
+                    <span className="text-slate-400">
+                      {d === 0 ? 'hoje' : `${d}d`} · {k.consultantName ?? 'consultor pendente'}
+                    </span>
+                  </Link>
                 );
               })}
-            </ul>
+            </div>
+          ) : (
+            <div className="text-xs text-slate-400 italic">
+              Nenhum kickoff novo esta semana.
+            </div>
           )}
         </section>
       )}
@@ -315,7 +321,7 @@ export default async function DashboardPage() {
             Minhas tarefas atrasadas ({myOverdue.length})
           </h2>
           {myOverdue.length === 0 ? (
-            <div className="text-xs text-amber-800 italic">Nada atrasado — siga em frente 🚀</div>
+            <div className="text-xs text-amber-800 italic">Nada atrasado — siga em frente.</div>
           ) : (
             <ul className="space-y-1.5">
               {myOverdue.slice(0, 5).map((t) => (
@@ -350,7 +356,7 @@ export default async function DashboardPage() {
             Oportunidades paradas ({rottenList.length})
           </h2>
           {rottenList.length === 0 ? (
-            <div className="text-xs text-rose-800 italic">Nenhuma oportunidade estagnada 💪</div>
+            <div className="text-xs text-rose-800 italic">Nenhuma oportunidade estagnada.</div>
           ) : (
             <ul className="space-y-1.5">
               {rottenList.slice(0, 5).map((o) => (
@@ -415,19 +421,37 @@ export default async function DashboardPage() {
         </section>
       </div>
 
-      <section className="bg-white border border-slate-200 rounded-lg p-6 mt-8">
-        <h2 className="text-sm font-semibold text-slate-900 mb-4">Pipeline configurado</h2>
-        <div className="flex flex-wrap gap-2">
-          {STAGES.map((s) => (
-            <StageBadge key={s.key} stage={s.key as StageKey} />
-          ))}
-        </div>
-        <div className="mt-6">
-          <Link href="/pipeline" className="text-sm font-medium text-i10-700 hover:text-i10-800">
+      <Card className="mt-8">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <CardTitle>Funil — por estágio</CardTitle>
+          <Link href="/pipeline" className="text-xs font-semibold text-cyan-700 hover:text-cyan-800">
             Ver Kanban completo →
           </Link>
         </div>
-      </section>
+        <div className="flex flex-col gap-3">
+          {funnel.map((f) => (
+            <Link key={f.key} href="/pipeline" className="group block">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-medium" style={{ color: 'var(--i10-navy)' }}>
+                  {f.label}
+                </span>
+                <span className="text-slate-500">
+                  {f.count} · {brl(f.weighted)}
+                </span>
+              </div>
+              <div className="mt-1 h-2 w-full rounded-full bg-slate-100">
+                <div
+                  className="h-2 rounded-full transition-all group-hover:brightness-110"
+                  style={{
+                    width: `${Math.max(4, Math.round((f.weighted / maxW) * 100))}%`,
+                    background: stageAccentColor(f.color),
+                  }}
+                />
+              </div>
+            </Link>
+          ))}
+        </div>
+      </Card>
     </div>
   );
 }

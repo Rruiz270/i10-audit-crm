@@ -18,6 +18,10 @@ import { isRotten, daysUntilRot, weightedValue } from '@/lib/forecast';
 import type { BnccSignals } from '@/lib/bncc-signals';
 import { signalsToBadges } from '@/lib/bncc-signals';
 import { BnccBadges } from '@/components/bncc-badges';
+import { stageAccentColor } from '@/components/ui/stage-badge';
+import { Chip } from '@/components/ui/chip';
+import { Icon } from '@/components/ui/icon';
+import { Popover } from '@/components/ui/popover';
 
 /** Estágio dinâmico (vindo do DB) — compatível com `StageDefinition` do TS. */
 export type DynamicStage = {
@@ -32,13 +36,14 @@ export type DynamicStage = {
   isWon: boolean;
 };
 
-type Card = {
+export type KanbanCard = {
   id: number;
   stage: string;
   estimatedValue: number | null;
   closeDate: Date | null;
   municipalityId: number | null;
   municipalityName: string | null;
+  ownerId?: string | null;
   ownerName: string | null;
   stageUpdatedAt: Date | null;
   lastActivityAt: Date | null;
@@ -52,7 +57,7 @@ export function KanbanBoard({
   cards,
   stages,
 }: {
-  cards: Card[];
+  cards: KanbanCard[];
   /**
    * Estágios a renderizar. Se não passado, usa `KANBAN_STAGES` (defaults do TS).
    * Passar custom stages (vindos de crm.pipeline_stages) habilita colunas extras.
@@ -166,7 +171,7 @@ function Column({
   busyId,
 }: {
   stageDef: DynamicStage;
-  cards: Card[];
+  cards: KanbanCard[];
   busyId: number | null;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stageDef.key });
@@ -179,21 +184,37 @@ function Column({
   return (
     <div
       ref={setNodeRef}
-      className={`shrink-0 w-72 bg-white border rounded-lg transition-colors ${
+      className={`shrink-0 w-72 bg-white border rounded-xl transition-colors ${
         isOver ? 'border-i10-400 ring-2 ring-i10-200' : 'border-slate-200'
       }`}
     >
-      <div className={`px-4 py-3 border-b border-slate-200 border-t-4 rounded-t-lg border-t-${def.color}`}>
-        <div className="flex items-center justify-between">
-          <div className="font-medium text-slate-900 text-sm">{def.label}</div>
-          <div className="text-xs text-slate-500">
-            {cards.length} · <span title="Probabilidade de fechamento">{Math.round(def.probability * 100)}%</span>
+      {/* border-t-${def.color} nunca era gerado pelo Tailwind v4 (JIT não vê a
+          classe dinâmica) → cor sólida via style inline mapeada do estágio. */}
+      <div
+        className="px-4 py-3 border-b border-slate-200 rounded-t-xl"
+        style={{ borderTop: `4px solid ${stageAccentColor(def.color)}` }}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="font-semibold text-sm truncate" style={{ color: 'var(--i10-navy)' }}>
+              {def.label}
+            </span>
+            <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">
+              {cards.length}
+            </span>
           </div>
+          <span className="shrink-0 text-[11px] text-slate-400" title="Probabilidade de fechamento">
+            {Math.round(def.probability * 100)}%
+          </span>
         </div>
-        <div className="text-xs text-slate-400 mt-0.5 flex items-center justify-between">
-          <span>{value > 0 ? value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }) : '—'}</span>
+        <div className="mt-1 flex items-baseline justify-between gap-2">
+          <span className="text-sm font-bold" style={{ color: 'var(--i10-navy)' }}>
+            {value > 0
+              ? value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+              : '—'}
+          </span>
           {weighted > 0 && (
-            <span title="Valor ponderado (× probabilidade)" className="text-slate-500 font-mono">
+            <span title="Valor ponderado (× probabilidade)" className="text-[11px] text-slate-400 font-mono">
               ≈ {weighted.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
             </span>
           )}
@@ -211,7 +232,7 @@ function Column({
   );
 }
 
-function DraggableCard({ card, busy }: { card: Card; busy: boolean }) {
+function DraggableCard({ card, busy }: { card: KanbanCard; busy: boolean }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: card.id,
   });
@@ -223,91 +244,102 @@ function DraggableCard({ card, busy }: { card: Card; busy: boolean }) {
   const rotten = isRotten(forecastOp);
   const remaining = daysUntilRot(forecastOp);
 
+  // ── ONE status chip por card (prioridade: parada > vence) ──
+  let statusChip: React.ReactNode = null;
+  if (card.taskSummary && card.taskSummary.overdue > 0) {
+    statusChip = (
+      <Chip tone="rose">
+        <Icon name="alert-triangle" size={11} />
+        {card.taskSummary.overdue} tarefa{card.taskSummary.overdue > 1 ? 's' : ''} atrasada{card.taskSummary.overdue > 1 ? 's' : ''}
+      </Chip>
+    );
+  } else if (rotten) {
+    statusChip = (
+      <Chip tone="rose">
+        <Icon name="clock" size={11} />
+        Parada {remaining != null && remaining < 0 ? `${-remaining}d` : 'há muito'}
+      </Chip>
+    );
+  } else if (remaining != null && remaining <= 2 && remaining >= 0) {
+    statusChip = (
+      <Chip tone="amber">
+        <Icon name="clock" size={11} />
+        Vence {remaining}d
+      </Chip>
+    );
+  }
+
+  const bnccBadges = card.bnccSignals ? signalsToBadges(card.bnccSignals) : [];
+  const tags = card.tags ?? [];
+  const visibleTags = tags.slice(0, 2);
+  const overflowTags = tags.slice(2);
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...attributes}
       {...listeners}
-      className={`rounded-md border bg-white p-3 shadow-sm cursor-grab active:cursor-grabbing ${
+      className={`rounded-lg border bg-white p-3 shadow-sm cursor-grab active:cursor-grabbing ${
         rotten ? 'border-rose-300 ring-1 ring-rose-100' : isDragging ? 'border-i10-400 shadow-md' : 'border-slate-200'
       } ${busy ? 'opacity-50' : ''}`}
     >
-      <div className="flex items-center justify-between">
+      {/* Zona 1 — título + #id */}
+      <div className="flex items-center justify-between gap-2">
         <Link
           href={`/opportunities/${card.id}`}
           onClick={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
-          className="text-sm font-medium text-slate-900 hover:text-i10-700 truncate"
+          className="text-sm font-semibold hover:underline truncate"
+          style={{ color: 'var(--i10-navy)' }}
         >
           {card.municipalityName ?? `Oport. #${card.id}`}
         </Link>
-        <span className="text-xs text-slate-400">#{card.id}</span>
+        <span className="shrink-0 text-[11px] text-slate-400">#{card.id}</span>
       </div>
 
-      {(card.tags?.length ?? 0) > 0 && (
-        <div className="mt-1 flex flex-wrap gap-1">
-          {card.tags!.slice(0, 3).map((t) => (
-            <span
-              key={t}
-              className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700"
-            >
-              {t}
-            </span>
-          ))}
-          {card.tags!.length > 3 && (
-            <span className="text-[10px] text-slate-400">+{card.tags!.length - 3}</span>
-          )}
-        </div>
-      )}
-
+      {/* Zona 2 — dono · valor */}
       <div className="mt-1.5 flex items-center justify-between text-xs text-slate-500">
-        <span>{card.ownerName ?? '—'}</span>
-        {card.estimatedValue != null && (
-          <span className="font-mono">
-            {card.estimatedValue.toLocaleString('pt-BR', {
-              style: 'currency',
-              currency: 'BRL',
-              maximumFractionDigits: 0,
-            })}
-          </span>
-        )}
+        <span className="truncate">{card.ownerName ?? '—'}</span>
+        <span className="shrink-0 font-mono">
+          {card.estimatedValue != null
+            ? card.estimatedValue.toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+                maximumFractionDigits: 0,
+              })
+            : '—'}
+        </span>
       </div>
 
-      {/* Task SLA alert — destaca se há tarefa atrasada ou vencendo */}
-      {card.taskSummary && card.taskSummary.overdue > 0 && (
-        <div className="mt-1.5 text-[11px] text-rose-700 font-semibold">
-          ⏰ {card.taskSummary.overdue} tarefa{card.taskSummary.overdue > 1 ? 's' : ''} atrasada{card.taskSummary.overdue > 1 ? 's' : ''}
-        </div>
-      )}
-      {card.taskSummary && card.taskSummary.overdue === 0 && card.taskSummary.nextDue && (
-        <div className="mt-1.5 text-[11px] text-slate-500">
-          Próxima tarefa: {new Date(card.taskSummary.nextDue).toLocaleDateString('pt-BR')}
-        </div>
-      )}
-
-      {/* BNCC signals nos cards "ganhou" já transferidos */}
-      {card.bnccSignals && (() => {
-        const badges = signalsToBadges(card.bnccSignals).slice(0, 3);
-        if (badges.length === 0) {
-          return (
-            <div className="mt-1.5 text-[11px] text-slate-400 italic">
-              BNCC: aguardando 1º sinal
-            </div>
-          );
-        }
-        return <BnccBadges signals={badges} variant="sm" />;
-      })()}
-
-      {rotten && (
-        <div className="mt-1.5 text-[11px] text-rose-700 flex items-center gap-1" title="Sem atividade há muito tempo">
-          <span>🕑</span>
-          <span>Parada há {remaining != null && remaining < 0 ? `${-remaining}d` : 'muito'}</span>
-        </div>
-      )}
-      {!rotten && remaining != null && remaining <= 2 && remaining >= 0 && (
-        <div className="mt-1.5 text-[11px] text-amber-700">
-          Vence em {remaining}d — registre progresso
+      {/* Zona 3 — UM chip de status + sinais BNCC + tags (overflow em popover) */}
+      {(statusChip || bnccBadges.length > 0 || tags.length > 0) && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {statusChip}
+          {bnccBadges.length > 0 && <BnccBadges signals={bnccBadges.slice(0, 2)} variant="sm" />}
+          {visibleTags.map((t) => (
+            <Chip key={t} tone="slate">
+              {t}
+            </Chip>
+          ))}
+          {overflowTags.length > 0 && (
+            <span onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+              <Popover
+                align="start"
+                triggerClassName="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 hover:bg-slate-200"
+                trigger={`+${overflowTags.length}`}
+                panelClassName="w-44 rounded-lg border border-slate-200 bg-white p-2 shadow-lg"
+              >
+                <div className="flex flex-wrap gap-1">
+                  {overflowTags.map((t) => (
+                    <Chip key={t} tone="slate">
+                      {t}
+                    </Chip>
+                  ))}
+                </div>
+              </Popover>
+            </span>
+          )}
         </div>
       )}
     </div>
