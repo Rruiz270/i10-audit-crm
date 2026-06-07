@@ -1,6 +1,6 @@
 'use server';
 
-import { and, asc, desc, eq, isNull, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, lte, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { db } from '@/lib/db';
@@ -163,6 +163,68 @@ export async function listOverdueTasks(now: Date = new Date()) {
     .from(tasks)
     .leftJoin(users, eq(tasks.assignedTo, users.id))
     .where(and(isNull(tasks.completedAt), lte(tasks.dueAt, now)))
+    .orderBy(asc(tasks.dueAt))
+    .limit(500);
+}
+
+// KPIs agregados para a página de Tarefas. Escopo opcional `mine` casa com o
+// filtro Minhas/Todas. Contagens via SQL (sem carregar a tabela em memória).
+export async function getTaskKpis(filter?: { mine?: string }, now: Date = new Date()) {
+  const user = await requireUser();
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(startOfToday.getTime() + 24 * 3600 * 1000);
+  const since7 = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
+  // "mine" = sempre o usuário autenticado (não confiar em id do cliente).
+  const scope = filter?.mine ? eq(tasks.assignedTo, user.id) : undefined;
+
+  const [row] = await db
+    .select({
+      open: sql<number>`count(*) FILTER (WHERE ${tasks.completedAt} IS NULL)::int`,
+      overdue: sql<number>`count(*) FILTER (WHERE ${tasks.completedAt} IS NULL AND ${tasks.dueAt} < ${startOfToday})::int`,
+      today: sql<number>`count(*) FILTER (WHERE ${tasks.completedAt} IS NULL AND ${tasks.dueAt} >= ${startOfToday} AND ${tasks.dueAt} < ${endOfToday})::int`,
+      done7: sql<number>`count(*) FILTER (WHERE ${tasks.completedAt} >= ${since7})::int`,
+    })
+    .from(tasks)
+    .where(scope);
+
+  return {
+    open: Number(row?.open ?? 0),
+    overdue: Number(row?.overdue ?? 0),
+    today: Number(row?.today ?? 0),
+    done7: Number(row?.done7 ?? 0),
+  };
+}
+
+// Dados do board de Tarefas: todas as abertas + concluídas nos últimos 7d
+// (para a seção "Concluídas" recolhida), respeitando o escopo Minhas/Todas.
+// Mantida separada de listAllTasks p/ não alterar a semântica daquela.
+export async function listTasksForBoard(
+  filter?: { mine?: string },
+  now: Date = new Date(),
+) {
+  const user = await requireUser();
+  const since7 = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
+  // "mine" = sempre o usuário autenticado (não confiar em id do cliente).
+  const scope = filter?.mine ? eq(tasks.assignedTo, user.id) : undefined;
+  const recency = sql`(${tasks.completedAt} IS NULL OR ${tasks.completedAt} >= ${since7})`;
+  const cond = scope ? and(scope, recency) : recency;
+  return db
+    .select({
+      id: tasks.id,
+      title: tasks.title,
+      dueAt: tasks.dueAt,
+      completedAt: tasks.completedAt,
+      priority: tasks.priority,
+      opportunityId: tasks.opportunityId,
+      assigneeName: users.name,
+      municipalityName: fundebMunicipalities.nome,
+    })
+    .from(tasks)
+    .leftJoin(users, eq(tasks.assignedTo, users.id))
+    .leftJoin(opportunities, eq(tasks.opportunityId, opportunities.id))
+    .leftJoin(fundebMunicipalities, eq(opportunities.municipalityId, fundebMunicipalities.id))
+    .where(cond)
     .orderBy(asc(tasks.dueAt))
     .limit(500);
 }
