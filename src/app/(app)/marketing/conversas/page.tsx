@@ -83,17 +83,35 @@ export default async function ConversasPage({
   const win = conv ? windowLabel(conv.windowExpiresAt) : null;
 
   // F2.1 — dados extras do painel + composer (só para a conversa selecionada).
+  // Resiliência: um fetch que falhe NÃO pode derrubar o inbox inteiro (degrada
+  // pro fallback e loga o erro real). Antes, um throw aqui virava o genérico
+  // "Server Components render error".
+  const logFetch = (label: string) => (e: unknown) => {
+    console.error(`[conversas] falha em ${label} (conv ${conv?.id}):`, e);
+    return undefined as never;
+  };
   const [cannedResponses, ctx, approvedTemplates] = conv
     ? await Promise.all([
-        getCannedResponses(conv.projectId),
-        getConversationContext(conv.id),
-        win?.expired ? getApprovedTemplates(conv.projectId) : Promise.resolve([]),
+        getCannedResponses(conv.projectId).catch(() => [] as Awaited<ReturnType<typeof getCannedResponses>>),
+        getConversationContext(conv.id).catch((e) => {
+          logFetch('getConversationContext')(e);
+          return { opportunity: null, campaignName: null, projectName: null };
+        }),
+        (win?.expired
+          ? getApprovedTemplates(conv.projectId)
+          : Promise.resolve([] as Awaited<ReturnType<typeof getApprovedTemplates>>)
+        ).catch(() => [] as Awaited<ReturnType<typeof getApprovedTemplates>>),
       ])
     : [[], { opportunity: null, campaignName: null, projectName: null }, []];
 
   // Enriquecimento do painel: dados do contato de marketing vinculado.
   const inboxContact: InboxContactDetail | null =
-    admin && conv?.contactId ? await getInboxContact(conv.contactId) : null;
+    admin && conv?.contactId
+      ? await getInboxContact(conv.contactId).catch((e) => {
+          logFetch('getInboxContact')(e);
+          return null;
+        })
+      : null;
 
   return (
     <div className="grid h-[calc(100vh-0px)] grid-cols-[300px_1fr_280px]">
