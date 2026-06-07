@@ -5,6 +5,7 @@ import { getWhatsAppConfig } from '@/lib/marketing/whatsapp-health';
 import { InboxAutoRefresh } from '@/components/inbox-auto-refresh';
 import { InboxComposer } from '@/components/inbox-composer';
 import { InboxContactHeader } from '@/components/inbox-contact-header';
+import { InboxMarkRead } from '@/components/inbox-mark-read';
 import { isAdmin } from '@/lib/roles';
 import { getInboxContact, type InboxContactDetail } from '@/lib/actions/marketing/inbox-contacts';
 import {
@@ -12,7 +13,6 @@ import {
   getConversation,
   claimConversation,
   closeConversation,
-  markConversationRead,
   hasConversationAccess,
   saveConversationContext,
   getCannedResponses,
@@ -47,7 +47,8 @@ export default async function ConversasPage({
   const convs = await listConversations();
   const selectedId = c ? Number(c) : convs[0]?.id;
   const selected = selectedId ? await getConversation(selectedId) : null;
-  if (selected?.conversation.unread) await markConversationRead(selected.conversation.id);
+  // mark-as-read foi movido para o cliente (<InboxMarkRead/>): invocar uma
+  // Server Action durante o render do Server Component derrubava a página.
 
   if (convs.length === 0) {
     return (
@@ -188,6 +189,7 @@ export default async function ConversasPage({
               ))}
             </div>
 
+            <InboxMarkRead conversationId={conv.id} />
             <InboxComposer
               conversationId={conv.id}
               windowExpired={Boolean(win?.expired)}
