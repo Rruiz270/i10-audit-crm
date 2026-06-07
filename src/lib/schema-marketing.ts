@@ -73,6 +73,9 @@ export const contacts = marketingSchema.table(
     municipio: text('municipio'),
     uf: varchar('uf', { length: 2 }),
     role: text('role'), // 'prefeito' | 'secretario' | 'gabinete' | etc
+    // Origem do contato (set apenas no INSERT, nunca sobrescrito em upsert):
+    // 'csv:<audiência>' | 'webinar:<slug>' | 'form:<slug>' | 'apm' | 'manual'.
+    source: text('source'),
     // Atributos arbitrários disponíveis no mailmerge ({{prefeito_nome}}, etc)
     attributes: jsonb('attributes').notNull().default({}),
     // LGPD: base legal usada para contato inicial
@@ -91,6 +94,10 @@ export const contacts = marketingSchema.table(
     uniqueIndex('mkt_contacts_email_idx').on(t.email),
     index('mkt_contacts_ibge_idx').on(t.ibge),
     index('mkt_contacts_status_idx').on(t.status),
+    // Filtros/facetas do Leads Hub a 16k+ contatos.
+    index('mkt_contacts_source_idx').on(t.source),
+    index('mkt_contacts_uf_idx').on(t.uf),
+    index('mkt_contacts_role_idx').on(t.role),
   ],
 );
 

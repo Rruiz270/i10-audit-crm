@@ -68,13 +68,14 @@ export default async function MarketingHomePage() {
           action="Abrir inbox"
         />
         <HubTile
-          href="/leads"
+          href="/marketing/leads"
           icon="users"
           tone="ld"
           title="Leads Hub"
+          isNew
           metric={stats.contacts.toLocaleString('pt-BR')}
-          sub="base única de contatos · compartilhada"
-          action="Gerenciar base"
+          sub="base única · filtros, segmentos e audiências"
+          action="Explorar base"
         />
         <HubTile
           href="/marketing/social"
