@@ -21,6 +21,10 @@ import { setPrimaryContact, deleteContact } from '@/lib/actions/contacts';
 import { STAGES_BY_KEY, type StageKey } from '@/lib/pipeline';
 import { isRotten, daysUntilRot } from '@/lib/forecast';
 import { LOST_REASONS_BY_CODE, type LostReasonCode } from '@/lib/lost-reasons';
+import { KpiTile } from '@/components/ui/kpi-tile';
+import { Card, CardTitle } from '@/components/ui/card';
+import { Icon } from '@/components/ui/icon';
+import { OpportunityTabs } from '@/components/opportunity-tabs';
 
 export const dynamic = 'force-dynamic';
 
@@ -175,16 +179,166 @@ export default async function OpportunityDetailPage({
   // Single clock read for the whole page — satisfies react-hooks/purity.
   const nowMs = new Date().getTime();
 
+  // ─── Painéis (renderizados no server; forms + actions preservados) ───
+  const tabHistorico = (
+    <section>
+      <ActivityForm opportunityId={op.id} />
+      <div className="mt-6 space-y-3">
+        {op.activities.map((a) => (
+          <div key={a.id} className="border-l-2 border-slate-200 pl-3 py-1">
+            <div className="text-xs text-slate-500">
+              {ACTIVITY_LABEL[a.type] ?? a.type} · {formatDateTime(a.occurredAt)}
+            </div>
+            {a.subject && (
+              <div className="text-sm font-medium text-slate-900 mt-0.5">{a.subject}</div>
+            )}
+            {a.body && (
+              <div className="text-sm text-slate-700 mt-0.5 whitespace-pre-wrap">
+                {a.body}
+              </div>
+            )}
+          </div>
+        ))}
+        {op.activities.length === 0 && (
+          <div className="text-xs text-slate-400 italic">Sem atividades registradas.</div>
+        )}
+      </div>
+    </section>
+  );
+
+  const tabTarefas = (
+    <section>
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-xs text-slate-400">próxima ação sempre é uma tarefa</span>
+      </div>
+      <TasksPanel opportunityId={op.id} tasks={opTasks} users={teamUsers} />
+    </section>
+  );
+
+  const tabContatos = (
+    <section>
+      {op.contacts.length > 0 && (
+        <ul className="divide-y divide-slate-100 mb-6">
+          {op.contacts.map((c) => (
+            <li key={c.id} className="py-3 flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-slate-900">
+                  {c.name}
+                  {c.isPrimary && (
+                    <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-i10-100 text-i10-800">
+                      principal
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-slate-500 mt-0.5">
+                  {c.role ?? '—'}
+                  {c.email && ` · ${c.email}`}
+                  {c.phone && ` · ${c.phone}`}
+                  {c.whatsapp && ` · WA ${c.whatsapp}`}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {!c.isPrimary && (
+                  <form action={setPrimaryContact}>
+                    <input type="hidden" name="contactId" value={c.id} />
+                    <input type="hidden" name="opportunityId" value={op.id} />
+                    <Button type="submit" variant="ghost" size="sm">
+                      Tornar principal
+                    </Button>
+                  </form>
+                )}
+                <form action={deleteContact}>
+                  <input type="hidden" name="contactId" value={c.id} />
+                  <input type="hidden" name="opportunityId" value={op.id} />
+                  <Button type="submit" variant="ghost" size="sm">
+                    Remover
+                  </Button>
+                </form>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      <ContactForm opportunityId={op.id} />
+    </section>
+  );
+
+  const tabReunioes = (
+    <section>
+      {op.meetings.length > 0 && (
+        <ul className="divide-y divide-slate-100 mb-6">
+          {op.meetings.map((m) => (
+            <li key={m.id} className="py-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium text-slate-900">
+                    {m.title ?? 'Reunião'}
+                  </div>
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    {formatDateTime(m.scheduledAt)} · {m.kind} · {m.durationMinutes}min
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {m.meetLink && (
+                    <a
+                      href={m.meetLink}
+                      target="_blank"
+                      rel="noopener"
+                      className="text-xs text-i10-700 hover:underline"
+                    >
+                      Link →
+                    </a>
+                  )}
+                  {m.googleEventId && (
+                    <span className="text-xs text-slate-400 inline-flex items-center gap-1" title={m.googleEventId}>
+                      <Icon name="check" size={12} /> Calendar
+                    </span>
+                  )}
+                </div>
+              </div>
+              {m.notes && (
+                <div className="text-xs text-slate-600 mt-2 whitespace-pre-wrap">
+                  {m.notes}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <MeetingForm opportunityId={op.id} />
+    </section>
+  );
+
+  const tabDados = (
+    <section>
+      <OpportunityEditForm
+        opportunity={{
+          id: op.id,
+          municipalityId: op.municipalityId,
+          source: op.source,
+          estimatedValue: op.estimatedValue,
+          closeDate: op.closeDate,
+          contractSigned: op.contractSigned,
+          contractNotes: op.contractNotes,
+          notes: op.notes,
+        }}
+        municipalities={municipalities}
+      />
+    </section>
+  );
+
+  const openTasks = opTasks.filter((t) => !t.completedAt).length;
+
   return (
     <div className="px-8 py-8 max-w-6xl">
       <header className="mb-6">
         <Link href="/opportunities" className="text-xs text-slate-500 hover:text-i10-700">
           ← Oportunidades
         </Link>
-        <div className="mt-2 flex items-start justify-between">
+        <div className="mt-2 flex items-start justify-between gap-4 flex-wrap">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-slate-900">
+              <h1 className="text-2xl font-bold" style={{ color: 'var(--i10-navy)' }}>
                 {op.municipalityName ?? 'Sem município'}
               </h1>
               <StageBadge stage={op.stage as StageKey} />
@@ -197,7 +351,7 @@ export default async function OpportunityDetailPage({
             </p>
             {rotten && (
               <p className="mt-2 inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-rose-50 text-rose-700 ring-1 ring-rose-200">
-                🕑 Oportunidade parada — sem atividade há {remaining != null ? `${-remaining}d` : 'muito tempo'}. Registre progresso.
+                <Icon name="clock" size={12} /> Oportunidade parada — sem atividade há {remaining != null ? `${-remaining}d` : 'muito tempo'}. Registre progresso.
               </p>
             )}
           </div>
@@ -212,18 +366,34 @@ export default async function OpportunityDetailPage({
             )}
             {op.handedOffConsultoriaId && (
               <span
-                className="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-semibold"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold"
                 style={{
                   background: 'var(--i10-mint)',
                   color: 'var(--i10-navy-dark)',
                 }}
               >
-                ✓ Consultoria #{op.handedOffConsultoriaId} criada
+                <Icon name="check" size={14} /> Consultoria #{op.handedOffConsultoriaId} criada
               </span>
             )}
           </div>
         </div>
       </header>
+
+      {/* KPI strip */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <KpiTile value={formatMoney(op.estimatedValue)} label="valor estimado" tone="cyan" />
+        <KpiTile value={formatDate(op.closeDate)} label="fechamento previsto" tone="navy" />
+        <KpiTile
+          value={stageDef ? `${Math.round(stageDef.probability * 100)}%` : '—'}
+          label="probabilidade"
+          tone="mint"
+        />
+        <KpiTile
+          value={op.contractSigned ? 'Assinado' : 'Pendente'}
+          label="contrato"
+          tone={op.contractSigned ? 'mint' : 'slate'}
+        />
+      </div>
 
       {/* Card de consultoria — aparece quando a oportunidade já foi transferida */}
       {consultoria?.consultoriaId && (
@@ -318,211 +488,63 @@ export default async function OpportunityDetailPage({
         </section>
       )}
 
-      <div className="grid grid-cols-3 gap-6">
-        {/* Main column */}
-        <div className="col-span-2 space-y-6">
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-white border border-slate-200 rounded-lg p-4">
-              <div className="text-xs text-slate-500">Valor estimado</div>
-              <div className="text-lg font-bold text-slate-900 mt-1">
-                {formatMoney(op.estimatedValue)}
-              </div>
-            </div>
-            <div className="bg-white border border-slate-200 rounded-lg p-4">
-              <div className="text-xs text-slate-500">Fechamento previsto</div>
-              <div className="text-lg font-bold text-slate-900 mt-1">
-                {formatDate(op.closeDate)}
-              </div>
-            </div>
-            <div className="bg-white border border-slate-200 rounded-lg p-4">
-              <div className="text-xs text-slate-500">Contrato</div>
-              <div className="text-lg font-bold text-slate-900 mt-1">
-                {op.contractSigned ? '✓ Assinado' : 'Pendente'}
-              </div>
-            </div>
-          </div>
-
-          {/* Tasks */}
-          <section className="bg-white border border-slate-200 rounded-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-slate-900">
-                Tarefas ({opTasks.filter((t) => !t.completedAt).length} aberta{opTasks.filter((t) => !t.completedAt).length === 1 ? '' : 's'})
-              </h2>
-              <span className="text-xs text-slate-400">próxima ação sempre é uma tarefa</span>
-            </div>
-            <TasksPanel opportunityId={op.id} tasks={opTasks} users={teamUsers} />
-          </section>
-
-          {/* Edit */}
-          <section className="bg-white border border-slate-200 rounded-lg p-6">
-            <h2 className="text-sm font-semibold text-slate-900 mb-4">Dados da oportunidade</h2>
-            <OpportunityEditForm
-              opportunity={{
-                id: op.id,
-                municipalityId: op.municipalityId,
-                source: op.source,
-                estimatedValue: op.estimatedValue,
-                closeDate: op.closeDate,
-                contractSigned: op.contractSigned,
-                contractNotes: op.contractNotes,
-                notes: op.notes,
-              }}
-              municipalities={municipalities}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main column — abas (painéis renderizados no server) */}
+        <div className="lg:col-span-2">
+          <Card>
+            <OpportunityTabs
+              tabs={[
+                { key: 'historico', label: 'Histórico', icon: 'activity', count: op.activities.length, panel: tabHistorico },
+                { key: 'tarefas', label: 'Tarefas', icon: 'check-square', count: openTasks, panel: tabTarefas },
+                { key: 'contatos', label: 'Contatos', icon: 'users', count: op.contacts.length, panel: tabContatos },
+                { key: 'reunioes', label: 'Reuniões', icon: 'calendar', count: op.meetings.length, panel: tabReunioes },
+                { key: 'dados', label: 'Dados', icon: 'settings', panel: tabDados },
+              ]}
             />
-          </section>
-
-          {/* Contacts */}
-          <section className="bg-white border border-slate-200 rounded-lg p-6">
-            <h2 className="text-sm font-semibold text-slate-900 mb-4">
-              Contatos ({op.contacts.length})
-            </h2>
-            {op.contacts.length > 0 && (
-              <ul className="divide-y divide-slate-100 mb-6">
-                {op.contacts.map((c) => (
-                  <li key={c.id} className="py-3 flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-medium text-slate-900">
-                        {c.name}
-                        {c.isPrimary && (
-                          <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-i10-100 text-i10-800">
-                            principal
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-slate-500 mt-0.5">
-                        {c.role ?? '—'}
-                        {c.email && ` · ${c.email}`}
-                        {c.phone && ` · ${c.phone}`}
-                        {c.whatsapp && ` · WA ${c.whatsapp}`}
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      {!c.isPrimary && (
-                        <form action={setPrimaryContact}>
-                          <input type="hidden" name="contactId" value={c.id} />
-                          <input type="hidden" name="opportunityId" value={op.id} />
-                          <Button type="submit" variant="ghost" size="sm">
-                            Tornar principal
-                          </Button>
-                        </form>
-                      )}
-                      <form action={deleteContact}>
-                        <input type="hidden" name="contactId" value={c.id} />
-                        <input type="hidden" name="opportunityId" value={op.id} />
-                        <Button type="submit" variant="ghost" size="sm">
-                          Remover
-                        </Button>
-                      </form>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <ContactForm opportunityId={op.id} />
-          </section>
-
-          {/* Meetings */}
-          <section className="bg-white border border-slate-200 rounded-lg p-6">
-            <h2 className="text-sm font-semibold text-slate-900 mb-4">
-              Reuniões ({op.meetings.length})
-            </h2>
-            {op.meetings.length > 0 && (
-              <ul className="divide-y divide-slate-100 mb-6">
-                {op.meetings.map((m) => (
-                  <li key={m.id} className="py-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-sm font-medium text-slate-900">
-                          {m.title ?? 'Reunião'}
-                        </div>
-                        <div className="text-xs text-slate-500 mt-0.5">
-                          {formatDateTime(m.scheduledAt)} · {m.kind} · {m.durationMinutes}min
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {m.meetLink && (
-                          <a
-                            href={m.meetLink}
-                            target="_blank"
-                            rel="noopener"
-                            className="text-xs text-i10-700 hover:underline"
-                          >
-                            Link →
-                          </a>
-                        )}
-                        {m.googleEventId && (
-                          <span className="text-xs text-slate-400" title={m.googleEventId}>
-                            ✓ Calendar
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    {m.notes && (
-                      <div className="text-xs text-slate-600 mt-2 whitespace-pre-wrap">
-                        {m.notes}
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-            <MeetingForm opportunityId={op.id} />
-          </section>
-
-          {/* Timeline */}
-          <section className="bg-white border border-slate-200 rounded-lg p-6">
-            <h2 className="text-sm font-semibold text-slate-900 mb-4">
-              Histórico ({op.activities.length})
-            </h2>
-            <ActivityForm opportunityId={op.id} />
-            <div className="mt-6 space-y-3">
-              {op.activities.map((a) => (
-                <div key={a.id} className="border-l-2 border-slate-200 pl-3 py-1">
-                  <div className="text-xs text-slate-500">
-                    {ACTIVITY_LABEL[a.type] ?? a.type} · {formatDateTime(a.occurredAt)}
-                  </div>
-                  {a.subject && (
-                    <div className="text-sm font-medium text-slate-900 mt-0.5">{a.subject}</div>
-                  )}
-                  {a.body && (
-                    <div className="text-sm text-slate-700 mt-0.5 whitespace-pre-wrap">
-                      {a.body}
-                    </div>
-                  )}
-                </div>
-              ))}
-              {op.activities.length === 0 && (
-                <div className="text-xs text-slate-400 italic">Sem atividades registradas.</div>
-              )}
-            </div>
-          </section>
+          </Card>
         </div>
 
-        {/* Side column */}
-        <div className="space-y-6">
-          <section className="bg-white border border-slate-200 rounded-lg p-5">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">
+        {/* Sticky right context rail */}
+        <div className="space-y-6 lg:sticky lg:top-6 lg:self-start">
+          <Card>
+            <CardTitle className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Estágio
-            </h3>
-            <StageControl opportunityId={op.id} currentStage={op.stage as StageKey} />
-          </section>
+            </CardTitle>
+            <div className="mt-3">
+              <StageControl opportunityId={op.id} currentStage={op.stage as StageKey} />
+            </div>
+          </Card>
 
-          <section className="bg-white border border-slate-200 rounded-lg p-5">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">
-              Tags
-            </h3>
-            <TagEditor
-              opportunityId={op.id}
-              initialTags={(op.tags as string[] | null) ?? []}
-              taxonomy={taxonomy.map((t) => ({ label: t.label, category: t.category, color: t.color }))}
-            />
-          </section>
-          <section className="bg-white border border-slate-200 rounded-lg p-5 text-xs">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">
+          <Card>
+            <CardTitle className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Tags de interesse
+            </CardTitle>
+            <div className="mt-3">
+              <TagEditor
+                opportunityId={op.id}
+                initialTags={(op.tags as string[] | null) ?? []}
+                taxonomy={taxonomy.map((t) => ({ label: t.label, category: t.category, color: t.color }))}
+              />
+            </div>
+          </Card>
+
+          {bnccBadges.length > 0 && !consultoria?.consultoriaId && (
+            <section
+              className="rounded-xl p-5"
+              style={{ background: 'var(--i10-gradient-main)' }}
+            >
+              <h3 className="text-[11px] font-bold uppercase tracking-[3px] mb-3" style={{ color: 'var(--i10-cyan-light)' }}>
+                Sinais do BNCC-CAPTACAO
+              </h3>
+              <BnccBadges signals={bnccBadges} variant="lg" />
+            </section>
+          )}
+
+          <Card className="text-xs">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Metadados
-            </h3>
-            <dl className="space-y-1.5">
+            </CardTitle>
+            <dl className="space-y-1.5 mt-3">
               <div className="flex justify-between">
                 <dt className="text-slate-500">Criada</dt>
                 <dd className="text-slate-700">{formatDate(op.createdAt)}</dd>
@@ -555,7 +577,7 @@ export default async function OpportunityDetailPage({
                 <div className="mt-2 text-slate-700 italic">Motivo: {op.lostReason}</div>
               )}
             </dl>
-          </section>
+          </Card>
         </div>
       </div>
     </div>

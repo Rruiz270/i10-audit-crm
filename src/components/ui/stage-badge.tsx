@@ -16,6 +16,27 @@ const STYLE: Record<string, { bg: string; fg: string; ring: string }> = {
   'rose-500': { bg: '#FEE2E2', fg: '#B91C1C', ring: '#FECACA' },
 };
 
+/**
+ * Cor sólida (hex/var) de cada estágio, indexada pelo `color` da definição
+ * (ex.: 'slate-500'). Usada para a borda superior das colunas do Kanban —
+ * resolve o bug do `border-t-${color}` que o Tailwind v4 (JIT) nunca gera.
+ */
+const STAGE_ACCENT: Record<string, string> = {
+  'slate-500': '#64748B',
+  'blue-500': 'var(--i10-navy)',
+  'indigo-500': '#6366F1',
+  'violet-500': 'var(--i10-cyan)',
+  'amber-500': '#F59E0B',
+  'orange-500': '#F97316',
+  'emerald-500': 'var(--i10-mint)',
+  'rose-500': '#F43F5E',
+};
+
+/** Resolve a cor de acento sólida de um estágio a partir do seu `color`. */
+export function stageAccentColor(color: string | null | undefined): string {
+  return STAGE_ACCENT[color ?? ''] ?? STAGE_ACCENT['slate-500'];
+}
+
 export function StageBadge({ stage }: { stage: StageKey }) {
   const def = STAGES_BY_KEY[stage];
   if (!def) return <span className="text-xs text-slate-500">{stage}</span>;

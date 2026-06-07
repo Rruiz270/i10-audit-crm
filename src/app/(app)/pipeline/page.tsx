@@ -1,10 +1,10 @@
-import Link from 'next/link';
 import { opportunitiesByStage } from '@/lib/actions/opportunities';
 import { listTasksForOpportunity } from '@/lib/actions/tasks';
 import { listStages } from '@/lib/actions/stages';
 import { getMyPreferences } from '@/lib/actions/me';
 import { requireUser } from '@/lib/session';
-import { KanbanBoard } from '@/components/kanban-board';
+import { PipelineFilters } from '@/components/pipeline-filters';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { getConsultoriaSignalsBatch } from '@/lib/bncc-signals';
 import { STAGES } from '@/lib/pipeline';
 
@@ -87,27 +87,14 @@ export default async function PipelinePage({
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
-          {/* Toggle minhas vs todas */}
-          <div className="inline-flex rounded-md overflow-hidden border border-slate-200 bg-white text-xs font-semibold">
-            <Link
-              href="/pipeline?mine=0"
-              className={`px-3 py-1.5 transition-colors ${
-                !mine ? 'text-white' : 'text-slate-600 hover:bg-slate-50'
-              }`}
-              style={!mine ? { background: 'var(--i10-navy)' } : undefined}
-            >
-              Todas
-            </Link>
-            <Link
-              href="/pipeline?mine=1"
-              className={`px-3 py-1.5 transition-colors ${
-                mine ? 'text-white' : 'text-slate-600 hover:bg-slate-50'
-              }`}
-              style={mine ? { background: 'var(--i10-navy)' } : undefined}
-            >
-              Minhas
-            </Link>
-          </div>
+          {/* Toggle minhas vs todas (URL-driven, controla o fetch do DB) */}
+          <SegmentedControl
+            value={mine ? 'mine' : 'all'}
+            options={[
+              { value: 'all', label: 'Todas', href: '/pipeline?mine=0' },
+              { value: 'mine', label: 'Minhas', href: '/pipeline?mine=1' },
+            ]}
+          />
           <div className="text-xs text-slate-500 text-right">
             {rows.length} oportunidade{rows.length === 1 ? '' : 's'} no funil
             {handedOff.length > 0 && (
@@ -119,7 +106,7 @@ export default async function PipelinePage({
         </div>
       </header>
 
-      <KanbanBoard cards={cardsWithExtras} stages={stages} />
+      <PipelineFilters cards={cardsWithExtras} stages={stages} />
 
       <div className="mt-8 text-xs text-slate-400">
         Estágios terminais: {STAGES.filter((s) => s.isTerminal).map((s) => s.label).join(' · ')} ·
