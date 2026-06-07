@@ -170,11 +170,13 @@ export async function listOverdueTasks(now: Date = new Date()) {
 // KPIs agregados para a página de Tarefas. Escopo opcional `mine` casa com o
 // filtro Minhas/Todas. Contagens via SQL (sem carregar a tabela em memória).
 export async function getTaskKpis(filter?: { mine?: string }, now: Date = new Date()) {
+  const user = await requireUser();
   const startOfToday = new Date(now);
   startOfToday.setHours(0, 0, 0, 0);
   const endOfToday = new Date(startOfToday.getTime() + 24 * 3600 * 1000);
   const since7 = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
-  const scope = filter?.mine ? eq(tasks.assignedTo, filter.mine) : undefined;
+  // "mine" = sempre o usuário autenticado (não confiar em id do cliente).
+  const scope = filter?.mine ? eq(tasks.assignedTo, user.id) : undefined;
 
   const [row] = await db
     .select({
@@ -201,8 +203,10 @@ export async function listTasksForBoard(
   filter?: { mine?: string },
   now: Date = new Date(),
 ) {
+  const user = await requireUser();
   const since7 = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
-  const scope = filter?.mine ? eq(tasks.assignedTo, filter.mine) : undefined;
+  // "mine" = sempre o usuário autenticado (não confiar em id do cliente).
+  const scope = filter?.mine ? eq(tasks.assignedTo, user.id) : undefined;
   const recency = sql`(${tasks.completedAt} IS NULL OR ${tasks.completedAt} >= ${since7})`;
   const cond = scope ? and(scope, recency) : recency;
   return db
