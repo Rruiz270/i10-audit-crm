@@ -4,6 +4,8 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { Input, Select, Field } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { updateMyPreferences, type UserPreferences } from '@/lib/actions/me';
 import {
   requestNotificationPermission,
@@ -31,21 +33,16 @@ function Toggle({
   hint?: string;
   defaultChecked: boolean;
 }) {
-  const [checked, setChecked] = React.useState(defaultChecked);
   return (
-    <label className="flex items-start gap-3 py-3 cursor-pointer">
-      <input
-        type="checkbox"
-        name={name}
-        checked={checked}
-        onChange={(e) => setChecked(e.target.checked)}
-        className="mt-0.5 h-4 w-4"
-      />
+    <div className="flex items-start justify-between gap-3 py-3">
       <div className="flex-1">
         <div className="text-sm font-medium text-slate-900">{label}</div>
         {hint && <div className="text-xs text-slate-500 mt-0.5">{hint}</div>}
       </div>
-    </label>
+      <div className="mt-0.5 shrink-0">
+        <Switch name={name} defaultChecked={defaultChecked} />
+      </div>
+    </div>
   );
 }
 
@@ -54,6 +51,9 @@ export function PreferencesForm({ defaults }: { defaults: UserPreferences }) {
   const [msg, setMsg] = React.useState<string | null>(null);
   const [err, setErr] = React.useState<string | null>(null);
   const [browserPermission, setBrowserPermission] = React.useState<string>('idle');
+  const [pipelineFilter, setPipelineFilter] = React.useState<'all' | 'mine'>(
+    defaults.defaultPipelineFilter,
+  );
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -75,7 +75,7 @@ export function PreferencesForm({ defaults }: { defaults: UserPreferences }) {
     setBrowserPermission(p);
     if (p === 'granted') {
       await notifyLocal(
-        'Notificações ativadas 🔔',
+        'Notificações ativadas',
         'Você vai ser avisado sobre tarefas atrasadas, novos leads e sinais do BNCC.',
       );
     }
@@ -157,12 +157,20 @@ export function PreferencesForm({ defaults }: { defaults: UserPreferences }) {
         <h2 className="text-sm font-semibold" style={{ color: 'var(--i10-navy)' }}>
           Visual & pipeline
         </h2>
-        <Field label="Filtro padrão em /pipeline e /opportunities">
-          <Select name="defaultPipelineFilter" defaultValue={defaults.defaultPipelineFilter}>
-            <option value="all">Todas (time inteiro)</option>
-            <option value="mine">Só as minhas (ownerId = eu)</option>
-          </Select>
-        </Field>
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-slate-600">
+            Filtro padrão em /pipeline e /opportunities
+          </label>
+          <input type="hidden" name="defaultPipelineFilter" value={pipelineFilter} />
+          <SegmentedControl
+            value={pipelineFilter}
+            onChange={(v) => setPipelineFilter(v as 'all' | 'mine')}
+            options={[
+              { value: 'all', label: 'Todas (time inteiro)' },
+              { value: 'mine', label: 'Só as minhas' },
+            ]}
+          />
+        </div>
         <Toggle
           name="displayCompact"
           label="Modo compacto"

@@ -1,40 +1,57 @@
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
 import { Wordmark } from '@/components/ui/wordmark';
+import { NavLink } from '@/components/ui/nav-link';
+import { Icon } from '@/components/ui/icon';
 import { isAdmin } from '@/lib/roles';
 
-type NavItem = { href: string; label: string; external?: boolean };
+type NavItem = { href: string; label: string; icon: string };
 
-// Nav do consultor — trabalho diário na captação
-const USER_NAV: NavItem[] = [
-  { href: '/', label: 'Dashboard' },
-  { href: '/pipeline', label: 'Pipeline' },
-  { href: '/opportunities', label: 'Oportunidades' },
-  { href: '/tasks', label: 'Tarefas' },
-  { href: '/leads', label: 'Leads' },
-  { href: '/meetings', label: 'Reuniões' },
-  { href: '/contacts', label: 'Contatos' },
-  { href: '/reports', label: 'Relatórios' },
-  { href: '/admin/treinamento', label: 'Treinamento' },
-  { href: '/me', label: 'Meu perfil' },
+// Grupos de navegação — compartilhados (na medida do possível) com o mobile-nav.
+// Cada item carrega um ícone lucide (via <Icon>) usado pelo NavLink.
+const FUNIL_NAV: NavItem[] = [
+  { href: '/', label: 'Dashboard', icon: 'layout-grid' },
+  { href: '/pipeline', label: 'Pipeline', icon: 'columns' },
+  { href: '/opportunities', label: 'Oportunidades', icon: 'briefcase' },
+];
+
+const OPERACAO_NAV: NavItem[] = [
+  { href: '/tasks', label: 'Tarefas', icon: 'check-square' },
+  { href: '/leads', label: 'Leads', icon: 'inbox' },
+  { href: '/meetings', label: 'Reuniões', icon: 'calendar' },
+  { href: '/contacts', label: 'Contatos', icon: 'users' },
+  { href: '/reports', label: 'Relatórios', icon: 'chart' },
+  { href: '/admin/treinamento', label: 'Treinamento', icon: 'book' },
 ];
 
 // Nav exclusivo admin/gestor — configuração e supervisão
 const ADMIN_NAV: NavItem[] = [
-  { href: '/settings', label: 'Administração' },
-  { href: '/admin/team', label: 'Time & permissões' },
-  { href: '/admin/health', label: 'Saúde operacional' },
-  { href: '/settings/stages', label: 'Estágios do pipeline' },
-  { href: '/settings/tags', label: 'Tags de oportunidade' },
+  { href: '/settings', label: 'Administração', icon: 'settings' },
+  { href: '/admin/team', label: 'Time & permissões', icon: 'users' },
+  { href: '/admin/health', label: 'Saúde operacional', icon: 'activity' },
+  { href: '/settings/stages', label: 'Estágios do pipeline', icon: 'git-branch' },
+  { href: '/settings/tags', label: 'Tags de oportunidade', icon: 'tag' },
 ];
 
-// Nav do hub de Marketing — gated por NEXT_PUBLIC_MARKETING_ENABLED.
-// Entry point único: "Marketing engine" abre o hub de tiles (WhatsApp, Email,
-// Conversas, Leads Hub, Insights, Social). Não duplicamos os tiles aqui na
-// sidebar pra não ficar redundante.
 const MARKETING_NAV: NavItem[] = [
-  { href: '/marketing', label: 'Marketing engine' },
+  { href: '/marketing', label: 'Marketing engine', icon: 'mega' },
 ];
+
+function GroupLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="mt-5 mb-2 px-3 text-[10px] font-bold uppercase"
+      style={{ color: 'var(--i10-cyan-light)', letterSpacing: '3px' }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// Variante "dark" do NavLink para o gradiente navy da sidebar — o NavLink
+// padrão é otimizado para fundo claro; aqui sobrescrevemos as cores via
+// className mas mantemos o mesmo estado ativo (gradiente cyan→mint).
+const DARK_LINK =
+  'text-white/75 hover:bg-white/10 hover:text-white aria-[current=page]:i10-gradient-accent aria-[current=page]:text-i10-navy aria-[current=page]:font-semibold';
 
 export function Sidebar({ userName, userRole }: { userName?: string | null; userRole?: string }) {
   const showAdmin = isAdmin(userRole);
@@ -43,6 +60,10 @@ export function Sidebar({ userName, userRole }: { userName?: string | null; user
   // F3: agentes (consultor) chegam ao inbox por um atalho direto. A página em si
   // redireciona quem não tem nenhuma fila atribuída, e as queries são escopadas.
   const showAgentInbox = !showAdmin && marketingOn;
+
+  const initial =
+    (userName?.[0] ?? userRole?.[0] ?? '?').toUpperCase();
+
   return (
     <aside className="w-60 shrink-0 flex flex-col text-white i10-gradient-dark">
       {/* Header com wordmark sobre o gradient navy */}
@@ -60,113 +81,101 @@ export function Sidebar({ userName, userRole }: { userName?: string | null; user
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        {USER_NAV.map((item) => (
-          <Link
+        <GroupLabel>Funil</GroupLabel>
+        {FUNIL_NAV.map((item) => (
+          <NavLink
             key={item.href}
             href={item.href}
-            className={cn(
-              'block px-3 py-2 rounded-md text-sm font-medium',
-              'text-white/75 hover:bg-white/10 hover:text-white transition-colors',
-            )}
-          >
-            {item.label}
-          </Link>
+            icon={item.icon}
+            label={item.label}
+            className={DARK_LINK}
+          />
+        ))}
+
+        <GroupLabel>Operação</GroupLabel>
+        {OPERACAO_NAV.map((item) => (
+          <NavLink
+            key={item.href}
+            href={item.href}
+            icon={item.icon}
+            label={item.label}
+            className={DARK_LINK}
+          />
         ))}
 
         {showMarketing && (
           <>
-            <div
-              className="mt-5 mb-2 px-3 text-[10px] font-bold uppercase"
-              style={{ color: 'var(--i10-cyan-light)', letterSpacing: '3px' }}
-            >
-              Marketing
-            </div>
-            {MARKETING_NAV.map((item) =>
-              item.external ? (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={cn(
-                    'block px-3 py-2 rounded-md text-sm font-medium',
-                    'text-white/75 hover:bg-white/10 hover:text-white transition-colors',
-                  )}
-                >
-                  {item.label} ↗
-                </a>
-              ) : (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    'block px-3 py-2 rounded-md text-sm font-medium',
-                    'text-white/75 hover:bg-white/10 hover:text-white transition-colors',
-                  )}
-                >
-                  {item.label}
-                </Link>
-              ),
-            )}
+            <GroupLabel>Marketing</GroupLabel>
+            {MARKETING_NAV.map((item) => (
+              <NavLink
+                key={item.href}
+                href={item.href}
+                icon={item.icon}
+                label={item.label}
+                className={DARK_LINK}
+              />
+            ))}
           </>
         )}
 
         {showAgentInbox && (
           <>
-            <div
-              className="mt-5 mb-2 px-3 text-[10px] font-bold uppercase"
-              style={{ color: 'var(--i10-cyan-light)', letterSpacing: '3px' }}
-            >
-              Marketing
-            </div>
-            <Link
+            <GroupLabel>Marketing</GroupLabel>
+            <NavLink
               href="/marketing/conversas"
-              className={cn(
-                'block px-3 py-2 rounded-md text-sm font-medium',
-                'text-white/75 hover:bg-white/10 hover:text-white transition-colors',
-              )}
-            >
-              Conversas
-            </Link>
+              icon="msg"
+              label="Conversas"
+              className={DARK_LINK}
+            />
           </>
         )}
 
         {showAdmin && (
           <>
-            <div
-              className="mt-5 mb-2 px-3 text-[10px] font-bold uppercase"
-              style={{ color: 'var(--i10-cyan-light)', letterSpacing: '3px' }}
-            >
-              Administração
-            </div>
+            <GroupLabel>Administração</GroupLabel>
             {ADMIN_NAV.map((item) => (
-              <Link
+              <NavLink
                 key={item.href}
                 href={item.href}
-                className={cn(
-                  'block px-3 py-2 rounded-md text-sm font-medium',
-                  'text-white/75 hover:bg-white/10 hover:text-white transition-colors',
-                )}
-              >
-                {item.label}
-              </Link>
+                icon={item.icon}
+                label={item.label}
+                className={DARK_LINK}
+              />
             ))}
           </>
         )}
       </nav>
 
-      <div className="px-4 py-4 border-t border-white/10 text-xs">
-        <div className="font-semibold text-white truncate">{userName ?? '—'}</div>
-        <div
-          className="mt-0.5 font-semibold uppercase"
-          style={{ color: 'var(--i10-cyan-light)', letterSpacing: '2px' }}
+      {/* Bloco de usuário no rodapé — "Meu perfil" com avatar + sair. */}
+      <div className="px-3 py-4 border-t border-white/10">
+        <Link
+          href="/me"
+          aria-current={undefined}
+          className="flex items-center gap-3 rounded-lg px-2 py-2 transition hover:bg-white/10"
         >
-          {userRole ?? 'consultor'}
-        </div>
+          <div
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-bold text-white"
+            style={{ background: 'var(--i10-gradient-main)' }}
+          >
+            {initial}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-semibold text-white">
+              {userName ?? '—'}
+            </div>
+            <div
+              className="text-[10px] font-semibold uppercase"
+              style={{ color: 'var(--i10-cyan-light)', letterSpacing: '2px' }}
+            >
+              {userRole ?? 'consultor'}
+            </div>
+          </div>
+        </Link>
         <Link
           href="/api/auth/signout"
-          className="mt-3 block text-white/50 hover:text-[var(--i10-cyan-light)]"
+          className="mt-2 flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-white/50 transition hover:bg-white/10 hover:text-[var(--i10-cyan-light)]"
         >
+          <Icon name="arrow-right" size={14} />
           Sair
         </Link>
       </div>

@@ -37,13 +37,22 @@ export function MyProfileForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
+      {/* Dados do Google — display read-only, não faux-inputs */}
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Nome do Google (read-only)">
-          <Input value={defaults.googleName} readOnly className="bg-slate-50 text-slate-500" />
-        </Field>
-        <Field label="Email (read-only)">
-          <Input value={defaults.email} readOnly className="bg-slate-50 text-slate-500" />
-        </Field>
+        <div className="rounded-lg bg-slate-50 px-3 py-2.5">
+          <div className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+            Nome do Google
+          </div>
+          <div className="mt-0.5 text-sm text-slate-700">{defaults.googleName || '—'}</div>
+        </div>
+        <div className="rounded-lg bg-slate-50 px-3 py-2.5">
+          <div className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+            Email
+          </div>
+          <div className="mt-0.5 text-sm text-slate-700">{defaults.email || '—'}</div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
         <Field label="Nome de exibição (opcional)">
           <Input
             name="displayName"

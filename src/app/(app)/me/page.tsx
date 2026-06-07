@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { requireUser } from '@/lib/session';
 import { getMyProfile, getMyStats } from '@/lib/actions/me';
 import { MyProfileForm } from '@/components/my-profile-form';
+import { KpiTile } from '@/components/ui/kpi-tile';
+import { Icon } from '@/components/ui/icon';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,15 +59,17 @@ export default async function MyProfilePage() {
           <div className="flex flex-col gap-2">
             <Link
               href="/me/preferences"
-              className="text-xs font-semibold px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/20 transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-white/20"
             >
-              ⚙️ Preferências
+              <Icon name="settings" size={14} />
+              Preferências
             </Link>
             <Link
               href="/tasks?filter=mine"
-              className="text-xs font-semibold px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/20 transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-white/20"
             >
-              ✓ Minhas tarefas
+              <Icon name="check-square" size={14} />
+              Minhas tarefas
             </Link>
           </div>
         </div>
@@ -73,44 +77,35 @@ export default async function MyProfilePage() {
 
       {/* Stats pessoais */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-        <div className="bg-white border border-slate-200 rounded-lg p-4">
-          <div className="text-xs text-slate-500">Oportunidades ativas</div>
-          <div className="text-2xl font-bold" style={{ color: 'var(--i10-navy)' }}>
-            {stats.activeOps}
-          </div>
-          <div className="text-[11px] text-slate-400 mt-1">total histórico: {stats.totalOps}</div>
-        </div>
-        <div className="bg-white border border-slate-200 rounded-lg p-4">
-          <div className="text-xs text-slate-500">Tarefas em aberto</div>
-          <div className="text-2xl font-bold" style={{ color: 'var(--i10-navy)' }}>
-            {stats.openTasks}
-          </div>
-          <Link
-            href="/tasks?filter=mine"
-            className="text-[11px] mt-1 inline-block"
-            style={{ color: 'var(--i10-cyan-dark)' }}
-          >
-            ver →
-          </Link>
-        </div>
-        <div className="bg-white border border-slate-200 rounded-lg p-4">
-          <div className="text-xs text-slate-500">Ganhas (30d)</div>
-          <div className="text-2xl font-bold" style={{ color: 'var(--i10-mint-dark)' }}>
-            {stats.won30}
-          </div>
-          <div className="text-[11px] text-slate-400 mt-1">perdidas: {stats.lost30}</div>
-        </div>
-        <div className="bg-white border border-slate-200 rounded-lg p-4">
-          <div className="text-xs text-slate-500">Win rate (30d)</div>
-          <div className="text-2xl font-bold" style={{ color: 'var(--i10-navy)' }}>
-            {stats.won30 + stats.lost30 === 0
+        <KpiTile
+          icon="briefcase"
+          tone="navy"
+          value={stats.activeOps}
+          label={`Oportunidades ativas · total ${stats.totalOps}`}
+        />
+        <KpiTile
+          icon="check-square"
+          tone="cyan"
+          value={stats.openTasks}
+          label="Tarefas em aberto"
+          href="/tasks?filter=mine"
+        />
+        <KpiTile
+          icon="flag"
+          tone="mint"
+          value={stats.won30}
+          label={`Ganhas (30d) · perdidas ${stats.lost30}`}
+        />
+        <KpiTile
+          icon="chart"
+          tone="navy"
+          value={
+            stats.won30 + stats.lost30 === 0
               ? '—'
-              : `${Math.round(stats.winRate30 * 100)}%`}
-          </div>
-          <div className="text-[11px] text-slate-400 mt-1">
-            {stats.activities30} ações registradas
-          </div>
-        </div>
+              : `${Math.round(stats.winRate30 * 100)}%`
+          }
+          label={`Win rate (30d) · ${stats.activities30} ações`}
+        />
       </section>
 
       {/* Profile form */}

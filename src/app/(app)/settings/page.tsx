@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { isAdmin, requireUser } from '@/lib/session';
 import { RestrictedGate } from '@/components/restricted-gate';
+import { Icon } from '@/components/marketing-hub';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,14 +10,16 @@ type AdminCard = {
   href: string;
   description: string;
   status: 'ready' | 'stub' | 'planned';
-  eyebrow: string;
+  section: string;
+  icon: string;
 };
 
 const CARDS: AdminCard[] = [
   {
     title: 'Estágios do pipeline',
     href: '/settings/stages',
-    eyebrow: 'Funil',
+    section: 'Funil & Taxonomia',
+    icon: 'git-branch',
     description:
       'Adicionar, editar, desativar estágios. Ajustar probabilidades, rot_days e cores. Estágios customizados aparecem no Kanban.',
     status: 'ready',
@@ -24,7 +27,8 @@ const CARDS: AdminCard[] = [
   {
     title: 'Tags de oportunidade',
     href: '/settings/tags',
-    eyebrow: 'Taxonomia',
+    section: 'Funil & Taxonomia',
+    icon: 'tag',
     description:
       'Taxonomia gerenciada de tags (origem/produto). Auto-aplicadas na criação (manual, formulário, APM, webinar). Adicionar tags customizadas, cores e ativar/desativar.',
     status: 'ready',
@@ -32,7 +36,8 @@ const CARDS: AdminCard[] = [
   {
     title: 'Time & permissões',
     href: '/admin/team',
-    eyebrow: 'Acesso',
+    section: 'Acesso',
+    icon: 'users',
     description:
       'Convidar consultores, promover a gestor/admin, desativar usuários. Convidados só conseguem logar se tiverem role pré-atribuído.',
     status: 'ready',
@@ -40,7 +45,8 @@ const CARDS: AdminCard[] = [
   {
     title: 'Saúde da operação',
     href: '/admin/health',
-    eyebrow: 'Supervisão',
+    section: 'Supervisão',
+    icon: 'activity',
     description:
       'Leads sem triagem, oportunidades sem contato primário, cards parados há X dias, consultorias BNCC sem sinal recente.',
     status: 'ready',
@@ -48,7 +54,8 @@ const CARDS: AdminCard[] = [
   {
     title: 'Performance do time',
     href: '/admin/performance',
-    eyebrow: 'Gestão',
+    section: 'Roadmap',
+    icon: 'chart',
     description:
       'Por consultor: ganhas/perdidas, taxa de conversão, tempo médio em cada estágio, tarefas concluídas vs atrasadas.',
     status: 'planned',
@@ -56,7 +63,8 @@ const CARDS: AdminCard[] = [
   {
     title: 'Formulários públicos',
     href: '/admin/lead-forms',
-    eyebrow: 'Captação',
+    section: 'Roadmap',
+    icon: 'file',
     description:
       'Editar os campos do formulário de intake (/intake/[slug]), adicionar novos slugs, ativar/desativar captação pública.',
     status: 'planned',
@@ -64,7 +72,8 @@ const CARDS: AdminCard[] = [
   {
     title: 'Motivos de perda',
     href: '/admin/lost-reasons',
-    eyebrow: 'Taxonomia',
+    section: 'Roadmap',
+    icon: 'x-circle',
     description:
       'Hoje os 9 códigos estão hardcoded em src/lib/lost-reasons.ts. Admin vai poder adicionar códigos customizados via UI.',
     status: 'planned',
@@ -72,7 +81,8 @@ const CARDS: AdminCard[] = [
   {
     title: 'Integrações',
     href: '/admin/integrations',
-    eyebrow: 'Conectores',
+    section: 'Roadmap',
+    icon: 'settings',
     description:
       'Google Calendar (já), WhatsApp Business API, SendGrid/Resend, webhooks BNCC-CAPTACAO pra sinalização em tempo real.',
     status: 'planned',
@@ -80,7 +90,8 @@ const CARDS: AdminCard[] = [
   {
     title: 'Auditoria global',
     href: '/admin/audit-log',
-    eyebrow: 'Compliance',
+    section: 'Roadmap',
+    icon: 'book',
     description:
       'Todas as atividades do CRM em uma timeline única: quem criou/editou/moveu/deletou o quê e quando. Exportável.',
     status: 'planned',
@@ -104,6 +115,9 @@ function StatusPill({ status }: { status: AdminCard['status'] }) {
   );
 }
 
+// Ordem das seções "ao vivo" — planned colapsa em "No roadmap" no fim.
+const LIVE_SECTIONS = ['Funil & Taxonomia', 'Acesso', 'Supervisão'];
+
 export default async function SettingsHubPage() {
   const user = await requireUser();
   if (!isAdmin(user.role)) {
@@ -115,6 +129,9 @@ export default async function SettingsHubPage() {
       />
     );
   }
+
+  const liveCards = CARDS.filter((c) => c.status !== 'planned');
+  const roadmapCards = CARDS.filter((c) => c.status === 'planned');
 
   return (
     <div className="px-8 py-8 max-w-6xl">
@@ -134,56 +151,86 @@ export default async function SettingsHubPage() {
         </p>
       </header>
 
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {CARDS.map((c) => {
-          const disabled = c.status === 'planned';
-          const inner = (
-            <>
-              <div className="flex items-start justify-between mb-3">
-                <div
-                  className="text-[10px] font-bold uppercase"
-                  style={{ color: 'var(--i10-cyan-dark)', letterSpacing: '3px' }}
+      {LIVE_SECTIONS.map((section) => {
+        const cards = liveCards.filter((c) => c.section === section);
+        if (cards.length === 0) return null;
+        return (
+          <section key={section} className="mb-8">
+            <h2
+              className="mb-3 text-[11px] font-bold uppercase"
+              style={{ color: 'var(--i10-cyan-dark)', letterSpacing: '3px' }}
+            >
+              {section}
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {cards.map((c) => (
+                <Link
+                  key={c.href}
+                  href={c.href}
+                  className="group relative block rounded-2xl border border-slate-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-lg"
                 >
-                  {c.eyebrow}
-                </div>
-                <StatusPill status={c.status} />
-              </div>
-              <h2 className="text-base font-bold" style={{ color: 'var(--i10-navy)' }}>
-                {c.title}
-              </h2>
-              <p className="text-xs text-slate-600 mt-2 leading-relaxed">{c.description}</p>
-              {!disabled && (
-                <div
-                  className="mt-4 text-xs font-semibold inline-flex items-center gap-1"
-                  style={{ color: 'var(--i10-cyan-dark)' }}
-                >
-                  Abrir
-                  <span
-                    aria-hidden
-                    className="group-hover:translate-x-0.5 transition-transform"
+                  <div className="flex items-start justify-between">
+                    <div className="grid h-11 w-11 place-items-center rounded-xl bg-i10-navy-pale text-i10-navy">
+                      <Icon name={c.icon} size={24} />
+                    </div>
+                    <StatusPill status={c.status} />
+                  </div>
+                  <h3
+                    className="mt-3 text-[15px] font-semibold"
+                    style={{ color: 'var(--i10-navy)' }}
                   >
-                    →
-                  </span>
-                </div>
-              )}
-            </>
-          );
-          const className = `group block bg-white border border-slate-200 rounded-lg p-5 transition-colors ${
-            disabled
-              ? 'opacity-60 cursor-not-allowed'
-              : 'hover:border-[var(--i10-cyan)] hover:shadow-sm'
-          }`;
-          return disabled ? (
-            <div key={c.href} className={className}>
-              {inner}
+                    {c.title}
+                  </h3>
+                  <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
+                    {c.description}
+                  </p>
+                  <div className="mt-3 inline-flex items-center gap-1 text-[12.5px] font-semibold text-cyan-700">
+                    Abrir
+                    <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
+                      →
+                    </span>
+                  </div>
+                </Link>
+              ))}
             </div>
-          ) : (
-            <Link key={c.href} href={c.href} className={className}>
-              {inner}
-            </Link>
-          );
-        })}
-      </section>
+          </section>
+        );
+      })}
+
+      {roadmapCards.length > 0 && (
+        <section className="mb-4">
+          <h2
+            className="mb-3 text-[11px] font-bold uppercase text-slate-400"
+            style={{ letterSpacing: '3px' }}
+          >
+            No roadmap
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {roadmapCards.map((c) => (
+              <div
+                key={c.href}
+                className="relative rounded-xl border border-slate-200 bg-white p-4 opacity-60"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="grid h-9 w-9 place-items-center rounded-lg bg-slate-100 text-slate-500">
+                    <Icon name={c.icon} size={20} />
+                  </div>
+                  <StatusPill status={c.status} />
+                </div>
+                <h3
+                  className="mt-2.5 text-sm font-semibold"
+                  style={{ color: 'var(--i10-navy)' }}
+                >
+                  {c.title}
+                </h3>
+                <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                  {c.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
