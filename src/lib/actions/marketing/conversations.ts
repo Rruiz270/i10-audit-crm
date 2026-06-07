@@ -134,7 +134,9 @@ function blockedByTestAllowlist(phone: string): boolean {
 }
 
 // Responde uma conversa com mensagem livre (só dentro da janela de 24h).
-export async function sendConversationReply(formData: FormData): Promise<void> {
+export async function sendConversationReply(
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const user = await requireUser();
   const conversationId = Number(formData.get('conversationId'));
   const body = String(formData.get('body') ?? '').trim();
@@ -146,11 +148,17 @@ export async function sendConversationReply(formData: FormData): Promise<void> {
   // Trava da janela de 24h: fora dela, freeform é bloqueado pela Meta (erro 63016).
   const expired = !conv.windowExpiresAt || new Date(conv.windowExpiresAt).getTime() < Date.now();
   if (expired) {
-    throw new Error('Janela de 24h expirada — responder fora dela exige template aprovado (em breve no inbox).');
+    return {
+      ok: false as const,
+      error: 'Janela de 24h expirada — responder fora dela exige template aprovado.',
+    };
   }
 
   if (blockedByTestAllowlist(conv.waPhone)) {
-    throw new Error('Modo de teste: número fora da allowlist. Resposta bloqueada.');
+    return {
+      ok: false as const,
+      error: 'Modo de teste: número fora da allowlist (MARKETING_TEST_ALLOWLIST_PHONE).',
+    };
   }
 
   // Envia via provider WhatsApp (freeform)
@@ -181,11 +189,11 @@ export async function sendConversationReply(formData: FormData): Promise<void> {
     })
     .where(eq(conversations.id, conversationId));
 
-  if (!result.ok) {
-    throw new Error(`Falha no envio: ${result.error}`);
-  }
-
   revalidatePath('/marketing/conversas');
+  if (!result.ok) {
+    return { ok: false as const, error: `Falha no envio: ${result.error}` };
+  }
+  return { ok: true as const };
 }
 
 export async function claimConversation(formData: FormData): Promise<void> {
@@ -260,7 +268,9 @@ export async function getCannedResponses(projectId?: number | null): Promise<Can
 // Envia um template Meta aprovado (contentSid HX...). Funciona mesmo com a
 // janela de 24h expirada — é o caminho para reabrir a conversa. Visibilidade
 // garantida via loadVisibleConversation (sem vazamento cross-project).
-export async function sendTemplateReply(formData: FormData): Promise<void> {
+export async function sendTemplateReply(
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const user = await requireUser();
   const conversationId = Number(formData.get('conversationId'));
   const contentSid = String(formData.get('contentSid') ?? '').trim();
@@ -269,7 +279,10 @@ export async function sendTemplateReply(formData: FormData): Promise<void> {
   const conv = await loadVisibleConversation(user, conversationId);
 
   if (blockedByTestAllowlist(conv.waPhone)) {
-    throw new Error('Modo de teste: número fora da allowlist. Resposta bloqueada.');
+    return {
+      ok: false as const,
+      error: 'Modo de teste: número fora da allowlist (MARKETING_TEST_ALLOWLIST_PHONE).',
+    };
   }
 
   // Variáveis ordenadas opcionais (var_1, var_2, …) → { "1": ..., "2": ... }
@@ -316,11 +329,11 @@ export async function sendTemplateReply(formData: FormData): Promise<void> {
     })
     .where(eq(conversations.id, conversationId));
 
-  if (!result.ok) {
-    throw new Error(`Falha no envio do template: ${result.error}`);
-  }
-
   revalidatePath('/marketing/conversas');
+  if (!result.ok) {
+    return { ok: false as const, error: `Falha no envio do template: ${result.error}` };
+  }
+  return { ok: true as const };
 }
 
 // Enriquecimento do painel de contexto: oportunidade CRM (estágio + dono),

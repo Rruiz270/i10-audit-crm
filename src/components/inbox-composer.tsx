@@ -80,7 +80,11 @@ export function InboxComposer({
     fd.set('body', body);
     startTransition(async () => {
       try {
-        await sendConversationReply(fd);
+        const r = await sendConversationReply(fd);
+        if (r && !r.ok) {
+          setError(r.error);
+          return;
+        }
         setBody('');
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Falha ao enviar.');
@@ -96,7 +100,8 @@ export function InboxComposer({
     fd.set('contentSid', contentSid);
     startTransition(async () => {
       try {
-        await sendTemplateReply(fd);
+        const r = await sendTemplateReply(fd);
+        if (r && !r.ok) setError(r.error);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Falha ao enviar template.');
       }
