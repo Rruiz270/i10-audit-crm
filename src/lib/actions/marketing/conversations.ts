@@ -22,6 +22,7 @@ import {
   renderTemplateBody,
 } from '@/lib/marketing/whatsapp-health';
 import { transcodeToMp3 } from '@/lib/marketing/transcode-audio';
+import { MEDIA_ALLOWED_TYPES } from '@/lib/marketing/media-types';
 
 export type ConversationRow = typeof conversations.$inferSelect;
 
@@ -305,65 +306,49 @@ export async function sendAudioReply(
   return { ok: true as const };
 }
 
-// Tipos de arquivo aceitos pelo WhatsApp (Twilio) p/ envio como mídia. Mantido
-// alinhado com a allowlist do proxy de mídia e do <input accept> no composer.
-const MEDIA_ALLOWED_TYPES = new Set<string>([
-  // imagens
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/gif',
-  // documentos
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-powerpoint',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'text/plain',
-  'text/csv',
-  // vídeo
-  'video/mp4',
-]);
-
-const MEDIA_MAX_BYTES = 16 * 1024 * 1024; // 16MB — teto de mídia do WhatsApp.
-
-// Envia um arquivo (imagem/documento/vídeo) na conversa (dentro da janela 24h).
-// Mesmo fluxo do sendAudioReply: valida → Vercel Blob público → provider com
-// mediaUrl → insere mensagem outbound com mediaUrls (incl. filename). Erros de
-// negócio voltam {ok,error} (não throw). Mesmos guards de visibilidade/janela/
-// allowlist/Blob.
-export async function sendMediaReply(
+// Envia um arquivo (imagem/documento/vídeo) já hospedado no Vercel Blob.
+// Fluxo CLIENT-DIRECT: o browser faz upload do File direto pro Blob via
+// `@vercel/blob/client` (rota /api/marketing/blob-upload emite o token), o que
+// CONTORNA o limite de body da função serverless (~4.5MB) e o limite de 1MB do
+// Server Action. Aqui recebemos só a URL resultante (payload minúsculo) e
+// enviamos via Twilio. Erros de negócio voltam {ok,error} (não throw). Mesmos
+// guards de visibilidade/janela/allowlist do sendConversationReply.
+export async function sendMediaUrlReply(
   formData: FormData,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const user = await requireUser();
   const conversationId = Number(formData.get('conversationId'));
-  const file = formData.get('file');
+  const mediaUrl = String(formData.get('mediaUrl') ?? '').trim();
+  const contentType = String(formData.get('contentType') ?? '').trim().toLowerCase();
+  const filename = String(formData.get('filename') ?? '').trim() || 'arquivo';
   if (!conversationId) throw new Error('conversationId obrigatório');
-  if (!(file instanceof File) || file.size === 0) {
-    return { ok: false as const, error: 'Arquivo ausente ou vazio.' };
+  if (!mediaUrl) {
+    return { ok: false as const, error: 'URL da mídia ausente.' };
   }
 
-  // Validação de tipo + tamanho ANTES de qualquer trabalho pesado.
-  if (!MEDIA_ALLOWED_TYPES.has(file.type)) {
+  // Validação de tipo (mesma allowlist server-enforced no token de upload).
+  if (!MEDIA_ALLOWED_TYPES.has(contentType)) {
     return {
       ok: false as const,
-      error: `Tipo de arquivo não suportado (${file.type || 'desconhecido'}).`,
-    };
-  }
-  if (file.size > MEDIA_MAX_BYTES) {
-    return {
-      ok: false as const,
-      error: 'Arquivo acima de 16MB (limite do WhatsApp).',
+      error: `Tipo de arquivo não suportado (${contentType || 'desconhecido'}).`,
     };
   }
 
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    return {
-      ok: false as const,
-      error: 'Storage de mídia não configurado (BLOB_READ_WRITE_TOKEN).',
-    };
+  // Validação de HOST do mediaUrl — só aceitamos Vercel Blob (https). Impede
+  // que um cliente forje uma URL arbitrária e force o Twilio a buscá-la (SSRF/
+  // abuso). Match por hostname (não substring) p/ não cair em bypass do tipo
+  // "https://evil.com/.blob.vercel-storage.com/".
+  let parsed: URL;
+  try {
+    parsed = new URL(mediaUrl);
+  } catch {
+    return { ok: false as const, error: 'URL da mídia inválida.' };
+  }
+  if (
+    parsed.protocol !== 'https:' ||
+    !parsed.hostname.toLowerCase().endsWith('.blob.vercel-storage.com')
+  ) {
+    return { ok: false as const, error: 'Origem da mídia não permitida.' };
   }
 
   const conv = await loadVisibleConversation(user, conversationId);
@@ -384,34 +369,11 @@ export async function sendMediaReply(
     };
   }
 
-  // Nome seguro p/ a key do Blob (sem path traversal / caracteres exóticos).
-  const safeName = (file.name || 'arquivo')
-    .replace(/[^\w.\-]+/g, '_')
-    .replace(/_{2,}/g, '_')
-    .slice(0, 120);
-
-  const bytes = Buffer.from(await file.arrayBuffer());
-  let blobUrl: string;
-  try {
-    const { put } = await import('@vercel/blob');
-    const blob = await put(
-      `marketing/files/${conversationId}-${Date.now()}-${safeName}`,
-      bytes,
-      { access: 'public', contentType: file.type, addRandomSuffix: true },
-    );
-    blobUrl = blob.url;
-  } catch (e) {
-    return {
-      ok: false as const,
-      error: `Falha ao armazenar arquivo: ${e instanceof Error ? e.message : String(e)}`,
-    };
-  }
-
   const provider = getWhatsAppProvider();
   const result = await provider.send({
     fromNumber: process.env.TWILIO_WHATSAPP_FROM ?? 'whatsapp:+14155238886',
     toNumber: conv.waPhone,
-    mediaUrl: blobUrl,
+    mediaUrl,
   });
 
   await db.insert(messages).values({
@@ -419,8 +381,8 @@ export async function sendMediaReply(
     twilioSid: result.ok ? result.providerId : null,
     direction: 'outbound',
     authorUserId: user.id,
-    body: `[arquivo] ${file.name}`,
-    mediaUrls: [{ url: blobUrl, contentType: file.type, filename: file.name }],
+    body: `[arquivo] ${filename}`,
+    mediaUrls: [{ url: mediaUrl, contentType, filename }],
     status: result.ok ? 'sent' : 'failed',
   });
 
