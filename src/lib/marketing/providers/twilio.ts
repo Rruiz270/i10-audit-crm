@@ -68,13 +68,18 @@ export class TwilioWhatsAppProvider implements WhatsAppProvider {
       // Modo template aprovado
       messageOpts.contentSid = input.templateName; // Twilio usa contentSid pra template aprovado
       messageOpts.contentVariables = JSON.stringify(input.templateVariables);
+    } else if (input.mediaUrl) {
+      // Modo mídia (ex: voice note). URL precisa ser pública (Twilio busca ela).
+      // body é legenda opcional.
+      messageOpts.mediaUrl = [input.mediaUrl];
+      if (input.body) messageOpts.body = input.body;
     } else if (input.body) {
       // Modo freeform
       messageOpts.body = input.body;
     } else {
       return {
         ok: false,
-        error: 'either body OR (templateName + templateVariables) required',
+        error: 'either body OR mediaUrl OR (templateName + templateVariables) required',
         retryable: false,
         provider: this.name,
       };

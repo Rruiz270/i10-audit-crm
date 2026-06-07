@@ -22,6 +22,44 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+// Tick de read-receipt no estilo WhatsApp (sutil, sem emoji):
+//   queued/sending/sent → ✓ cinza · delivered → ✓✓ cinza ·
+//   read → ✓✓ ciano (var(--i10-cyan)) · failed/undelivered → "falhou" rosa.
+function MessageTicks({ status }: { status: string | null }) {
+  if (!status) return null;
+  if (status === 'failed' || status === 'undelivered') {
+    return <span className="text-rose-500"> · falhou</span>;
+  }
+  if (status === 'read') {
+    return (
+      <span style={{ color: 'var(--i10-cyan)' }} title="Lida"> · ✓✓</span>
+    );
+  }
+  if (status === 'delivered') {
+    return <span title="Entregue"> · ✓✓</span>;
+  }
+  // queued | sending | sent
+  return <span title="Enviada"> · ✓</span>;
+}
+
+// Detecta se a mensagem tem mídia de áudio. mediaUrls (jsonb) pode ser:
+//   - string[] (formato legado do inbound) → assume áudio se a url sugerir
+//   - { url, contentType }[] (novo formato com tipo) → checa contentType
+// O player aponta para o proxy autenticado (/api/marketing/media/[id]/[idx]),
+// nunca direto pra Twilio (que exige Basic auth pra baixar a mídia).
+function audioFromMedia(mediaUrls: unknown): boolean {
+  if (!Array.isArray(mediaUrls)) return false;
+  return mediaUrls.some((m) => {
+    if (typeof m === 'string') return /\.(ogg|opus|mp3|m4a|aac|webm|wav)(\?|$)/i.test(m);
+    if (m && typeof m === 'object') {
+      const ct = (m as { contentType?: string }).contentType ?? '';
+      const url = (m as { url?: string }).url ?? '';
+      return ct.startsWith('audio') || /\.(ogg|opus|mp3|m4a|aac|webm|wav)(\?|$)/i.test(url);
+    }
+    return false;
+  });
+}
+
 function windowLabel(expiresAt: Date | null): { text: string; tone: string; expired: boolean } {
   if (!expiresAt) return { text: 'sem janela', tone: 'bg-slate-100 text-slate-500', expired: true };
   const ms = new Date(expiresAt).getTime() - Date.now();
@@ -170,23 +208,33 @@ export default async function ConversasPage({
             </div>
 
             <div className="flex flex-1 flex-col gap-2 overflow-auto p-5">
-              {selected!.messages.map((m) => (
-                <div
-                  key={m.id}
-                  className={`max-w-[62%] rounded-2xl px-3 py-2 text-sm ${
-                    m.direction === 'outbound'
-                      ? 'self-end rounded-br-sm bg-[#d9fdd3]'
-                      : 'self-start rounded-bl-sm border border-slate-200 bg-white'
-                  }`}
-                >
-                  {m.body}
-                  <div className="mt-1 text-right text-[10px] text-slate-400">
-                    {m.createdAt ? new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}
-                    {m.direction === 'outbound' && m.status === 'sent' && ' · ✓'}
-                    {m.direction === 'outbound' && m.status === 'failed' && ' · falhou'}
+              {selected!.messages.map((m) => {
+                const audio = audioFromMedia(m.mediaUrls);
+                return (
+                  <div
+                    key={m.id}
+                    className={`max-w-[62%] rounded-2xl px-3 py-2 text-sm ${
+                      m.direction === 'outbound'
+                        ? 'self-end rounded-br-sm bg-[#d9fdd3]'
+                        : 'self-start rounded-bl-sm border border-slate-200 bg-white'
+                    }`}
+                  >
+                    {audio && (
+                      <audio
+                        controls
+                        preload="none"
+                        src={`/api/marketing/media/${m.id}/0`}
+                        className="mb-1 h-9 w-56 max-w-full"
+                      />
+                    )}
+                    {m.body && <div>{m.body}</div>}
+                    <div className="mt-1 text-right text-[10px] text-slate-400">
+                      {m.createdAt ? new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}
+                      {m.direction === 'outbound' && <MessageTicks status={m.status} />}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <InboxMarkRead conversationId={conv.id} />
@@ -195,6 +243,7 @@ export default async function ConversasPage({
               windowExpired={Boolean(win?.expired)}
               cannedResponses={cannedResponses}
               approvedTemplates={approvedTemplates}
+              audioEnabled={Boolean(process.env.BLOB_READ_WRITE_TOKEN)}
             />
           </>
         ) : (

@@ -1,7 +1,23 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { sendConversationReply, sendTemplateReply } from '@/lib/actions/marketing/conversations';
+import {
+  sendConversationReply,
+  sendTemplateReply,
+  sendAudioReply,
+} from '@/lib/actions/marketing/conversations';
+
+// Escolhe o melhor mimeType de gravação suportado. WhatsApp só renderiza bolha
+// nativa de voice note pra audio/ogg;codecs=opus — preferimos ogg quando o
+// browser suporta; senão caímos pra webm (Twilio aceita, mas pode virar anexo).
+function pickAudioMime(): string {
+  if (typeof MediaRecorder === 'undefined') return '';
+  const prefs = ['audio/ogg;codecs=opus', 'audio/ogg', 'audio/webm;codecs=opus', 'audio/webm'];
+  for (const m of prefs) {
+    if (MediaRecorder.isTypeSupported(m)) return m;
+  }
+  return '';
+}
 
 const EMOJIS = [
   '😀', '😁', '😉', '😊', '🙂', '😍', '👍', '👏',
@@ -17,19 +33,102 @@ export function InboxComposer({
   windowExpired,
   cannedResponses,
   approvedTemplates,
+  audioEnabled = false,
 }: {
   conversationId: number;
   windowExpired: boolean;
   cannedResponses: Canned[];
   approvedTemplates: ApprovedTemplate[];
+  audioEnabled?: boolean;
 }) {
   const [body, setBody] = useState('');
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [cannedOpen, setCannedOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [recording, setRecording] = useState(false);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const popoversRef = useRef<HTMLDivElement>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+
+  // Encerra qualquer gravação em andamento ao desmontar.
+  useEffect(() => {
+    return () => {
+      const r = recorderRef.current;
+      if (r && r.state !== 'inactive') {
+        try { r.stop(); } catch { /* noop */ }
+      }
+      r?.stream.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
+
+  function uploadAndSend(blob: Blob, mime: string) {
+    if (blob.size === 0) {
+      setError('Gravação vazia.');
+      return;
+    }
+    const ext = mime.includes('ogg') ? 'ogg' : mime.includes('webm') ? 'webm' : 'bin';
+    const fd = new FormData();
+    fd.set('conversationId', String(conversationId));
+    fd.set('audio', new File([blob], `voice.${ext}`, { type: mime || blob.type }));
+    startTransition(async () => {
+      try {
+        const r = await sendAudioReply(fd);
+        if (r && !r.ok) setError(r.error);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Falha ao enviar áudio.');
+      }
+    });
+  }
+
+  async function startRecording() {
+    setError(null);
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      setError('Gravação de áudio não suportada neste navegador.');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mime = pickAudioMime();
+      const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      chunksRef.current = [];
+      rec.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      rec.onstop = () => {
+        const usedMime = rec.mimeType || mime || 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type: usedMime });
+        stream.getTracks().forEach((t) => t.stop());
+        setRecording(false);
+        recorderRef.current = null;
+        uploadAndSend(blob, usedMime);
+      };
+      recorderRef.current = rec;
+      rec.start();
+      setRecording(true);
+    } catch {
+      setError('Não foi possível acessar o microfone (permissão negada?).');
+    }
+  }
+
+  function stopRecording() {
+    const r = recorderRef.current;
+    if (r && r.state !== 'inactive') r.stop();
+  }
+
+  function cancelRecording() {
+    const r = recorderRef.current;
+    if (r && r.state !== 'inactive') {
+      r.onstop = () => {
+        r.stream.getTracks().forEach((t) => t.stop());
+      };
+      r.stop();
+    }
+    recorderRef.current = null;
+    chunksRef.current = [];
+    setRecording(false);
+  }
 
   // Fecha emoji / respostas rápidas ao clicar fora ou apertar Escape.
   useEffect(() => {
@@ -235,6 +334,59 @@ export function InboxComposer({
               </div>
             )}
           </div>
+
+          {/* Nota de voz (MediaRecorder) */}
+          {recording ? (
+            <div className="flex items-center gap-1.5">
+              <span className="flex items-center gap-1 text-xs font-medium text-rose-600">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-rose-500" />
+                gravando…
+              </span>
+              <button
+                type="button"
+                onClick={stopRecording}
+                disabled={isPending}
+                className="rounded-md bg-rose-500 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-rose-600 disabled:opacity-50"
+                title="Parar e enviar"
+              >
+                Enviar áudio
+              </button>
+              <button
+                type="button"
+                onClick={cancelRecording}
+                className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
+                title="Cancelar"
+              >
+                Cancelar
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={startRecording}
+              disabled={!audioEnabled || isPending}
+              title={audioEnabled ? 'Gravar nota de voz' : 'configurar storage'}
+              className="rounded-md border border-slate-300 px-2.5 py-1.5 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Gravar nota de voz"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="12" y1="19" x2="12" y2="22" />
+              </svg>
+            </button>
+          )}
         </div>
 
         <button

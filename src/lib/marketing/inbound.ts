@@ -23,12 +23,15 @@ export async function handleInboundWhatsApp(payload: Record<string, string>): Pr
   const profileName = payload.ProfileName || null;
   const twilioSid = payload.MessageSid ?? payload.SmsSid ?? null;
 
-  // Coleta mídias (NumMedia + MediaUrlN)
+  // Coleta mídias (NumMedia + MediaUrlN + MediaContentTypeN). Guardamos como
+  // objetos { url, contentType } pra saber renderizar áudio (voice notes) etc.
+  // As URLs do Twilio exigem Basic auth pra baixar — o player do thread aponta
+  // pro proxy autenticado (/api/marketing/media/[id]/[idx]), não pra essas URLs.
   const numMedia = Number(payload.NumMedia ?? '0') || 0;
-  const mediaUrls: string[] = [];
+  const mediaUrls: { url: string; contentType: string | null }[] = [];
   for (let i = 0; i < numMedia; i++) {
     const u = payload[`MediaUrl${i}`];
-    if (u) mediaUrls.push(u);
+    if (u) mediaUrls.push({ url: u, contentType: payload[`MediaContentType${i}`] ?? null });
   }
 
   // Tenta achar um contato de marketing por whatsapp/phone (best-effort)

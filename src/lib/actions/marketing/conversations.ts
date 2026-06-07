@@ -196,6 +196,107 @@ export async function sendConversationReply(
   return { ok: true as const };
 }
 
+// Envia uma nota de voz (áudio) na conversa (dentro da janela de 24h).
+// Fluxo: cliente grava (MediaRecorder) → envia o blob aqui → guardamos no
+// Vercel Blob (URL pública, exigida pelo Twilio pra baixar a mídia) → enviamos
+// via provider com mediaUrl → inserimos a mensagem outbound com mediaUrls.
+// Erros de negócio voltam {ok,error} (não throw). Mesmos guards de
+// visibilidade/janela/allowlist do sendConversationReply.
+export async function sendAudioReply(
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await requireUser();
+  const conversationId = Number(formData.get('conversationId'));
+  const audio = formData.get('audio');
+  if (!conversationId) throw new Error('conversationId obrigatório');
+  if (!(audio instanceof File) || audio.size === 0) {
+    return { ok: false as const, error: 'Áudio ausente ou vazio.' };
+  }
+
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    return {
+      ok: false as const,
+      error: 'Storage de mídia não configurado (BLOB_READ_WRITE_TOKEN).',
+    };
+  }
+
+  const conv = await loadVisibleConversation(user, conversationId);
+
+  // Trava da janela de 24h (mídia freeform também é bloqueada fora dela).
+  const expired = !conv.windowExpiresAt || new Date(conv.windowExpiresAt).getTime() < Date.now();
+  if (expired) {
+    return {
+      ok: false as const,
+      error: 'Janela de 24h expirada — enviar fora dela exige template aprovado.',
+    };
+  }
+
+  if (blockedByTestAllowlist(conv.waPhone)) {
+    return {
+      ok: false as const,
+      error: 'Modo de teste: número fora da allowlist (MARKETING_TEST_ALLOWLIST_PHONE).',
+    };
+  }
+
+  // Upload pro Vercel Blob (público) → URL fetchável pelo Twilio.
+  const contentType = audio.type || 'audio/ogg';
+  const ext = contentType.includes('ogg')
+    ? 'ogg'
+    : contentType.includes('webm')
+      ? 'webm'
+      : contentType.includes('mpeg') || contentType.includes('mp3')
+        ? 'mp3'
+        : 'bin';
+  let blobUrl: string;
+  try {
+    const { put } = await import('@vercel/blob');
+    const blob = await put(
+      `marketing/voice/${conversationId}-${Date.now()}.${ext}`,
+      audio,
+      { access: 'public', contentType, addRandomSuffix: true },
+    );
+    blobUrl = blob.url;
+  } catch (e) {
+    return {
+      ok: false as const,
+      error: `Falha ao armazenar áudio: ${e instanceof Error ? e.message : String(e)}`,
+    };
+  }
+
+  const provider = getWhatsAppProvider();
+  const result = await provider.send({
+    fromNumber: process.env.TWILIO_WHATSAPP_FROM ?? 'whatsapp:+14155238886',
+    toNumber: conv.waPhone,
+    mediaUrl: blobUrl,
+  });
+
+  await db.insert(messages).values({
+    conversationId,
+    twilioSid: result.ok ? result.providerId : null,
+    direction: 'outbound',
+    authorUserId: user.id,
+    body: '[áudio]',
+    mediaUrls: [{ url: blobUrl, contentType }],
+    status: result.ok ? 'sent' : 'failed',
+  });
+
+  await db
+    .update(conversations)
+    .set({
+      lastMessageAt: new Date(),
+      unread: false,
+      assignedTo: conv.assignedTo ?? user.id,
+      status: conv.status === 'closed' ? 'open' : conv.status,
+    })
+    .where(eq(conversations.id, conversationId));
+
+  revalidatePath('/marketing/conversas');
+  if (!result.ok) {
+    return { ok: false as const, error: `Falha no envio do áudio: ${result.error}` };
+  }
+  return { ok: true as const };
+}
+
 export async function claimConversation(formData: FormData): Promise<void> {
   const user = await requireUser();
   const conversationId = Number(formData.get('conversationId'));
