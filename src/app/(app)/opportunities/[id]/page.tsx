@@ -4,6 +4,7 @@ import { getOpportunity, listUsersForAssignment } from '@/lib/actions/opportunit
 import { listTasksForOpportunity } from '@/lib/actions/tasks';
 import { getConsultoriaFor } from '@/lib/actions/handoff';
 import { getConsultoriaSignals, signalsToBadges } from '@/lib/bncc-signals';
+import { BnccBadges } from '@/components/bncc-badges';
 import { allMunicipalities } from '@/lib/municipalities';
 import { StageBadge } from '@/components/ui/stage-badge';
 import { Button } from '@/components/ui/button';
@@ -310,33 +311,7 @@ export default async function OpportunityDetailPage({
                   for gerado no outro sistema.
                 </div>
               ) : (
-                <div className="flex flex-wrap gap-2">
-                  {bnccBadges.map((b) => (
-                    <span
-                      key={b.label}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold"
-                      style={{
-                        background:
-                          b.tone === 'mint'
-                            ? 'var(--i10-mint)'
-                            : b.tone === 'cyan'
-                              ? 'var(--i10-cyan)'
-                              : b.tone === 'rose'
-                                ? '#F87171'
-                                : b.tone === 'amber'
-                                  ? '#F59E0B'
-                                  : 'rgba(255,255,255,0.15)',
-                        color:
-                          b.tone === 'mint' || b.tone === 'cyan'
-                            ? 'var(--i10-navy-dark)'
-                            : '#FFFFFF',
-                      }}
-                    >
-                      {b.icon && <span>{b.icon}</span>}
-                      {b.label}
-                    </span>
-                  ))}
-                </div>
+                <BnccBadges signals={bnccBadges} variant="lg" />
               )}
             </div>
           )}

@@ -17,6 +17,7 @@ import { changeStage } from '@/lib/actions/opportunities';
 import { isRotten, daysUntilRot, weightedValue } from '@/lib/forecast';
 import type { BnccSignals } from '@/lib/bncc-signals';
 import { signalsToBadges } from '@/lib/bncc-signals';
+import { BnccBadges } from '@/components/bncc-badges';
 
 /** Estágio dinâmico (vindo do DB) — compatível com `StageDefinition` do TS. */
 export type DynamicStage = {
@@ -295,33 +296,7 @@ function DraggableCard({ card, busy }: { card: Card; busy: boolean }) {
             </div>
           );
         }
-        return (
-          <div className="mt-1.5 flex flex-wrap gap-1">
-            {badges.map((b) => (
-              <span
-                key={b.label}
-                className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded"
-                style={{
-                  background:
-                    b.tone === 'mint'
-                      ? 'var(--i10-mint)'
-                      : b.tone === 'cyan'
-                        ? 'var(--i10-cyan-pale)'
-                        : b.tone === 'rose'
-                          ? '#FEE2E2'
-                          : b.tone === 'amber'
-                            ? '#FEF3C7'
-                            : 'var(--i10-navy-pale)',
-                  color:
-                    b.tone === 'rose' ? '#B91C1C' : 'var(--i10-navy-dark)',
-                }}
-              >
-                {b.icon && <span>{b.icon}</span>}
-                {b.label}
-              </span>
-            ))}
-          </div>
-        );
+        return <BnccBadges signals={badges} variant="sm" />;
       })()}
 
       {rotten && (
