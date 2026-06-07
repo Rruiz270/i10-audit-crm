@@ -12,6 +12,7 @@ import {
   opportunities,
   users,
   fundebMunicipalities,
+  leadSubmissions,
 } from '@/lib/schema';
 import { requireUser } from '@/lib/session';
 import { canAdvance } from '@/lib/qualification';
@@ -116,8 +117,16 @@ export async function createOpportunity(formData: FormData): Promise<void> {
     actorId: user.id,
   });
 
-  // Auto-tag por origem (resiliente — não quebra a criação).
-  await autoTagOpportunity(created.id, ['Manual FUNDEB'], { actorId: user.id });
+  // Auto-tag por origem — deriva da fonte informada no form (resiliente).
+  const src = (data.source || '').toLowerCase();
+  const originLabel = src.includes('apm')
+    ? 'APM FUNDEB'
+    : src.includes('webinar') || src.includes('agendamento')
+      ? 'Webinar FUNDEB'
+      : src.includes('formul') || src.includes('intake')
+        ? 'Formulário FUNDEB'
+        : 'Manual FUNDEB';
+  await autoTagOpportunity(created.id, [originLabel], { actorId: user.id });
 
   revalidatePath('/opportunities');
   revalidatePath('/pipeline');
@@ -227,6 +236,12 @@ export async function deleteOpportunity(formData: FormData) {
   if (user.role !== 'admin') {
     return { ok: false as const, error: 'Apenas admin pode excluir.' };
   }
+  // lead_submissions referencia opp SEM cascade → desvincula antes de excluir
+  // (preserva a submissão; sem isso o delete viola FK e trava).
+  await db
+    .update(leadSubmissions)
+    .set({ opportunityId: null })
+    .where(eq(leadSubmissions.opportunityId, id));
   await db.delete(opportunities).where(eq(opportunities.id, id));
   revalidatePath('/opportunities');
   revalidatePath('/pipeline');
@@ -241,6 +256,12 @@ export async function deleteOpportunityById(id: number) {
   if (!Number.isFinite(id) || id <= 0) {
     return { ok: false as const, error: 'ID inválido' };
   }
+  // lead_submissions referencia opp SEM cascade → desvincula antes de excluir
+  // (preserva a submissão; sem isso o delete viola FK e trava).
+  await db
+    .update(leadSubmissions)
+    .set({ opportunityId: null })
+    .where(eq(leadSubmissions.opportunityId, id));
   await db.delete(opportunities).where(eq(opportunities.id, id));
   revalidatePath('/opportunities');
   revalidatePath('/pipeline');
@@ -256,6 +277,10 @@ export async function bulkDeleteOpportunities(ids: number[]) {
   if (!valid.length) {
     return { ok: false as const, error: 'Nenhum ID válido' };
   }
+  await db
+    .update(leadSubmissions)
+    .set({ opportunityId: null })
+    .where(inArray(leadSubmissions.opportunityId, valid));
   await db.delete(opportunities).where(inArray(opportunities.id, valid));
   revalidatePath('/opportunities');
   revalidatePath('/pipeline');
