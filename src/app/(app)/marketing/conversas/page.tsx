@@ -153,10 +153,10 @@ export default async function ConversasPage({
       : null;
 
   return (
-    <div className="grid h-[calc(100vh-0px)] grid-cols-[300px_1fr_280px]">
+    <div className="grid h-[calc(100vh-0px)] grid-cols-[300px_1fr_280px] overflow-hidden">
       <InboxAutoRefresh />
       {/* lista */}
-      <div className="overflow-auto border-r border-slate-200 bg-white">
+      <div className="min-h-0 overflow-auto border-r border-slate-200 bg-white">
         <div className="border-b border-slate-200 p-4">
           <div className="text-sm font-bold" style={{ color: 'var(--i10-navy)' }}>Conversas</div>
           <Link href="/marketing" className="text-xs text-cyan-700 hover:underline">← Hub</Link>
@@ -194,7 +194,7 @@ export default async function ConversasPage({
       </div>
 
       {/* thread */}
-      <div className="flex flex-col bg-slate-100">
+      <div className="flex min-h-0 flex-col overflow-hidden bg-slate-100">
         {conv ? (
           <>
             <div className="flex items-center justify-between border-b border-slate-200 bg-white px-5 py-3">
@@ -207,7 +207,7 @@ export default async function ConversasPage({
               {win && <span className={`rounded px-2 py-0.5 text-[11px] font-bold ${win.tone}`}>⏱ {win.text}</span>}
             </div>
 
-            <div className="flex flex-1 flex-col gap-2 overflow-auto p-5">
+            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto p-5">
               {selected!.messages.map((m) => {
                 const audio = audioFromMedia(m.mediaUrls);
                 return (
@@ -252,7 +252,7 @@ export default async function ConversasPage({
       </div>
 
       {/* contexto */}
-      <div className="overflow-auto border-l border-slate-200 bg-white p-4">
+      <div className="min-h-0 overflow-auto border-l border-slate-200 bg-white p-4">
         {conv && (
           <>
             <h4 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-slate-500">Contato</h4>
