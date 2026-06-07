@@ -16,7 +16,11 @@ import { opportunities, users, pipelineStages, fundebMunicipalities } from '@/li
 import { requireUser, type SessionUser } from '@/lib/session';
 import { isAdmin } from '@/lib/roles';
 import { getWhatsAppProvider } from '@/lib/marketing/providers';
-import { getTemplateApproval } from '@/lib/marketing/whatsapp-health';
+import {
+  getTemplateApproval,
+  getTemplateBody,
+  renderTemplateBody,
+} from '@/lib/marketing/whatsapp-health';
 import { transcodeToMp3 } from '@/lib/marketing/transcode-audio';
 
 export type ConversationRow = typeof conversations.$inferSelect;
@@ -408,17 +412,22 @@ export async function sendTemplateReply(
     templateVariables: variables,
   });
 
-  // Resumo legível guardado como body (template real é renderizado pela Meta).
-  const summary = `[Template ${contentSid}]${
-    Object.keys(variables).length ? ` ${Object.values(variables).join(' · ')}` : ''
-  }`;
+  // Grava o corpo RENDERIZADO (texto real enviado), não o placeholder. Busca o
+  // body do template na Content API (cache TTL) e substitui {{1}},{{2}},… pelas
+  // variáveis. Se não der pra obter, cai pro placeholder legível.
+  const tplBody = await getTemplateBody(contentSid).catch(() => null);
+  const body = tplBody
+    ? renderTemplateBody(tplBody, variables)
+    : `[Template ${contentSid}]${
+        Object.keys(variables).length ? ` ${Object.values(variables).join(' · ')}` : ''
+      }`;
 
   await db.insert(messages).values({
     conversationId,
     twilioSid: result.ok ? result.providerId : null,
     direction: 'outbound',
     authorUserId: user.id,
-    body: summary,
+    body,
     isTemplate: true,
     templateSid: contentSid,
     status: result.ok ? 'sent' : 'failed',
@@ -512,17 +521,20 @@ export async function getApprovedTemplates(
   projectId?: number | null,
 ): Promise<{ contentSid: string; name: string }[]> {
   await requireUser();
-  if (!projectId) return [];
+  // Sem projeto → TODOS os templates WhatsApp ativos (across projects). Muitas
+  // conversas de inbound têm projectId = null e antes não viam template algum.
+  // Com projectId → filtra por ele.
+  const channelClause = and(
+    eq(templates.channel, 'whatsapp'),
+    eq(templates.status, 'active'),
+  );
+  const whereClause = projectId
+    ? and(eq(templates.projectId, projectId), channelClause)
+    : channelClause;
   const rows = await db
     .select({ name: templates.name, waTemplateName: templates.waTemplateName })
     .from(templates)
-    .where(
-      and(
-        eq(templates.projectId, projectId),
-        eq(templates.channel, 'whatsapp'),
-        eq(templates.status, 'active'),
-      ),
-    );
+    .where(whereClause);
 
   const withSid = rows.filter(
     (r): r is { name: string; waTemplateName: string } =>

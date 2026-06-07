@@ -97,3 +97,55 @@ export async function getTemplateApproval(contentSid: string): Promise<TemplateA
     clearTimeout(timer);
   }
 }
+
+// ─── Corpo (body) de um template Content ───────────────────────────────────
+// Busca o texto do template na Content API do Twilio para podermos renderizar
+// localmente (substituir {{1}},{{2}},…) e gravar a mensagem real no inbox em
+// vez do placeholder "[Template …]". Cache TTL como o de aprovação. Best-effort:
+// retorna null se não der pra obter (chamador faz fallback pro placeholder).
+const bodyCache = new Map<string, { at: number; value: string | null }>();
+
+export async function getTemplateBody(contentSid: string): Promise<string | null> {
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  if (!sid || !token || !contentSid.startsWith('HX')) return null;
+
+  const cached = bodyCache.get(contentSid);
+  if (cached && Date.now() - cached.at < APPROVAL_TTL_MS) return cached.value;
+
+  const auth = Buffer.from(`${sid}:${token}`).toString('base64');
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 4000);
+  try {
+    const res = await fetch(`https://content.twilio.com/v1/Content/${contentSid}`, {
+      headers: { Authorization: `Basic ${auth}` },
+      signal: ctrl.signal,
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      types?: Record<string, { body?: string }>;
+    };
+    const types = data.types ?? {};
+    const body =
+      types['twilio/quick-reply']?.body ??
+      types['twilio/text']?.body ??
+      types['twilio/call-to-action']?.body ??
+      null;
+    bodyCache.set(contentSid, { at: Date.now(), value: body });
+    return body;
+  } catch (err) {
+    console.error(`getTemplateBody: erro consultando ${contentSid}:`, err);
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Renderiza um body de template substituindo {{1}},{{2}},… pelas variáveis
+// fornecidas ({ "1": ..., "2": ... }). Placeholders sem valor ficam intactos.
+export function renderTemplateBody(body: string, variables: Record<string, string>): string {
+  return body.replace(/\{\{\s*(\d+)\s*\}\}/g, (m, n: string) =>
+    variables[n] != null ? variables[n] : m,
+  );
+}

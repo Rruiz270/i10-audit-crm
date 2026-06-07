@@ -28,22 +28,87 @@ const EMOJIS = [
 type Canned = { id: number; title: string; body: string };
 type ApprovedTemplate = { contentSid: string; name: string };
 
+const VAR_LABELS = ['Nome', 'Município'];
+
+// Mini-form de variáveis de um template. Pré-preenchido com os defaults do
+// contato (editáveis). Ao enviar chama onSend com os valores na ordem var_1..N.
+function TemplateVarForm({
+  template,
+  defaults,
+  disabled,
+  onSend,
+  onCancel,
+}: {
+  template: ApprovedTemplate;
+  defaults: string[];
+  disabled: boolean;
+  onSend: (vars: string[]) => void;
+  onCancel: () => void;
+}) {
+  const [vars, setVars] = useState<string[]>(defaults);
+  return (
+    <div className="space-y-2">
+      <div className="text-sm font-semibold text-slate-800">{template.name}</div>
+      {vars.map((v, i) => (
+        <label key={i} className="block">
+          <span className="text-[11px] font-medium text-slate-500">
+            {VAR_LABELS[i] ?? `Variável ${i + 1}`}
+          </span>
+          <input
+            value={v}
+            disabled={disabled}
+            onChange={(e) =>
+              setVars((prev) => prev.map((p, j) => (j === i ? e.target.value : p)))
+            }
+            className="mt-0.5 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm disabled:opacity-50"
+          />
+        </label>
+      ))}
+      <div className="flex items-center justify-end gap-2 pt-0.5">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={disabled}
+          className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+        >
+          Voltar
+        </button>
+        <button
+          type="button"
+          onClick={() => onSend(vars)}
+          disabled={disabled}
+          className="rounded-md bg-gradient-to-r from-cyan-500 to-emerald-400 px-3 py-1.5 text-xs font-semibold text-[#06223e] disabled:opacity-50"
+        >
+          Enviar template
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function InboxComposer({
   conversationId,
   windowExpired,
   cannedResponses,
   approvedTemplates,
   audioEnabled = false,
+  contactName,
+  municipio,
 }: {
   conversationId: number;
   windowExpired: boolean;
   cannedResponses: Canned[];
   approvedTemplates: ApprovedTemplate[];
   audioEnabled?: boolean;
+  contactName?: string | null;
+  municipio?: string | null;
 }) {
   const [body, setBody] = useState('');
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [cannedOpen, setCannedOpen] = useState(false);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  // Template selecionado p/ o mini-form de variáveis (null = lista).
+  const [tplPicked, setTplPicked] = useState<ApprovedTemplate | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [recording, setRecording] = useState(false);
@@ -139,20 +204,23 @@ export function InboxComposer({
     setRecording(false);
   }
 
-  // Fecha emoji / respostas rápidas ao clicar fora ou apertar Escape.
+  function closePopovers() {
+    setEmojiOpen(false);
+    setCannedOpen(false);
+    setTemplatesOpen(false);
+    setTplPicked(null);
+  }
+
+  // Fecha emoji / respostas rápidas / templates ao clicar fora ou apertar Escape.
   useEffect(() => {
-    if (!emojiOpen && !cannedOpen) return;
+    if (!emojiOpen && !cannedOpen && !templatesOpen) return;
     function onPointerDown(e: MouseEvent) {
       if (popoversRef.current && !popoversRef.current.contains(e.target as Node)) {
-        setEmojiOpen(false);
-        setCannedOpen(false);
+        closePopovers();
       }
     }
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        setEmojiOpen(false);
-        setCannedOpen(false);
-      }
+      if (e.key === 'Escape') closePopovers();
     }
     document.addEventListener('mousedown', onPointerDown);
     document.addEventListener('keydown', onKeyDown);
@@ -160,7 +228,14 @@ export function InboxComposer({
       document.removeEventListener('mousedown', onPointerDown);
       document.removeEventListener('keydown', onKeyDown);
     };
-  }, [emojiOpen, cannedOpen]);
+  }, [emojiOpen, cannedOpen, templatesOpen]);
+
+  // Variáveis padrão auto-preenchidas a partir do contato (template
+  // i10_primeiro_contato: {{1}}=nome, {{2}}=município). Editáveis no mini-form.
+  const defaultVars = [
+    contactName?.trim() || 'Secretário(a)',
+    municipio?.trim() || 'seu município',
+  ];
 
   function insertAtCursor(text: string) {
     const ta = taRef.current;
@@ -200,16 +275,21 @@ export function InboxComposer({
     });
   }
 
-  function submitTemplate(contentSid: string) {
+  function submitTemplate(contentSid: string, vars: string[] = []) {
     if (isPending) return;
     setError(null);
     const fd = new FormData();
     fd.set('conversationId', String(conversationId));
     fd.set('contentSid', contentSid);
+    vars.forEach((v, i) => fd.set(`var_${i + 1}`, v));
     startTransition(async () => {
       try {
         const r = await sendTemplateReply(fd);
-        if (r && !r.ok) setError(r.error);
+        if (r && !r.ok) {
+          setError(r.error);
+          return;
+        }
+        closePopovers();
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Falha ao enviar template.');
       }
@@ -235,20 +315,32 @@ export function InboxComposer({
             <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">
               Templates Meta aprovados
             </div>
-            <div className="flex flex-col gap-1.5">
-              {approvedTemplates.map((t) => (
-                <button
-                  key={t.contentSid}
-                  type="button"
+            {tplPicked ? (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <TemplateVarForm
+                  template={tplPicked}
+                  defaults={defaultVars}
                   disabled={isPending}
-                  onClick={() => submitTemplate(t.contentSid)}
-                  className="flex items-center justify-between rounded-lg border border-slate-300 px-3 py-2 text-left text-sm hover:bg-slate-50 disabled:opacity-50"
-                >
-                  <span className="font-medium text-slate-800">{t.name}</span>
-                  <span className="text-xs text-cyan-700">Enviar</span>
-                </button>
-              ))}
-            </div>
+                  onSend={(vars) => submitTemplate(tplPicked.contentSid, vars)}
+                  onCancel={() => setTplPicked(null)}
+                />
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                {approvedTemplates.map((t) => (
+                  <button
+                    key={t.contentSid}
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => setTplPicked(t)}
+                    className="flex items-center justify-between rounded-lg border border-slate-300 px-3 py-2 text-left text-sm hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    <span className="font-medium text-slate-800">{t.name}</span>
+                    <span className="text-xs text-cyan-700">Selecionar</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -339,6 +431,53 @@ export function InboxComposer({
                       <div className="truncate text-xs text-slate-500">{c.body}</div>
                     </button>
                   ))
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Templates Meta (válidos dentro e fora da janela) */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setTemplatesOpen((v) => !v);
+                setTplPicked(null);
+                setEmojiOpen(false);
+                setCannedOpen(false);
+              }}
+              className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+            >
+              Templates
+            </button>
+            {templatesOpen && (
+              <div className="absolute bottom-full left-0 z-10 mb-1 max-h-80 w-72 overflow-auto rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
+                {approvedTemplates.length === 0 ? (
+                  <div className="p-2 text-xs text-slate-500">
+                    Nenhum template aprovado disponível.
+                  </div>
+                ) : tplPicked ? (
+                  <TemplateVarForm
+                    template={tplPicked}
+                    defaults={defaultVars}
+                    disabled={isPending}
+                    onSend={(vars) => submitTemplate(tplPicked.contentSid, vars)}
+                    onCancel={() => setTplPicked(null)}
+                  />
+                ) : (
+                  <div className="flex flex-col gap-1">
+                    {approvedTemplates.map((t) => (
+                      <button
+                        key={t.contentSid}
+                        type="button"
+                        onClick={() => setTplPicked(t)}
+                        className="flex items-center justify-between rounded-md px-2.5 py-2 text-left text-sm hover:bg-slate-50"
+                      >
+                        <span className="font-medium text-slate-800">{t.name}</span>
+                        <span className="text-xs text-cyan-700">Selecionar</span>
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
             )}

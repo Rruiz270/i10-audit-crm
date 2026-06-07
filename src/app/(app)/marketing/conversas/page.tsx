@@ -136,10 +136,11 @@ export default async function ConversasPage({
           logFetch('getConversationContext')(e);
           return { opportunity: null, campaignName: null, projectName: null };
         }),
-        (win?.expired
-          ? getApprovedTemplates(conv.projectId)
-          : Promise.resolve([] as Awaited<ReturnType<typeof getApprovedTemplates>>)
-        ).catch(() => [] as Awaited<ReturnType<typeof getApprovedTemplates>>),
+        // Sempre busca TODOS os aprovados (null) — o botão Templates dentro da
+        // janela depende disso, e conversas com projectId=null antes ficavam sem.
+        getApprovedTemplates(null).catch(
+          () => [] as Awaited<ReturnType<typeof getApprovedTemplates>>,
+        ),
       ])
     : [[], { opportunity: null, campaignName: null, projectName: null }, []];
 
@@ -244,6 +245,8 @@ export default async function ConversasPage({
               cannedResponses={cannedResponses}
               approvedTemplates={approvedTemplates}
               audioEnabled={Boolean(process.env.BLOB_READ_WRITE_TOKEN)}
+              contactName={conv.contactName}
+              municipio={inboxContact?.municipio ?? null}
             />
           </>
         ) : (
