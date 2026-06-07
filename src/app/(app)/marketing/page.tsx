@@ -69,6 +69,16 @@ export default async function MarketingHomePage() {
           action="Abrir inbox"
         />
         <HubTile
+          href="/marketing/templates"
+          icon="msg"
+          tone="wa"
+          title="Templates WhatsApp"
+          isNew
+          metric="Meta"
+          sub="criar e aprovar templates via Twilio Content API"
+          action="Abrir builder"
+        />
+        <HubTile
           href="/marketing/leads"
           icon="users"
           tone="ld"

@@ -47,7 +47,10 @@ const approvalCache = new Map<string, { at: number; value: TemplateApproval }>()
  * Best-effort, com cache TTL e timeout curto — nunca lança (painel não pode
  * quebrar a página). Não pega `Date.now` em workflow; aqui é server action normal.
  */
-export async function getTemplateApproval(contentSid: string): Promise<TemplateApproval> {
+export async function getTemplateApproval(
+  contentSid: string,
+  opts?: { bustCache?: boolean },
+): Promise<TemplateApproval> {
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
   const base: TemplateApproval = {
@@ -59,7 +62,7 @@ export async function getTemplateApproval(contentSid: string): Promise<TemplateA
   if (!sid || !token || !contentSid.startsWith('HX')) return base;
 
   const cached = approvalCache.get(contentSid);
-  if (cached && Date.now() - cached.at < APPROVAL_TTL_MS) return cached.value;
+  if (!opts?.bustCache && cached && Date.now() - cached.at < APPROVAL_TTL_MS) return cached.value;
 
   const auth = Buffer.from(`${sid}:${token}`).toString('base64');
   const ctrl = new AbortController();

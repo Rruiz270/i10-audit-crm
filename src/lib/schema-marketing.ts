@@ -123,9 +123,11 @@ export const listMembers = marketingSchema.table(
 // Templates reutilizáveis dentro de um projeto. Email = HTML; WA = texto.
 export const templates = marketingSchema.table('templates', {
   id: serial('id').primaryKey(),
-  projectId: integer('project_id')
-    .notNull()
-    .references(() => projects.id, { onDelete: 'cascade' }),
+  // Nullable: templates WhatsApp criados no Template Builder são standalone
+  // (não pertencem a 1 projeto). Templates de email continuam vinculados.
+  projectId: integer('project_id').references(() => projects.id, {
+    onDelete: 'cascade',
+  }),
   // 'email' | 'whatsapp'
   channel: text('channel').notNull(),
   name: text('name').notNull(),
@@ -133,9 +135,13 @@ export const templates = marketingSchema.table('templates', {
   subject: text('subject'),
   html: text('html'),
   text: text('text'), // versão plaintext do email OR corpo do WhatsApp
-  // Se for WA template aprovado pela Meta: nome do template + variáveis ordenadas
+  // Se for WA template aprovado pela Meta: Content SID (HX…) + idioma
   waTemplateName: text('wa_template_name'),
   waTemplateLanguage: text('wa_template_language').default('pt_BR'),
+  // Categoria Meta (WA): 'MARKETING' | 'UTILITY' | 'AUTHENTICATION'
+  category: text('category'),
+  // Botões quick-reply do template WA: [{ id, title }]
+  waButtons: jsonb('wa_buttons').default([]),
   // Lista de variáveis esperadas pelo template (validação ao renderizar)
   // Ex: ['ibge', 'municipio', 'prefeito_nome', 'valor_potencial']
   variables: text('variables').array().default([]),
