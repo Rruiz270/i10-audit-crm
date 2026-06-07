@@ -11,13 +11,17 @@ export const dynamic = 'force-dynamic';
 
 export default async function NewCampaignPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ projectId: string }>;
+  searchParams: Promise<{ audienceId?: string }>;
 }) {
   const user = await requireUser();
   if (!isAdmin(user.role)) redirect('/');
 
   const { projectId } = await params;
+  const { audienceId: preselectRaw } = await searchParams;
+  const preselectAudienceId = preselectRaw ? Number(preselectRaw) : null;
   const id = Number(projectId);
   const project = await getProject(id);
   if (!project) notFound();
@@ -104,6 +108,11 @@ export default async function NewCampaignPage({
             <select
               name="audienceId"
               required
+              defaultValue={
+                preselectAudienceId && aud.some((a) => a.id === preselectAudienceId)
+                  ? String(preselectAudienceId)
+                  : undefined
+              }
               className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
             >
               {aud.map((a) => (

@@ -173,6 +173,8 @@ async function processFormSubmission(
         ibge: body.ibge ? String(body.ibge).slice(0, 7) : null,
         municipio: body.municipio ? String(body.municipio) : null,
         uf: body.uf ? String(body.uf).slice(0, 2) : null,
+        // Origem só no INSERT — contatos já existentes preservam o source antigo.
+        source: `form:${project.slug}`,
         attributes: {
           ...(body.attributes && typeof body.attributes === 'object' ? body.attributes : {}),
           tags: [signupTag],

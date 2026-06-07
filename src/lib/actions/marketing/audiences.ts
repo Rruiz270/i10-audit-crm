@@ -95,6 +95,7 @@ export async function importContactsFromCsv(formData: FormData): Promise<void> {
   if (!projectId || !csvFile) throw new Error('projectId e csv obrigatórios');
 
   let useAudienceId = audienceId;
+  let useAudienceName = audienceName;
   if (!useAudienceId) {
     if (!audienceName) throw new Error('audienceId ou audienceName obrigatórios');
     const [a] = await db
@@ -107,7 +108,17 @@ export async function importContactsFromCsv(formData: FormData): Promise<void> {
       })
       .returning({ id: audiences.id });
     useAudienceId = a.id;
+  } else {
+    // Importando para audiência existente: pega o nome p/ tag de origem.
+    const [a] = await db
+      .select({ name: audiences.name })
+      .from(audiences)
+      .where(eq(audiences.id, useAudienceId))
+      .limit(1);
+    useAudienceName = a?.name ?? useAudienceName;
   }
+  // Origem do contato (só set no INSERT — ON CONFLICT preserva o source antigo).
+  const contactSource = `csv:${useAudienceName || 'import'}`;
 
   const csvText = await csvFile.text();
   let rows: FundebRow[];
@@ -209,6 +220,7 @@ export async function importContactsFromCsv(formData: FormData): Promise<void> {
           municipio: c.municipio,
           uf: c.uf.slice(0, 2),
           role: c.role,
+          source: contactSource,
           attributes: c.attributes,
           lgpdBasis: 'legitimate_interest',
           status: 'active',
@@ -222,6 +234,8 @@ export async function importContactsFromCsv(formData: FormData): Promise<void> {
           municipio: sql`EXCLUDED.municipio`,
           uf: sql`EXCLUDED.uf`,
           ibge: sql`EXCLUDED.ibge`,
+          // Só preenche source se ainda estiver vazio (não sobrescreve a origem real).
+          source: sql`COALESCE(${contacts.source}, EXCLUDED.source)`,
           updatedAt: new Date(),
         },
       })
