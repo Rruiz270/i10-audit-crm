@@ -1,118 +1,273 @@
 import Link from 'next/link';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, ilike, sql, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { leadForms, leadSubmissions } from '@/lib/schema';
+import { KpiTile } from '@/components/ui/kpi-tile';
+import { FacetGroup } from '@/components/ui/facet-group';
+import { Icon } from '@/components/ui/icon';
+import { LeadSubmissionCard, type LeadCard } from '@/components/lead-submission-card';
 
 export const dynamic = 'force-dynamic';
 
-export default async function LeadsPage() {
-  const forms = await db.select().from(leadForms).orderBy(desc(leadForms.createdAt));
-  const submissions = await db
-    .select({
-      id: leadSubmissions.id,
-      formId: leadSubmissions.formId,
-      formSlug: leadForms.slug,
-      formTitle: leadForms.title,
-      payload: leadSubmissions.payload,
-      submittedAt: leadSubmissions.submittedAt,
-      triaged: leadSubmissions.triaged,
-      opportunityId: leadSubmissions.opportunityId,
-    })
-    .from(leadSubmissions)
-    .leftJoin(leadForms, eq(leadSubmissions.formId, leadForms.id))
-    .orderBy(desc(leadSubmissions.submittedAt))
-    .limit(200);
+type RawSearch = {
+  q?: string;
+  status?: string; // 'pendente' | 'triado'
+  formId?: string;
+};
+
+function buildHref(base: RawSearch, overrides: Partial<RawSearch>): string {
+  const merged: Record<string, string | undefined> = { ...base, ...overrides };
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(merged)) {
+    if (v != null && v !== '') params.set(k, v);
+  }
+  const qs = params.toString();
+  return qs ? `/leads?${qs}` : '/leads';
+}
+
+// Parsing apresentacional do payload (chaves variam por formulário).
+function parseCard(payload: unknown): {
+  name: string;
+  local: string | null;
+  role: string | null;
+  entries: [string, string][];
+} {
+  if (!payload || typeof payload !== 'object') {
+    return { name: '—', local: null, role: null, entries: [] };
+  }
+  const obj = payload as Record<string, unknown>;
+  const pick = (...keys: string[]) => {
+    for (const k of keys) {
+      const v = obj[k];
+      if (typeof v === 'string' && v.trim()) return v.trim();
+    }
+    return null;
+  };
+  const name = pick('name', 'nome', 'contact_name', 'responsavel') ?? '(sem nome)';
+  const municipio = pick('municipio', 'município', 'cidade', 'municipality', 'city');
+  const uf = pick('uf', 'estado', 'state');
+  const local = municipio ? `${municipio}${uf ? `/${uf}` : ''}` : uf;
+  const role = pick('role', 'cargo', 'funcao', 'função');
+  const entries = Object.entries(obj)
+    .filter(([, v]) => v != null && String(v).trim() !== '')
+    .map(([k, v]) => [k, String(v)] as [string, string]);
+  return { name, local, role, entries };
+}
+
+export default async function LeadsPage({
+  searchParams,
+}: {
+  searchParams: Promise<RawSearch>;
+}) {
+  const sp = await searchParams;
+  const status = sp.status === 'triado' ? 'triado' : sp.status === 'pendente' ? 'pendente' : undefined;
+  const formId = sp.formId ? Number(sp.formId) : undefined;
+  const q = sp.q?.trim() || undefined;
+
+  const since30 = new Date(new Date().getTime() - 30 * 24 * 3600 * 1000);
+
+  // ── Filtros (parametrizados) ──
+  const conds: SQL[] = [];
+  if (status === 'pendente') conds.push(eq(leadSubmissions.triaged, false));
+  if (status === 'triado') conds.push(eq(leadSubmissions.triaged, true));
+  if (formId) conds.push(eq(leadSubmissions.formId, formId));
+  if (q) {
+    // busca no payload serializado (texto) — parametrizada via bind do drizzle.
+    const term = `%${q}%`;
+    const c = ilike(sql`${leadSubmissions.payload}::text`, term);
+    if (c) conds.push(c);
+  }
+  const where = conds.length ? and(...conds) : undefined;
+
+  const [forms, submissions, kpiRow, formFacetRows] = await Promise.all([
+    db.select().from(leadForms).orderBy(desc(leadForms.createdAt)),
+    db
+      .select({
+        id: leadSubmissions.id,
+        formId: leadSubmissions.formId,
+        formTitle: leadForms.title,
+        payload: leadSubmissions.payload,
+        submittedAt: leadSubmissions.submittedAt,
+        triaged: leadSubmissions.triaged,
+        opportunityId: leadSubmissions.opportunityId,
+      })
+      .from(leadSubmissions)
+      .leftJoin(leadForms, eq(leadSubmissions.formId, leadForms.id))
+      .where(where)
+      .orderBy(desc(leadSubmissions.submittedAt))
+      .limit(200),
+    db
+      .select({
+        total: sql<number>`count(*)::int`,
+        pending: sql<number>`count(*) FILTER (WHERE ${leadSubmissions.triaged} = false)::int`,
+        triaged30: sql<number>`count(*) FILTER (WHERE ${leadSubmissions.triaged} = true AND ${leadSubmissions.triagedAt} >= ${since30})::int`,
+        converted: sql<number>`count(*) FILTER (WHERE ${leadSubmissions.opportunityId} IS NOT NULL)::int`,
+      })
+      .from(leadSubmissions),
+    db
+      .select({ formId: leadSubmissions.formId, count: sql<number>`count(*)::int` })
+      .from(leadSubmissions)
+      .groupBy(leadSubmissions.formId),
+  ]);
+
+  const total = Number(kpiRow[0]?.total ?? 0);
+  const pending = Number(kpiRow[0]?.pending ?? 0);
+  const triaged30 = Number(kpiRow[0]?.triaged30 ?? 0);
+  const converted = Number(kpiRow[0]?.converted ?? 0);
+  const convRate = total > 0 ? Math.round((converted / total) * 100) : 0;
+  const activeForms = forms.filter((f) => f.isActive).length;
+
+  const formTitleById = new Map(forms.map((f) => [f.id, f.title]));
+  const formFacets = formFacetRows
+    .filter((r) => r.formId != null)
+    .map((r) => ({ value: String(r.formId), count: Number(r.count) }))
+    .sort((a, b) => b.count - a.count);
+
+  const statusFacets = [
+    { value: 'pendente', count: pending },
+    { value: 'triado', count: total - pending },
+  ];
+
+  const activeFilterCount = [q, status, formId].filter((v) => v != null && v !== '').length;
+
+  const cards: LeadCard[] = submissions.map((s) => {
+    const parsed = parseCard(s.payload);
+    return {
+      id: s.id,
+      formId: s.formId,
+      formTitle: s.formTitle,
+      submittedAt: s.submittedAt ? new Date(s.submittedAt).toISOString() : null,
+      triaged: !!s.triaged,
+      opportunityId: s.opportunityId,
+      ...parsed,
+    };
+  });
 
   return (
-    <div className="px-8 py-8 max-w-7xl">
+    <div className="px-8 py-8">
       <header className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Leads (entrada pública)</h1>
-        <p className="text-sm text-slate-500 mt-1">
-          {submissions.length} submissõe{submissions.length === 1 ? '' : 's'} · {forms.length} formulário{forms.length === 1 ? '' : 's'} ativos
+        <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-i10-cyan-dark">
+          Operação
+        </div>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--i10-navy)' }}>
+          Leads (entrada pública)
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Submissões dos formulários públicos — triar e acompanhar conversão.
         </p>
       </header>
 
-      <section className="mb-8">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Formulários publicados</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {forms.map((f) => (
-            <div key={f.id} className="bg-white border border-slate-200 rounded-lg p-4">
-              <div className="text-sm font-medium text-slate-900">{f.title}</div>
-              <div className="text-xs text-slate-500 mt-0.5">{f.description}</div>
-              <div className="mt-3 flex items-center justify-between">
-                <Link
-                  href={`/intake/${f.slug}`}
-                  target="_blank"
-                  className="text-xs text-i10-700 hover:underline"
-                >
-                  /intake/{f.slug} →
-                </Link>
-                <span className={`text-xs ${f.isActive ? 'text-emerald-700' : 'text-slate-400'}`}>
-                  {f.isActive ? 'ativo' : 'inativo'}
-                </span>
-              </div>
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <KpiTile
+          icon="inbox"
+          tone="amber"
+          value={pending}
+          label="Pendentes"
+          badge={pending > 0 ? { text: 'triar', tone: 'amber' } : undefined}
+        />
+        <KpiTile icon="check" tone="mint" value={triaged30} label="Triados (30d)" />
+        <KpiTile icon="activity" tone="cyan" value={`${convRate}%`} label="Taxa conversão" />
+        <KpiTile icon="file" tone="navy" value={activeForms} label="Formulários ativos" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[260px_1fr]">
+        <aside className="space-y-5">
+          <form action="/leads" method="get" className="flex gap-2">
+            {status && <input type="hidden" name="status" value={status} />}
+            {formId && <input type="hidden" name="formId" value={String(formId)} />}
+            <input
+              name="q"
+              defaultValue={q ?? ''}
+              placeholder="Buscar nos dados…"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+            <button
+              type="submit"
+              aria-label="Buscar"
+              className="rounded-md bg-i10-700 px-3 py-2 text-sm font-medium text-white hover:bg-i10-800"
+            >
+              <Icon name="search" size={16} />
+            </button>
+          </form>
+
+          {activeFilterCount > 0 && (
+            <Link href="/leads" className="inline-block text-xs font-medium text-cyan-700 hover:underline">
+              Limpar filtros ({activeFilterCount})
+            </Link>
+          )}
+
+          <FacetGroup
+            title="Status"
+            facets={statusFacets}
+            active={status}
+            buildHref={(value, isActive) => buildHref(sp, { status: isActive ? '' : value })}
+            labelFn={(v) => (v === 'pendente' ? 'Pendente' : 'Triado')}
+          />
+          <FacetGroup
+            title="Formulário"
+            facets={formFacets}
+            active={formId != null ? String(formId) : undefined}
+            buildHref={(value, isActive) => buildHref(sp, { formId: isActive ? '' : value })}
+            labelFn={(v) => formTitleById.get(Number(v)) ?? `#${v}`}
+          />
+        </aside>
+
+        <section className="min-w-0 space-y-3">
+          <div className="text-sm text-slate-500">
+            {cards.length.toLocaleString('pt-BR')} submissõe{cards.length === 1 ? '' : 's'} no recorte atual
+          </div>
+          {cards.length === 0 ? (
+            <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm italic text-slate-500">
+              Nenhuma submissão com esse filtro.
             </div>
-          ))}
-          {forms.length === 0 && (
-            <div className="col-span-full text-xs text-slate-500 italic">
-              Rode <code className="bg-slate-100 px-1">npm run seed</code> para criar o formulário padrão.
+          ) : (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {cards.map((s) => (
+                <LeadSubmissionCard key={s.id} s={s} />
+              ))}
             </div>
           )}
-        </div>
-      </section>
 
-      <section>
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Submissões</h2>
-        {submissions.length === 0 ? (
-          <div className="bg-white border border-slate-200 rounded-lg p-10 text-center text-sm text-slate-500 italic">
-            Nenhuma submissão ainda. Acesse um formulário público para testar.
-          </div>
-        ) : (
-          <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-600 uppercase">Recebido</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-600 uppercase">Formulário</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-600 uppercase">Payload</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-600 uppercase">Triagem</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {submissions.map((s) => (
-                  <tr key={s.id}>
-                    <td className="px-4 py-3 text-xs text-slate-600">
-                      {s.submittedAt ? new Date(s.submittedAt).toLocaleString('pt-BR') : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">{s.formTitle ?? `#${s.formId}`}</td>
-                    <td className="px-4 py-3 text-xs font-mono text-slate-600 max-w-xl truncate" title={JSON.stringify(s.payload)}>
-                      {renderPayload(s.payload)}
-                    </td>
-                    <td className="px-4 py-3 text-xs">
-                      {s.triaged ? (
-                        <Link href={`/opportunities/${s.opportunityId}`} className="text-i10-700 hover:underline">
-                          → Oport. #{s.opportunityId}
-                        </Link>
-                      ) : (
-                        <span className="text-amber-700">pendente</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+          {/* Gestão de formulários — recolhida (HubTile-style links) */}
+          <details className="rounded-xl border border-slate-200 bg-white p-4">
+            <summary className="cursor-pointer text-sm font-semibold" style={{ color: 'var(--i10-navy)' }}>
+              Formulários <span className="font-normal text-slate-400">({forms.length})</span>
+            </summary>
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {forms.map((f) => (
+                <div key={f.id} className="rounded-lg border border-slate-200 p-3">
+                  <div className="flex items-center gap-2">
+                    <div className="grid h-8 w-8 place-items-center rounded-lg bg-i10-navy-pale text-i10-navy">
+                      <Icon name="file" size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium text-slate-900">{f.title}</div>
+                      <div className="truncate text-xs text-slate-500">{f.description}</div>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between">
+                    <Link
+                      href={`/intake/${f.slug}`}
+                      target="_blank"
+                      className="text-xs font-medium text-cyan-700 hover:underline"
+                    >
+                      /intake/{f.slug} →
+                    </Link>
+                    <span className={`text-xs ${f.isActive ? 'text-emerald-700' : 'text-slate-400'}`}>
+                      {f.isActive ? 'ativo' : 'inativo'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {forms.length === 0 && (
+                <div className="col-span-full text-xs italic text-slate-500">
+                  Rode <code className="bg-slate-100 px-1">npm run seed</code> para criar o formulário padrão.
+                </div>
+              )}
+            </div>
+          </details>
+        </section>
+      </div>
     </div>
   );
-}
-
-function renderPayload(payload: unknown): string {
-  if (!payload || typeof payload !== 'object') return String(payload);
-  const obj = payload as Record<string, unknown>;
-  return Object.entries(obj)
-    .slice(0, 4)
-    .map(([k, v]) => `${k}: ${String(v).slice(0, 40)}`)
-    .join(' · ');
 }
