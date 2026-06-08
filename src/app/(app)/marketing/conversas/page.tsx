@@ -7,6 +7,7 @@ import { InboxAutoRefresh } from '@/components/inbox-auto-refresh';
 import { InboxComposer } from '@/components/inbox-composer';
 import { InboxContactHeader } from '@/components/inbox-contact-header';
 import { InboxMarkRead } from '@/components/inbox-mark-read';
+import { MessageBody } from '@/components/message-mod';
 import { Avatar } from '@/components/ui/avatar';
 import { isAdmin } from '@/lib/roles';
 import { getInboxContact, type InboxContactDetail } from '@/lib/actions/marketing/inbox-contacts';
@@ -102,6 +103,9 @@ export default async function ConversasPage({
   if (!(await hasConversationAccess())) redirect('/');
   const wa = getWhatsAppConfig();
   const admin = isAdmin(user.role);
+  // Moderar mensagens (editar/apagar no CRM) — só role 'admin' por enquanto
+  // (hoje, só o Raphael). Mais restrito que `admin` de propósito (gestor não entra).
+  const canModerate = user.role === 'admin';
 
   const { c } = await searchParams;
   const convs = await listConversations();
@@ -248,6 +252,7 @@ export default async function ConversasPage({
                 // Suprime o corpo "[arquivo] …" duplicado quando há anexo.
                 const hideBody = attachments.length > 0 && /^\[arquivo\]/.test(m.body ?? '');
                 const outbound = m.direction === 'outbound';
+                const deleted = Boolean(m.deletedAt);
                 // Agrupa mensagens consecutivas do mesmo remetente: o avatar só
                 // aparece na ÚLTIMA mensagem de cada sequência (alinhado ao fim
                 // da bolha via items-end), evitando poluir o thread.
@@ -267,13 +272,13 @@ export default async function ConversasPage({
                       <span className="shrink-0" style={{ width: 28 }} aria-hidden="true" />
                     )}
                     <div
-                      className={`min-w-0 rounded-2xl px-3 py-2 text-sm ${
+                      className={`group relative min-w-0 rounded-2xl px-3 py-2 text-sm ${
                         outbound
                           ? 'rounded-br-sm bg-[#d9fdd3]'
                           : 'rounded-bl-sm border border-slate-200 bg-white'
                       }`}
                     >
-                    {audio && (
+                    {audio && !deleted && (
                       <audio
                         controls
                         preload="none"
@@ -281,7 +286,7 @@ export default async function ConversasPage({
                         className="mb-1 h-9 w-56 max-w-full"
                       />
                     )}
-                    {attachments.map((mm) =>
+                    {!deleted && attachments.map((mm) =>
                       isImageMedia(mm) ? (
                         <a
                           key={mm.idx}
@@ -315,11 +320,20 @@ export default async function ConversasPage({
                         </a>
                       ),
                     )}
-                    {m.body && !hideBody && <div>{m.body}</div>}
-                    <div className="mt-1 text-right text-[10px] text-slate-400">
-                      {m.createdAt ? new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }) : ''}
-                      {m.direction === 'outbound' && <MessageTicks status={m.status} />}
-                    </div>
+                    <MessageBody
+                      messageId={m.id}
+                      body={m.body}
+                      edited={Boolean(m.editedAt)}
+                      deleted={deleted}
+                      canModerate={canModerate}
+                      hideBody={hideBody}
+                    />
+                    {!deleted && (
+                      <div className="mt-1 text-right text-[10px] text-slate-400">
+                        {m.createdAt ? new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }) : ''}
+                        {m.direction === 'outbound' && <MessageTicks status={m.status} />}
+                      </div>
+                    )}
                     </div>
                   </div>
                 );

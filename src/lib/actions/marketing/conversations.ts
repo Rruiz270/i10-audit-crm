@@ -663,3 +663,79 @@ export async function getApprovedTemplates(
   );
   return checked.filter((t) => t.approved).map(({ contentSid, name }) => ({ contentSid, name }));
 }
+
+// ─── Moderação de mensagens no CRM (editar / apagar) ───────────────────────
+// IMPORTANTE: edita/apaga só o ESPELHO no nosso banco. NÃO altera nem remove a
+// mensagem que já foi entregue no WhatsApp do contato (a API da Meta/Twilio não
+// permite "desenviar"). Serve para corrigir registro e esconder do time.
+//
+// Gate "apenas meu usuário por enquanto": liberado só para role === 'admin'
+// (hoje, só o Raphael). Para estender ao time, troque por isAdmin(user.role)
+// ou uma allowlist de e-mails; para restringir a 1 e-mail, cheque user.email.
+function canModerateMessages(user: SessionUser): boolean {
+  return user.role === 'admin';
+}
+
+// Carrega a mensagem e garante que o usuário pode moderá-la (admin + vê a
+// conversa). Lança em caso contrário. Retorna a linha da mensagem.
+async function loadModerableMessage(messageId: number) {
+  const user = await requireUser();
+  if (!canModerateMessages(user)) throw new Error('FORBIDDEN');
+  const [msg] = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1);
+  if (!msg) throw new Error('mensagem não encontrada');
+  // Re-checa visibilidade da conversa (não vaza/mexe por id adivinhado).
+  await loadVisibleConversation(user, msg.conversationId);
+  return msg;
+}
+
+// Edita o corpo de uma mensagem no CRM e marca como "editada".
+export async function editMessage(
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const messageId = Number(formData.get('messageId'));
+  const body = String(formData.get('body') ?? '').trim();
+  if (!messageId) throw new Error('messageId obrigatório');
+  if (!body) return { ok: false as const, error: 'Mensagem vazia.' };
+
+  const msg = await loadModerableMessage(messageId);
+  if (msg.deletedAt) return { ok: false as const, error: 'Mensagem apagada não pode ser editada.' };
+
+  await db
+    .update(messages)
+    .set({ body, editedAt: new Date() })
+    .where(eq(messages.id, messageId));
+  revalidatePath('/marketing/conversas');
+  return { ok: true as const };
+}
+
+// Soft-delete: esconde a mensagem do thread, preservando a linha (auditoria).
+export async function deleteMessage(
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const messageId = Number(formData.get('messageId'));
+  if (!messageId) throw new Error('messageId obrigatório');
+
+  await loadModerableMessage(messageId);
+  await db
+    .update(messages)
+    .set({ deletedAt: new Date() })
+    .where(eq(messages.id, messageId));
+  revalidatePath('/marketing/conversas');
+  return { ok: true as const };
+}
+
+// Restaura uma mensagem soft-deletada (desfaz o apagar).
+export async function restoreMessage(
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const messageId = Number(formData.get('messageId'));
+  if (!messageId) throw new Error('messageId obrigatório');
+
+  await loadModerableMessage(messageId);
+  await db
+    .update(messages)
+    .set({ deletedAt: null })
+    .where(eq(messages.id, messageId));
+  revalidatePath('/marketing/conversas');
+  return { ok: true as const };
+}

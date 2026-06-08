@@ -522,6 +522,10 @@ export const messages = marketingSchema.table(
     // Status de entrega (outbound): queued|sent|delivered|read|failed
     status: text('status'),
     createdAt: timestamp('created_at').defaultNow(),
+    // Moderação no CRM (não afeta o que já chegou no WhatsApp do contato):
+    // editedAt = marca "editada"; deletedAt = soft-delete (esconde do thread).
+    editedAt: timestamp('edited_at'),
+    deletedAt: timestamp('deleted_at'),
   },
   (t) => [index('messages_conversation_idx').on(t.conversationId, t.createdAt)],
 );
