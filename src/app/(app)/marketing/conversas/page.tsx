@@ -7,6 +7,7 @@ import { InboxAutoRefresh } from '@/components/inbox-auto-refresh';
 import { InboxComposer } from '@/components/inbox-composer';
 import { InboxContactHeader } from '@/components/inbox-contact-header';
 import { InboxMarkRead } from '@/components/inbox-mark-read';
+import { Avatar } from '@/components/ui/avatar';
 import { isAdmin } from '@/lib/roles';
 import { getInboxContact, type InboxContactDetail } from '@/lib/actions/marketing/inbox-contacts';
 import {
@@ -197,13 +198,18 @@ export default async function ConversasPage({
               href={`/marketing/conversas?c=${cv.id}`}
               className={`block border-b border-slate-100 p-3 ${isSel ? 'bg-cyan-50' : 'hover:bg-slate-50'}`}
             >
-              <div className="flex items-center justify-between gap-2">
-                <span className="truncate text-sm font-semibold text-slate-900">
-                  {cv.contactName ?? cv.waPhone}
-                </span>
-                {cv.unread && <span className="h-2 w-2 shrink-0 rounded-full bg-cyan-500" />}
+              <div className="flex items-center gap-2.5">
+                <Avatar name={cv.contactName ?? cv.waPhone} size={36} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-sm font-semibold text-slate-900">
+                      {cv.contactName ?? cv.waPhone}
+                    </span>
+                    {cv.unread && <span className="h-2 w-2 shrink-0 rounded-full bg-cyan-500" />}
+                  </div>
+                  <div className="mt-0.5 truncate text-xs text-slate-500">{cv.waPhone}</div>
+                </div>
               </div>
-              <div className="mt-0.5 truncate text-xs text-slate-500">{cv.waPhone}</div>
               <div className="mt-1.5 flex items-center gap-1.5">
                 <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${w.tone}`}>{w.text}</span>
                 {cv.status === 'closed' && (
@@ -230,7 +236,7 @@ export default async function ConversasPage({
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto p-5">
-              {selected!.messages.map((m) => {
+              {selected!.messages.map((m, i, arr) => {
                 const audio = audioFromMedia(m.mediaUrls);
                 const media = normalizeMedia(m.mediaUrls);
                 // Itens não-áudio renderizados como imagem ou file card.
@@ -241,15 +247,32 @@ export default async function ConversasPage({
                       .filter((mm) => mm.url);
                 // Suprime o corpo "[arquivo] …" duplicado quando há anexo.
                 const hideBody = attachments.length > 0 && /^\[arquivo\]/.test(m.body ?? '');
+                const outbound = m.direction === 'outbound';
+                // Agrupa mensagens consecutivas do mesmo remetente: o avatar só
+                // aparece na ÚLTIMA mensagem de cada sequência (alinhado ao fim
+                // da bolha via items-end), evitando poluir o thread.
+                const isLastOfRun = arr[i + 1]?.direction !== m.direction;
                 return (
                   <div
                     key={m.id}
-                    className={`max-w-[62%] rounded-2xl px-3 py-2 text-sm ${
-                      m.direction === 'outbound'
-                        ? 'self-end rounded-br-sm bg-[#d9fdd3]'
-                        : 'self-start rounded-bl-sm border border-slate-200 bg-white'
-                    }`}
+                    className={`flex items-end gap-2 ${outbound ? 'flex-row-reverse self-end' : 'self-start'} max-w-[78%]`}
                   >
+                    {isLastOfRun ? (
+                      outbound ? (
+                        <Avatar variant="i10" size={28} />
+                      ) : (
+                        <Avatar name={conv.contactName ?? conv.waPhone} size={28} />
+                      )
+                    ) : (
+                      <span className="shrink-0" style={{ width: 28 }} aria-hidden="true" />
+                    )}
+                    <div
+                      className={`min-w-0 rounded-2xl px-3 py-2 text-sm ${
+                        outbound
+                          ? 'rounded-br-sm bg-[#d9fdd3]'
+                          : 'rounded-bl-sm border border-slate-200 bg-white'
+                      }`}
+                    >
                     {audio && (
                       <audio
                         controls
@@ -297,6 +320,7 @@ export default async function ConversasPage({
                       {m.createdAt ? new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }) : ''}
                       {m.direction === 'outbound' && <MessageTicks status={m.status} />}
                     </div>
+                    </div>
                   </div>
                 );
               })}
@@ -323,10 +347,15 @@ export default async function ConversasPage({
         {conv && (
           <>
             <h4 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-slate-500">Contato</h4>
-            <div className="text-sm font-semibold text-slate-900">
-              {inboxContact?.name ?? conv.contactName ?? '—'}
+            <div className="flex items-center gap-3">
+              <Avatar name={inboxContact?.name ?? conv.contactName ?? conv.waPhone} size={48} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold text-slate-900">
+                  {inboxContact?.name ?? conv.contactName ?? '—'}
+                </div>
+                <div className="truncate text-sm text-slate-600">{conv.waPhone}</div>
+              </div>
             </div>
-            <div className="text-sm text-slate-600">{conv.waPhone}</div>
             {inboxContact && (
               <div className="mt-1.5 space-y-0.5 text-xs text-slate-500">
                 {(inboxContact.municipio || inboxContact.uf) && (
