@@ -23,12 +23,12 @@ function isNextRedirectError(err: unknown): boolean {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ callbackUrl?: string; error?: string }>;
+  searchParams: Promise<{ callbackUrl?: string; error?: string; notice?: string }>;
 }) {
   const session = await auth();
   if (session?.user) redirect('/');
 
-  const { callbackUrl, error } = await searchParams;
+  const { callbackUrl, error, notice } = await searchParams;
   const safeCallback = callbackUrl ?? '/';
 
   async function doGoogleSignIn() {
@@ -136,11 +136,24 @@ export default async function LoginPage({
             </p>
           </div>
 
+          {notice === 'pending' && (
+            <div className="mb-4 rounded-md bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800">
+              <b>Pedido de acesso enviado.</b> Sua conta Google foi registrada e está aguardando a
+              aprovação de um administrador. Você poderá entrar assim que for liberado.
+            </div>
+          )}
+          {notice === 'blocked' && (
+            <div className="mb-4 rounded-md bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
+              Seu acesso não está liberado. Se acha que é engano, fale com um administrador do Instituto i10.
+            </div>
+          )}
           {error && (
             <div className="mb-4 rounded-md bg-rose-50 border border-rose-200 p-3 text-xs text-rose-800">
               {error === 'CredentialsSignin'
                 ? 'Email ou senha incorretos, ou cadastro ainda não aprovado.'
-                : error}
+                : error === 'AccessDenied'
+                  ? 'Acesso ainda não liberado. Se você acabou de solicitar com Google, um administrador precisa aprovar.'
+                  : error}
             </div>
           )}
 

@@ -20,6 +20,11 @@ export default {
   providers: [
     // Google é leve (só URLs + escopos), pode ficar aqui.
     Google({
+      // Vincula a conta Google a um usuário existente de mesmo email (criado via
+      // /signup, seed ou pedido pendente). Sem isto, quem já tem linha por email
+      // mas nunca logou no Google bate em OAuthAccountNotLinked. Seguro aqui: só
+      // temos Google (email verificado pela própria Google) + credentials.
+      allowDangerousEmailAccountLinking: true,
       authorization: {
         params: {
           scope: [

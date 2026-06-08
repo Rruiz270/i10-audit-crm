@@ -83,7 +83,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (account?.provider === 'credentials') return true;
       if (!user?.email) return false;
       const email = user.email.toLowerCase();
-      const result = await findActiveApprovedUserByEmail(email);
+      // Admin allowlist: auto-aprova e entra.
       if (adminEmails.includes(email)) {
         await db
           .update(users)
@@ -91,9 +91,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           .where(eq(users.email, email));
         return true;
       }
-      if (!result) return false;
-      if (result.status !== 'ok') return false;
-      return true;
+      const result = await findActiveApprovedUserByEmail(email);
+      if (result?.status === 'ok') return true;
+      // Conta Google nova → cria PEDIDO PENDENTE (aparece p/ admin aprovar em
+      // /admin/team) e manda pro aviso amigável, em vez de "AccessDenied".
+      // approvalStatus default da tabela é 'approved' → setar 'pending' explícito.
+      if (!result) {
+        await db.insert(users).values({
+          id: crypto.randomUUID(),
+          email,
+          name: user.name ?? null,
+          image: user.image ?? null,
+          role: 'consultor',
+          isActive: true,
+          approvalStatus: 'pending',
+        });
+        return '/login?notice=pending';
+      }
+      // Já existe mas não liberado: pendente aguarda; rejeitado/inativo é bloqueio.
+      return result.status === 'pending' ? '/login?notice=pending' : '/login?notice=blocked';
     },
     async jwt({ token, user, trigger }) {
       if (user?.email) {
