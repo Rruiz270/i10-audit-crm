@@ -1,6 +1,7 @@
 import type { EmailProvider, WhatsAppProvider } from './types';
 import { BrevoEmailProvider } from './brevo';
 import { SESEmailProvider } from './ses';
+import { MSGraphEmailProvider } from './msgraph';
 import { TwilioWhatsAppProvider } from './twilio';
 
 // Factory — escolhe o provider baseado em env. Cache em memória pra não
@@ -25,6 +26,14 @@ export function getEmailProvider(override?: string): EmailProvider {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
         configurationSet: process.env.AWS_SES_CONFIG_SET,
+      });
+      break;
+    case 'msgraph':
+      provider = new MSGraphEmailProvider({
+        tenantId: process.env.MSGRAPH_TENANT_ID ?? '',
+        clientId: process.env.MSGRAPH_CLIENT_ID ?? '',
+        clientSecret: process.env.MSGRAPH_CLIENT_SECRET ?? '',
+        senderEmail: process.env.MSGRAPH_SENDER_EMAIL ?? 'apaulista@apaulista.org.br',
       });
       break;
     default:
