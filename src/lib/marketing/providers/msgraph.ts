@@ -47,13 +47,17 @@ export class MSGraphEmailProvider implements EmailProvider {
         subject: input.subject,
         body: { contentType: 'HTML' as const, content: input.html },
         from: {
-          emailAddress: { address: input.fromEmail, name: input.fromName },
+          // MS Graph só pode enviar pela própria caixa (senderEmail). Usar
+          // outro endereço no From dá 403 ErrorSendAsDenied. Forçamos o
+          // From = senderEmail e preservamos o nome de exibição.
+          emailAddress: { address: this.config.senderEmail, name: input.fromName },
         },
         toRecipients: [
           { emailAddress: { address: input.to.email, name: input.to.name } },
         ],
-        replyTo: input.replyTo
-          ? [{ emailAddress: { address: input.replyTo } }]
+        // Respostas vão pro endereço de marca (fromEmail), não pra caixa técnica.
+        replyTo: (input.replyTo ?? input.fromEmail)
+          ? [{ emailAddress: { address: input.replyTo ?? input.fromEmail } }]
           : undefined,
         // MS Graph só aceita internetMessageHeaders com prefixo x-/X-.
         // Headers padrão (List-Unsubscribe, List-Unsubscribe-Post) são
