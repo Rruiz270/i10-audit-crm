@@ -55,12 +55,17 @@ export class MSGraphEmailProvider implements EmailProvider {
         replyTo: input.replyTo
           ? [{ emailAddress: { address: input.replyTo } }]
           : undefined,
-        internetMessageHeaders: input.headers
-          ? Object.entries(input.headers).map(([n, v]) => ({
-              name: n,
-              value: v,
-            }))
-          : undefined,
+        // MS Graph só aceita internetMessageHeaders com prefixo x-/X-.
+        // Headers padrão (List-Unsubscribe, List-Unsubscribe-Post) são
+        // rejeitados com 400 InvalidInternetMessageHeader — então filtramos.
+        // O link de descadastro no corpo do e-mail cobre o opt-out.
+        internetMessageHeaders: (() => {
+          if (!input.headers) return undefined;
+          const allowed = Object.entries(input.headers)
+            .filter(([name]) => /^x-/i.test(name))
+            .map(([name, value]) => ({ name, value }));
+          return allowed.length ? allowed : undefined;
+        })(),
       },
       saveToSentItems: false,
     };
