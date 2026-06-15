@@ -24,10 +24,14 @@ function buildConditions(f: LeadFilters, exclude?: keyof LeadFilters): SQL[] {
   const conds: SQL[] = [];
   if (f.q && exclude !== 'q') {
     const term = `%${f.q.trim()}%`;
+    // Busca cobre cidade/UF além de nome/e-mail/telefone — assim digitar o
+    // nome de um município traz TODOS os contatos daquela cidade.
     const c = or(
       ilike(contacts.name, term),
       ilike(contacts.email, term),
       ilike(contacts.phone, term),
+      ilike(contacts.municipio, term),
+      ilike(contacts.uf, term),
     );
     if (c) conds.push(c);
   }
