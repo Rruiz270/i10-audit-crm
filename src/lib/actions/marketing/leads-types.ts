@@ -37,6 +37,28 @@ export type LeadsKpis = {
 
 export type Facet = { value: string; count: number };
 
+// Rótulos de "papel" do contato (quem é: prefeito pessoal, gabinete, sec. educação…).
+// Compartilhado entre a página (server) e a tabela/modal (client).
+export const ROLE_LABELS: Record<string, string> = {
+  prefeito_pessoal: 'Prefeito (pessoal)',
+  prefeitura: 'Gabinete',
+  educacao: 'Sec. Educação',
+  prefeito: 'Prefeito',
+  secretario: 'Secretário',
+  gabinete: 'Gabinete',
+};
+export function roleLabel(r: string | null): string {
+  if (!r) return '—';
+  return ROLE_LABELS[r] ?? r;
+}
+
+export const STATUS_TONE: Record<string, string> = {
+  active: 'bg-emerald-100 text-emerald-700',
+  unsubscribed: 'bg-slate-100 text-slate-600',
+  bounced: 'bg-rose-100 text-rose-700',
+  complained: 'bg-amber-100 text-amber-800',
+};
+
 export type LeadsHubData = {
   kpis: LeadsKpis;
   rows: LeadRow[];

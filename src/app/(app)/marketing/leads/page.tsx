@@ -6,10 +6,14 @@ import {
   getLeadsHubData,
   listProjectsForLeads,
 } from '@/lib/actions/marketing/leads';
-import type { Facet, LeadFilters } from '@/lib/actions/marketing/leads-types';
-import { startConversationWithContact } from '@/lib/actions/marketing/inbox-contacts';
+import {
+  type Facet,
+  type LeadFilters,
+  roleLabel,
+} from '@/lib/actions/marketing/leads-types';
 import { Icon } from '@/components/marketing-hub';
 import { CreateAudiencePopover } from '@/components/marketing/create-audience-popover';
+import { LeadsTable } from '@/components/marketing/leads-table';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,26 +53,6 @@ function buildHref(base: RawSearch, overrides: Partial<RawSearch>): string {
   const qs = params.toString();
   return qs ? `/marketing/leads?${qs}` : '/marketing/leads';
 }
-
-const ROLE_LABELS: Record<string, string> = {
-  prefeito_pessoal: 'Prefeito',
-  prefeitura: 'Gabinete',
-  educacao: 'Sec. Educação',
-  prefeito: 'Prefeito',
-  secretario: 'Secretário',
-  gabinete: 'Gabinete',
-};
-function roleLabel(r: string | null): string {
-  if (!r) return '—';
-  return ROLE_LABELS[r] ?? r;
-}
-
-const STATUS_TONE: Record<string, string> = {
-  active: 'bg-emerald-100 text-emerald-700',
-  unsubscribed: 'bg-slate-100 text-slate-600',
-  bounced: 'bg-rose-100 text-rose-700',
-  complained: 'bg-amber-100 text-amber-800',
-};
 
 export default async function LeadsHubPage({
   searchParams,
@@ -233,81 +217,7 @@ export default async function LeadsHubPage({
           </div>
 
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <th className="px-4 py-3">Nome</th>
-                  <th className="px-4 py-3">Município/UF</th>
-                  <th className="px-4 py-3">Papel</th>
-                  <th className="px-4 py-3">Fonte</th>
-                  <th className="px-4 py-3">Canais</th>
-                  <th className="px-4 py-3">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-slate-900">{r.name ?? r.email ?? '—'}</div>
-                      <div className="text-xs text-slate-400">{r.partido ?? roleLabel(r.role)}</div>
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">
-                      {r.municipio ? `${r.municipio}${r.uf ? `/${r.uf}` : ''}` : r.uf ?? '—'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
-                        {roleLabel(r.role)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-xs text-slate-500">{r.source ?? '—'}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5 text-slate-300">
-                        <span className={r.email ? 'text-sky-600' : ''} title="E-mail">
-                          <Icon name="mail" size={15} />
-                        </span>
-                        <span className={r.phone ? 'text-slate-600' : ''} title="Telefone">
-                          <Icon name="phone" size={15} />
-                        </span>
-                        {r.whatsapp || r.phone ? (
-                          <form action={startConversationWithContact} className="inline-flex">
-                            <input type="hidden" name="contactId" value={r.id} />
-                            <button
-                              type="submit"
-                              className="text-emerald-600 hover:text-emerald-700"
-                              title="Iniciar conversa no inbox"
-                            >
-                              <Icon name="msg" size={15} />
-                            </button>
-                          </form>
-                        ) : (
-                          <span title="Sem WhatsApp/telefone">
-                            <Icon name="msg" size={15} />
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                          STATUS_TONE[r.status] ?? 'bg-slate-100 text-slate-600'
-                        }`}
-                      >
-                        {r.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-                {rows.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-10 text-center text-sm text-slate-400">
-                      Nenhum contato encontrado com esse filtro.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+            <LeadsTable rows={rows} />
 
             {/* Footer: paginação preservando filtros */}
             <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-sm">
