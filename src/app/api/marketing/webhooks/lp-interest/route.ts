@@ -110,12 +110,24 @@ export async function POST(request: NextRequest) {
       migrated++;
     }
 
-    // 4) Evento de BI: cidade pediu relatório (1 por clique)
+    // 4) Evento de BI: cidade pediu relatório (1 por clique).
+    // events.send_id é NOT NULL → amarra ao send mais recente do contato (ex.: E1).
+    // Não-fatal: se falhar, segue p/ a oportunidade.
     const primaryContactId = contactIds[0] ?? null;
-    await sql`insert into marketing.events (contact_id, type, payload, metadata)
-              values (${primaryContactId}, 'lp_report_request',
-                      ${JSON.stringify({ ibge, municipio, projectSlug: project.slug, contactsMigrated: migrated })}::jsonb,
-                      ${JSON.stringify({ source: 'lp_button', ip: request.headers.get('x-forwarded-for')?.split(',')[0] ?? null })}::jsonb)`;
+    try {
+      if (primaryContactId) {
+        const lastSend = await sql`select id from marketing.sends where contact_id = ${primaryContactId} order by id desc limit 1`;
+        const sendId = (lastSend[0]?.id as number) ?? null;
+        if (sendId) {
+          await sql`insert into marketing.events (send_id, contact_id, type, payload, metadata)
+                    values (${sendId}, ${primaryContactId}, 'lp_report_request',
+                            ${JSON.stringify({ ibge, municipio, projectSlug: project.slug, contactsMigrated: migrated })}::jsonb,
+                            ${JSON.stringify({ source: 'lp_button', ip: request.headers.get('x-forwarded-for')?.split(',')[0] ?? null })}::jsonb)`;
+        }
+      }
+    } catch (err) {
+      console.error('[lp-interest event] falhou (interesse preservado):', err);
+    }
 
     // 3) Oportunidade no pipeline (1 por cidade, idempotente por ibge+source)
     let opportunityCreated = false;

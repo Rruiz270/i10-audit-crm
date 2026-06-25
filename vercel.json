@@ -8,6 +8,10 @@
     {
       "path": "/api/marketing/cron/sequences",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/marketing/cron/recover",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
