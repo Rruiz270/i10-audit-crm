@@ -158,7 +158,7 @@ export function KanbanBoard({
         </div>
       )}
 
-      <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+      <DndContext id="pipeline-dnd" sensors={sensors} onDragEnd={onDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4">
           {renderStages.map((s) => (
             <Column
