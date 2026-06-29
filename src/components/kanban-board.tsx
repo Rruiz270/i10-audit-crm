@@ -13,7 +13,8 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core';
 import { KANBAN_STAGES, type StageKey } from '@/lib/pipeline';
-import { changeStage } from '@/lib/actions/opportunities';
+import { changeStage, claimOpportunity, reassignOpportunity } from '@/lib/actions/opportunities';
+import { isAdmin } from '@/lib/roles';
 import { isRotten, daysUntilRot, weightedValue } from '@/lib/forecast';
 import type { BnccSignals } from '@/lib/bncc-signals';
 import { signalsToBadges } from '@/lib/bncc-signals';
@@ -22,6 +23,9 @@ import { stageAccentColor } from '@/components/ui/stage-badge';
 import { Chip } from '@/components/ui/chip';
 import { Icon } from '@/components/ui/icon';
 import { Popover } from '@/components/ui/popover';
+
+export type TeamUser = { id: string; name: string | null; email: string; role: string };
+export type Viewer = { id: string; role: string };
 
 /** Estágio dinâmico (vindo do DB) — compatível com `StageDefinition` do TS. */
 export type DynamicStage = {
@@ -57,6 +61,8 @@ export type KanbanCard = {
 export function KanbanBoard({
   cards,
   stages,
+  team,
+  viewer,
 }: {
   cards: KanbanCard[];
   /**
@@ -64,6 +70,8 @@ export function KanbanBoard({
    * Passar custom stages (vindos de crm.pipeline_stages) habilita colunas extras.
    */
   stages?: DynamicStage[];
+  team?: TeamUser[];
+  viewer?: Viewer;
 }) {
   const renderStages = React.useMemo<DynamicStage[]>(() => {
     if (stages && stages.length > 0) {
@@ -158,6 +166,8 @@ export function KanbanBoard({
               stageDef={s}
               cards={byStage[s.key] ?? []}
               busyId={busyId}
+              team={team}
+              viewer={viewer}
             />
           ))}
         </div>
@@ -170,10 +180,14 @@ function Column({
   stageDef,
   cards,
   busyId,
+  team,
+  viewer,
 }: {
   stageDef: DynamicStage;
   cards: KanbanCard[];
   busyId: number | null;
+  team?: TeamUser[];
+  viewer?: Viewer;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stageDef.key });
   const def = stageDef;
@@ -223,7 +237,7 @@ function Column({
       </div>
       <div className="p-2 min-h-[400px] space-y-2">
         {cards.map((c) => (
-          <DraggableCard key={c.id} card={c} busy={busyId === c.id} />
+          <DraggableCard key={c.id} card={c} busy={busyId === c.id} team={team} viewer={viewer} />
         ))}
         {cards.length === 0 && (
           <div className="text-xs text-slate-400 italic text-center py-10">arraste aqui</div>
@@ -233,7 +247,17 @@ function Column({
   );
 }
 
-function DraggableCard({ card, busy }: { card: KanbanCard; busy: boolean }) {
+function DraggableCard({
+  card,
+  busy,
+  team,
+  viewer,
+}: {
+  card: KanbanCard;
+  busy: boolean;
+  team?: TeamUser[];
+  viewer?: Viewer;
+}) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: card.id,
   });
@@ -322,6 +346,9 @@ function DraggableCard({ card, busy }: { card: KanbanCard; busy: boolean }) {
         </span>
       </div>
 
+      {/* Zona 2.5 — dono: dropdown (admin/gestor) ou "pegar" (consultor no pool) */}
+      {viewer && <CardOwner card={card} team={team ?? []} viewer={viewer} />}
+
       {/* Zona 3 — UM chip de status + sinais BNCC + tags (overflow em popover) */}
       {(statusChip || bnccBadges.length > 0 || tags.length > 0) && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -354,4 +381,92 @@ function DraggableCard({ card, busy }: { card: KanbanCard; busy: boolean }) {
       )}
     </div>
   );
+}
+
+/**
+ * Controle de dono direto no card do funil.
+ *  - admin/gestor: dropdown para definir/transferir o dono (qualquer consultor).
+ *  - consultor: botão "Pegar" quando o lead está no pool (sem dono).
+ * stopPropagation evita que o clique/seleção dispare o drag-and-drop.
+ */
+function CardOwner({
+  card,
+  team,
+  viewer,
+}: {
+  card: KanbanCard;
+  team: TeamUser[];
+  viewer: Viewer;
+}) {
+  const router = useRouter();
+  const [pending, setPending] = React.useState(false);
+  const admin = isAdmin(viewer.role);
+  const inPool = !card.ownerId;
+  const stop = {
+    onPointerDown: (e: React.PointerEvent) => e.stopPropagation(),
+    onClick: (e: React.MouseEvent) => e.stopPropagation(),
+  };
+
+  async function claim(e: React.MouseEvent) {
+    e.stopPropagation();
+    setPending(true);
+    const fd = new FormData();
+    fd.set('id', String(card.id));
+    await claimOpportunity(fd);
+    setPending(false);
+    router.refresh();
+  }
+
+  async function assign(e: React.ChangeEvent<HTMLSelectElement>) {
+    const ownerId = e.target.value;
+    setPending(true);
+    const fd = new FormData();
+    fd.set('id', String(card.id));
+    fd.set('ownerId', ownerId);
+    await reassignOpportunity(fd);
+    setPending(false);
+    router.refresh();
+  }
+
+  if (admin) {
+    return (
+      <div className="mt-2" {...stop}>
+        <select
+          value={card.ownerId ?? ''}
+          onChange={assign}
+          disabled={pending}
+          aria-label="Dono do lead"
+          className="w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600 focus:border-i10-400 focus:outline-none"
+        >
+          <option value="">— sem dono (pool) —</option>
+          {team.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.name ?? u.email}
+              {u.role !== 'consultor' ? ` · ${u.role}` : ''}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
+  if (inPool) {
+    return (
+      <div className="mt-2" {...stop}>
+        <button
+          onClick={claim}
+          disabled={pending}
+          className="w-full rounded-md px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
+          style={{ background: 'var(--i10-navy)' }}
+        >
+          {pending ? 'Assumindo…' : '✋ Pegar este lead'}
+        </button>
+      </div>
+    );
+  }
+
+  if (card.ownerId === viewer.id) {
+    return <div className="mt-1.5 text-[11px] font-medium text-emerald-600">Você é o dono</div>;
+  }
+  return null;
 }
