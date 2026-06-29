@@ -82,6 +82,9 @@ export const opportunities = crmSchema.table('opportunities', {
   id: serial('id').primaryKey(),
   municipalityId: integer('municipality_id').references(() => fundebMunicipalities.id),
   ownerId: text('owner_id').references(() => users.id),
+  // Nº sequencial de "lead ativo" — atribuído quando o lead ganha dono e vira
+  // oportunidade. Null enquanto está no pool 'novo'.
+  activeNo: integer('active_no'),
   stage: text('stage').notNull().default('novo'),
   stageUpdatedAt: timestamp('stage_updated_at').defaultNow(),
   source: text('source'),

@@ -1,6 +1,6 @@
 'use server';
 
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
@@ -523,7 +523,11 @@ async function setOwner(input: {
 }) {
   const { id, ownerId, actorId, claimed } = input;
   const [op] = await db
-    .select({ stage: opportunities.stage, ownerId: opportunities.ownerId })
+    .select({
+      stage: opportunities.stage,
+      ownerId: opportunities.ownerId,
+      activeNo: opportunities.activeNo,
+    })
     .from(opportunities)
     .where(eq(opportunities.id, id))
     .limit(1);
@@ -534,6 +538,15 @@ async function setOwner(input: {
   if (autoAdvance) {
     patch.stage = 'contato_inicial';
     patch.stageUpdatedAt = new Date();
+  }
+  // Ao virar oportunidade ativa (ganhou dono), recebe o próximo nº sequencial.
+  let assignedNo = op.activeNo ?? null;
+  if (ownerId && op.activeNo == null) {
+    const [{ max }] = await db
+      .select({ max: sql<number>`COALESCE(MAX(${opportunities.activeNo}), 0)` })
+      .from(opportunities);
+    assignedNo = Number(max) + 1;
+    patch.activeNo = assignedNo;
   }
   await db.update(opportunities).set(patch).where(eq(opportunities.id, id));
 
@@ -548,10 +561,10 @@ async function setOwner(input: {
     await logActivity({
       opportunityId: id,
       type: 'stage_change',
-      subject: 'Novo → Contato Inicial',
-      body: 'Lead ganhou dono e saiu do pool.',
+      subject: 'Novo → Oportunidades',
+      body: `Lead ganhou dono e virou oportunidade ativa${assignedNo ? ` (#${String(assignedNo).padStart(3, '0')})` : ''}.`,
       actorId,
-      metadata: { from: 'novo', to: 'contato_inicial', reason: 'owner_assigned' },
+      metadata: { from: 'novo', to: 'contato_inicial', reason: 'owner_assigned', activeNo: assignedNo },
     });
   }
   revalidatePath(`/opportunities/${id}`);
@@ -579,6 +592,7 @@ export async function opportunitiesByStage(filter?: { ownerId?: string }) {
       lastActivityAt: opportunities.lastActivityAt,
       tags: opportunities.tags,
       notes: opportunities.notes,
+      activeNo: opportunities.activeNo,
       municipalityId: opportunities.municipalityId,
       municipalityName: fundebMunicipalities.nome,
       ownerId: opportunities.ownerId,

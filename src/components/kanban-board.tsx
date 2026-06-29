@@ -53,6 +53,7 @@ export type KanbanCard = {
   lastActivityAt: Date | null;
   tags: string[] | null;
   notes?: string | null;
+  activeNo?: number | null;
   handedOffConsultoriaId?: number | null;
   bnccSignals?: BnccSignals | null;
   taskSummary?: { open: number; overdue: number; nextDue: string | null };
@@ -329,7 +330,17 @@ function DraggableCard({
         >
           {card.municipalityName ?? `Oport. #${card.id}`}
         </Link>
-        <span className="shrink-0 text-[11px] text-slate-400">#{card.id}</span>
+        {card.activeNo != null ? (
+          <span
+            className="shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-bold text-white"
+            style={{ background: 'var(--i10-cyan-dark, #0e7490)' }}
+            title={`Lead ativo nº ${card.activeNo}`}
+          >
+            #{String(card.activeNo).padStart(3, '0')}
+          </span>
+        ) : (
+          <span className="shrink-0 text-[11px] text-slate-400">#{card.id}</span>
+        )}
       </div>
 
       {/* Zona 2 — dono · valor */}

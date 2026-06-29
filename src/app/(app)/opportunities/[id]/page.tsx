@@ -345,6 +345,15 @@ export default async function OpportunityDetailPage({
                 {op.municipalityName ?? 'Sem município'}
               </h1>
               <StageBadge stage={op.stage as StageKey} />
+              {op.activeNo != null && (
+                <span
+                  className="rounded-md px-2 py-0.5 text-xs font-bold text-white"
+                  style={{ background: 'var(--i10-cyan-dark, #0e7490)' }}
+                  title="Nº sequencial de lead ativo"
+                >
+                  Lead #{String(op.activeNo).padStart(3, '0')}
+                </span>
+              )}
               <span className="text-xs text-slate-400">#{op.id}</span>
             </div>
             <p className="text-sm text-slate-500 mt-1">
