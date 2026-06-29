@@ -229,7 +229,7 @@ export function OpportunitiesTable({
   }
 
   function TagList({ r }: { r: Row }) {
-    const tags = r.tags ?? [];
+    const tags = (r.tags ?? []).filter((t) => !/^import-/i.test(t));
     if (tags.length === 0) return null;
     return (
       <span className="inline-flex flex-wrap gap-1 align-middle">

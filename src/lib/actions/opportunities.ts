@@ -25,6 +25,7 @@ import {
   type LostReasonCode,
 } from '@/lib/lost-reasons';
 import { autoTagOpportunity } from '@/lib/actions/tags';
+import { visibilityCondition, canSeeOpportunity } from '@/lib/visibility';
 
 const createSchema = z.object({
   municipalityId: z.coerce.number().int().positive().optional(),
@@ -385,9 +386,12 @@ export async function listOpportunities(filter?: {
   stage?: StageKey;
   ownerId?: string;
 }) {
+  const user = await requireUser();
   const conditions = [];
   if (filter?.stage) conditions.push(eq(opportunities.stage, filter.stage));
   if (filter?.ownerId) conditions.push(eq(opportunities.ownerId, filter.ownerId));
+  const visibility = visibilityCondition(user);
+  if (visibility) conditions.push(visibility);
 
   return db
     .select({
@@ -427,6 +431,12 @@ export async function getOpportunity(id: number) {
     .limit(1);
 
   if (!op[0]) return null;
+
+  // Visibilidade: consultor só abre os próprios ou o pool 'novo' sem dono.
+  const viewer = await requireUser();
+  if (!canSeeOpportunity(viewer, { ownerId: op[0].o.ownerId, stage: op[0].o.stage })) {
+    return null;
+  }
 
   const [contactRows, activityRows, meetingRows] = await Promise.all([
     db.select().from(contacts).where(eq(contacts.opportunityId, id)),
@@ -477,17 +487,77 @@ export async function reassignOpportunity(formData: FormData) {
   const user = await requireUser();
   requireRoleCheck(user.role);
   const id = Number(formData.get('id'));
-  const ownerId = String(formData.get('ownerId'));
-  await db.update(opportunities).set({ ownerId, updatedAt: new Date() }).where(eq(opportunities.id, id));
+  const ownerIdRaw = String(formData.get('ownerId') ?? '').trim();
+  const ownerId = ownerIdRaw === '' ? null : ownerIdRaw;
+  return setOwner({ id, ownerId, actorId: user.id });
+}
+
+/**
+ * Consultor "pega" um lead do pool: vira dono. Só permitido se o lead estiver
+ * sem dono (ou já for dele). Admin/gestor usam reassignOpportunity/setOwner.
+ */
+export async function claimOpportunity(formData: FormData) {
+  const user = await requireUser();
+  const id = Number(formData.get('id'));
+  const [op] = await db
+    .select({ ownerId: opportunities.ownerId })
+    .from(opportunities)
+    .where(eq(opportunities.id, id))
+    .limit(1);
+  if (!op) return { ok: false as const, error: 'Lead não encontrado.' };
+  if (op.ownerId && op.ownerId !== user.id) {
+    return { ok: false as const, error: 'Este lead já tem dono.' };
+  }
+  return setOwner({ id, ownerId: user.id, actorId: user.id, claimed: true });
+}
+
+/**
+ * Define/limpa o dono de uma oportunidade. Ao ganhar dono, um lead em 'novo' é
+ * automaticamente promovido para 'contato_inicial' (deixa o pool público).
+ */
+async function setOwner(input: {
+  id: number;
+  ownerId: string | null;
+  actorId: string;
+  claimed?: boolean;
+}) {
+  const { id, ownerId, actorId, claimed } = input;
+  const [op] = await db
+    .select({ stage: opportunities.stage, ownerId: opportunities.ownerId })
+    .from(opportunities)
+    .where(eq(opportunities.id, id))
+    .limit(1);
+  if (!op) return { ok: false as const, error: 'Lead não encontrado.' };
+
+  const patch: Record<string, unknown> = { ownerId, updatedAt: new Date() };
+  const autoAdvance = ownerId && op.stage === 'novo';
+  if (autoAdvance) {
+    patch.stage = 'contato_inicial';
+    patch.stageUpdatedAt = new Date();
+  }
+  await db.update(opportunities).set(patch).where(eq(opportunities.id, id));
+
   await logActivity({
     opportunityId: id,
     type: 'note',
-    subject: 'Reatribuída',
-    actorId: user.id,
-    metadata: { newOwnerId: ownerId },
+    subject: ownerId ? (claimed ? 'Lead assumido (dono definido)' : 'Reatribuída') : 'Dono removido',
+    actorId,
+    metadata: { newOwnerId: ownerId, previousOwnerId: op.ownerId },
   });
+  if (autoAdvance) {
+    await logActivity({
+      opportunityId: id,
+      type: 'stage_change',
+      subject: 'Novo → Contato Inicial',
+      body: 'Lead ganhou dono e saiu do pool.',
+      actorId,
+      metadata: { from: 'novo', to: 'contato_inicial', reason: 'owner_assigned' },
+    });
+  }
   revalidatePath(`/opportunities/${id}`);
-  return { ok: true as const };
+  revalidatePath('/opportunities');
+  revalidatePath('/pipeline');
+  return { ok: true as const, autoAdvanced: Boolean(autoAdvance) };
 }
 
 function requireRoleCheck(role: string) {
@@ -497,6 +567,8 @@ function requireRoleCheck(role: string) {
 }
 
 export async function opportunitiesByStage(filter?: { ownerId?: string }) {
+  const user = await requireUser();
+  const visibility = visibilityCondition(user);
   const rows = await db
     .select({
       id: opportunities.id,
@@ -506,6 +578,7 @@ export async function opportunitiesByStage(filter?: { ownerId?: string }) {
       stageUpdatedAt: opportunities.stageUpdatedAt,
       lastActivityAt: opportunities.lastActivityAt,
       tags: opportunities.tags,
+      notes: opportunities.notes,
       municipalityId: opportunities.municipalityId,
       municipalityName: fundebMunicipalities.nome,
       ownerId: opportunities.ownerId,
@@ -527,6 +600,7 @@ export async function opportunitiesByStage(filter?: { ownerId?: string }) {
           'ganhou',
         ]),
         filter?.ownerId ? eq(opportunities.ownerId, filter.ownerId) : undefined,
+        visibility,
       ),
     );
   return rows;

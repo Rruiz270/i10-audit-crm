@@ -48,6 +48,7 @@ export type KanbanCard = {
   stageUpdatedAt: Date | null;
   lastActivityAt: Date | null;
   tags: string[] | null;
+  notes?: string | null;
   handedOffConsultoriaId?: number | null;
   bnccSignals?: BnccSignals | null;
   taskSummary?: { open: number; overdue: number; nextDue: string | null };
@@ -270,14 +271,23 @@ function DraggableCard({ card, busy }: { card: KanbanCard; busy: boolean }) {
   }
 
   const bnccBadges = card.bnccSignals ? signalsToBadges(card.bnccSignals) : [];
-  const tags = card.tags ?? [];
+  // Esconde tags-marcador técnicas (ex.: import-jun2026) da UI.
+  const tags = (card.tags ?? []).filter((t) => !/^import-/i.test(t));
   const visibleTags = tags.slice(0, 2);
   const overflowTags = tags.slice(2);
+  // Tooltip no hover: todas as tags + descrição (notes), quando houver.
+  const hoverSummary = [
+    tags.length > 1 ? `Tags: ${tags.join(' · ')}` : '',
+    card.notes ? `Descrição: ${card.notes}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   return (
     <div
       ref={setNodeRef}
       style={style}
+      title={hoverSummary || undefined}
       {...attributes}
       {...listeners}
       className={`rounded-lg border bg-white p-3 shadow-sm cursor-grab active:cursor-grabbing ${
