@@ -15,6 +15,8 @@ import {
 import { logActivity } from '@/lib/activity';
 import { autoTagOpportunity } from '@/lib/actions/tags';
 import { regionTagForUf } from '@/lib/uf';
+import { normalizeBrPhone, isBrMobile } from '@/lib/phone-utils';
+import { resolveMarketingContactId } from '@/lib/contact-bridge';
 
 /**
  * LP da APM — form operacional preenchido pela equipe APM ao captar
@@ -127,16 +129,31 @@ export async function submitApmCadastro(data: ApmCadastroInput) {
     })
     .returning({ id: opportunities.id });
 
-  // Cria todos os contatos — primeiro é principal, resto secundário
+  // Cria todos os contatos — primeiro é principal, resto secundário.
+  // Telefone é normalizado para E.164 (+55…) e, se for celular, gravado
+  // também em whatsapp — sem isso o disparo WhatsApp não encontra o número.
   for (let i = 0; i < payload.contacts.length; i++) {
     const c = payload.contacts[i];
+    const e164 = normalizeBrPhone(c.phone);
+    // Ponte com a base única (Leads Hub) — casa ou cria a pessoa lá.
+    const marketingContactId = await resolveMarketingContactId({
+      name: c.name,
+      email: c.email || null,
+      phone: c.phone || null,
+      municipio: mun.nome,
+      uf: mun.uf ?? null,
+      role: c.role || null,
+      source: 'apm',
+    });
     await db.insert(contacts).values({
       opportunityId: op.id,
       name: c.name,
       role: c.role || null,
-      phone: c.phone || null,
+      phone: e164 ?? (c.phone || null),
+      whatsapp: isBrMobile(e164) ? e164 : null,
       email: c.email || null,
       isPrimary: i === 0,
+      marketingContactId,
     });
   }
 

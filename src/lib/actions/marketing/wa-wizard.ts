@@ -203,13 +203,20 @@ export async function createWaCampaign(formData: FormData): Promise<void> {
     projectId = aud.projectId;
   } else {
     projectId = Number(formData.get('projectId'));
-    if (!projectId) throw new Error('escolha um projeto');
-    const [proj] = await db
-      .select({ id: projects.id })
-      .from(projects)
-      .where(eq(projects.id, projectId))
-      .limit(1);
-    if (!proj) throw new Error('projeto inválido');
+    const newProject = String(formData.get('newProject') ?? '').trim();
+    if (!projectId && newProject) {
+      // Campanha de coisa nova: cria o projeto na hora, sem sair do wizard.
+      projectId = await createProjectInline(newProject, user.id);
+    } else if (projectId) {
+      const [proj] = await db
+        .select({ id: projects.id })
+        .from(projects)
+        .where(eq(projects.id, projectId))
+        .limit(1);
+      if (!proj) throw new Error('projeto inválido');
+    } else {
+      throw new Error('escolha um projeto ou dê nome a um novo');
+    }
 
     let where: SQL;
     let sourceMeta: Record<string, unknown>;
@@ -287,6 +294,29 @@ export async function createWaCampaign(formData: FormData): Promise<void> {
 function strOrUndef(v: FormDataEntryValue | null): string | undefined {
   const s = (v == null ? '' : String(v)).trim();
   return s || undefined;
+}
+
+// Cria um projeto direto do wizard (campanha de assunto novo). Slug único:
+// tenta o slug do nome e, em colisão, sufixa -2, -3…
+async function createProjectInline(name: string, userId: string): Promise<number> {
+  const base =
+    name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60) || 'projeto';
+  for (let i = 0; i < 10; i++) {
+    const slug = i === 0 ? base : `${base}-${i + 1}`;
+    const [created] = await db
+      .insert(projects)
+      .values({ name, slug, status: 'active', createdBy: userId })
+      .onConflictDoNothing({ target: projects.slug })
+      .returning({ id: projects.id });
+    if (created) return created.id;
+  }
+  throw new Error(`não consegui gerar um slug único para o projeto "${name}"`);
 }
 
 // ─── Prévia detalhada (painel de revisão) ───────────────────────────────────

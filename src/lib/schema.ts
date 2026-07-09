@@ -162,6 +162,10 @@ export const contacts = crmSchema.table('contacts', {
   whatsapp: text('whatsapp'),
   isPrimary: boolean('is_primary').default(false),
   notes: text('notes'),
+  // Ponte de identidade → marketing.contacts (Leads Hub): a MESMA pessoa,
+  // independente de quantas opps ela participe. Preenchida no create (via
+  // contact-bridge) e por backfill (e-mail exato / últimos 11 dígitos).
+  marketingContactId: integer('marketing_contact_id'),
   createdAt: timestamp('created_at').defaultNow(),
 });
 

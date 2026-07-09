@@ -7,6 +7,8 @@ import { db } from '@/lib/db';
 import { contacts } from '@/lib/schema';
 import { requireUser } from '@/lib/session';
 import { logActivity } from '@/lib/activity';
+import { normalizeBrPhone, isBrMobile } from '@/lib/phone-utils';
+import { resolveMarketingContactId } from '@/lib/contact-bridge';
 
 const createSchema = z.object({
   opportunityId: z.coerce.number().int().positive(),
@@ -35,6 +37,19 @@ export async function createContact(formData: FormData) {
       .where(eq(contacts.opportunityId, data.opportunityId));
   }
 
+  const phoneE164 = normalizeBrPhone(data.phone) ?? (data.phone || null);
+  const waE164 =
+    normalizeBrPhone(data.whatsapp) ??
+    (isBrMobile(normalizeBrPhone(data.phone)) ? normalizeBrPhone(data.phone) : data.whatsapp || null);
+  // Ponte com a base única (Leads Hub) — casa ou cria a pessoa lá.
+  const marketingContactId = await resolveMarketingContactId({
+    name: data.name,
+    email: data.email || null,
+    phone: phoneE164,
+    whatsapp: waE164,
+    role: data.role || null,
+    source: 'crm:manual',
+  });
   const [created] = await db
     .insert(contacts)
     .values({
@@ -42,10 +57,11 @@ export async function createContact(formData: FormData) {
       name: data.name,
       role: data.role || null,
       email: data.email || null,
-      phone: data.phone || null,
-      whatsapp: data.whatsapp || null,
+      phone: phoneE164,
+      whatsapp: waE164,
       isPrimary: makePrimary,
       notes: data.notes || null,
+      marketingContactId,
     })
     .returning({ id: contacts.id });
 

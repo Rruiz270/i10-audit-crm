@@ -15,6 +15,8 @@ import {
 import { logActivity } from '@/lib/activity';
 import { autoTagOpportunity } from '@/lib/actions/tags';
 import { regionTagForUf } from '@/lib/uf';
+import { normalizeBrPhone, isBrMobile } from '@/lib/phone-utils';
+import { resolveMarketingContactId } from '@/lib/contact-bridge';
 
 export type FieldDef = {
   name: string;
@@ -102,8 +104,12 @@ export async function submitIntake(formData: FormData) {
     payload.responsavel ||
     '';
   const contactEmail = payload.email ?? null;
-  const contactPhone = payload.phone ?? payload.telefone ?? null;
-  const contactWhatsapp = payload.whatsapp ?? null;
+  // Normaliza para E.164 BR — formulário público chega com máscara/DDD solto.
+  const rawPhone = payload.phone ?? payload.telefone ?? null;
+  const rawWhatsapp = payload.whatsapp ?? null;
+  const contactPhone = normalizeBrPhone(rawPhone) ?? rawPhone;
+  const waNorm = normalizeBrPhone(rawWhatsapp) ?? normalizeBrPhone(rawPhone);
+  const contactWhatsapp = isBrMobile(waNorm) ? waNorm : (rawWhatsapp ? normalizeBrPhone(rawWhatsapp) ?? rawWhatsapp : null);
   const contactRole = payload.role ?? payload.cargo ?? null;
 
   const source = `intake:${form.slug}`;
@@ -119,6 +125,16 @@ export async function submitIntake(formData: FormData) {
     .returning({ id: opportunities.id });
 
   if (contactName) {
+    // Ponte com a base única (Leads Hub) — casa ou cria a pessoa lá.
+    const marketingContactId = await resolveMarketingContactId({
+      name: contactName,
+      email: contactEmail,
+      phone: contactPhone,
+      whatsapp: contactWhatsapp,
+      uf: municipalityUf,
+      role: contactRole,
+      source,
+    });
     await db.insert(contacts).values({
       opportunityId: op.id,
       name: contactName,
@@ -127,6 +143,7 @@ export async function submitIntake(formData: FormData) {
       phone: contactPhone,
       whatsapp: contactWhatsapp,
       isPrimary: true,
+      marketingContactId,
     });
   }
 
