@@ -180,7 +180,7 @@ export default async function ConversasPage({
       : null;
 
   return (
-    <div className="grid h-[calc(100vh-0px)] grid-cols-[300px_1fr_280px] overflow-hidden">
+    <div className="grid h-screen grid-cols-1 overflow-hidden md:grid-cols-[300px_1fr] xl:grid-cols-[300px_1fr_280px]">
       <InboxAutoRefresh />
       {/* lista */}
       <div className="min-h-0 overflow-auto border-r border-slate-200 bg-white">

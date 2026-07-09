@@ -129,7 +129,7 @@ export default async function LeadsHubPage({
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-[260px_1fr]">
         {/* ── Filtros (esquerda) ── */}
         <aside className="space-y-5">
           <form action="/marketing/leads" method="get" className="flex gap-2">

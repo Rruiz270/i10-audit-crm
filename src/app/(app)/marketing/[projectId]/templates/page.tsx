@@ -39,7 +39,7 @@ export default async function TemplatesPage({
         <form action={createTemplate} className="space-y-3">
           <input type="hidden" name="projectId" value={id} />
           <input type="hidden" name="channel" value="email" />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Nome interno</label>
               <input

@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { isAdmin } from '@/lib/roles';
 import { requireUser } from '@/lib/session';
 import { getProject } from '@/lib/actions/marketing/projects';
+import { ConfirmSubmit } from '@/components/confirm-submit';
 import {
   getCampaign,
   getCampaignStats,
@@ -161,14 +162,14 @@ export default async function CampaignDetailPage({
               >
                 Dry-run (não envia)
               </button>
-              <button
-                type="submit"
+              <ConfirmSubmit
                 name="dryRun"
                 value="0"
+                message="Enviar a campanha AGORA para todos os destinatários elegíveis? Esta ação é irreversível."
                 className="bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-700"
               >
                 ⚠️ Launch real (envia agora)
-              </button>
+              </ConfirmSubmit>
             </div>
           </form>
         </section>
