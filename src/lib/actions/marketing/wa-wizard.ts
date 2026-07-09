@@ -288,3 +288,129 @@ function strOrUndef(v: FormDataEntryValue | null): string | undefined {
   const s = (v == null ? '' : String(v)).trim();
   return s || undefined;
 }
+
+// ─── Prévia detalhada (painel de revisão) ───────────────────────────────────
+// Além das contagens: amostra de quem entra e cobertura das variáveis do
+// template — quantos contatos ficariam com {{n}} vazio no launch.
+
+export type WaPreviewDetailed = {
+  matched: number;
+  withPhone: number;
+  tokens?: number;
+  sample: Array<{
+    name: string | null;
+    municipio: string | null;
+    uf: string | null;
+    phone: string | null;
+    attributes: Record<string, unknown>;
+  }>;
+  varCoverage: Array<{ variable: string; missing: number }>;
+};
+
+// Como cada variável resolve no launch (espelha o mergeVars do send-pipeline):
+// campos canônicos do contato ou attributes->>'var'.
+function varSqlExpr(v: string): SQL {
+  if (v === 'nome') return sql`coalesce(${contacts.name}, ${contacts.attributes}->>'nome')`;
+  if (v === 'municipio') return sql`${contacts.municipio}`;
+  if (v === 'uf') return sql`${contacts.uf}`;
+  if (v === 'email') return sql`${contacts.email}`;
+  if (v === 'ibge') return sql`${contacts.ibge}`;
+  if (v === 'link_inscricao') return sql`'computed'`; // gerado no launch, nunca falta
+  return sql`${contacts.attributes}->>${v}`;
+}
+
+export async function previewWaDetailed(input: {
+  mode: WaPublicMode;
+  filters?: WaWizardFilters;
+  audienceId?: number;
+  list?: string;
+  templateId?: number;
+}): Promise<WaPreviewDetailed | null> {
+  const user = await requireUser();
+  requireRole(user, ['admin', 'gestor']);
+
+  let tokens: number | undefined;
+  let whereCond: SQL | undefined;
+  if (input.mode === 'paste') {
+    const parsed = parsePastedList(input.list ?? '');
+    tokens = parsed.tokens.length;
+    const cond = pastedConditions(parsed);
+    if (!cond) return { matched: 0, withPhone: 0, tokens, sample: [], varCoverage: [] };
+    whereCond = and(eq(contacts.status, 'active'), cond)!;
+  } else if (input.mode === 'filters') {
+    whereCond = and(...filterConditions(input.filters ?? {}))!;
+  } else if (!input.audienceId) {
+    return null;
+  }
+
+  let tplVars: string[] = [];
+  if (input.templateId) {
+    const [tpl] = await db
+      .select({ variables: templates.variables })
+      .from(templates)
+      .where(eq(templates.id, input.templateId))
+      .limit(1);
+    tplVars = tpl?.variables ?? [];
+  }
+
+  const countSel: Record<string, SQL<number>> = {
+    matched: sql<number>`count(*)::int`,
+    withPhone: sql<number>`count(*) FILTER (WHERE ${contacts.whatsapp} IS NOT NULL OR ${contacts.phone} IS NOT NULL)::int`,
+  };
+  for (const [i, v] of tplVars.entries()) {
+    const e = varSqlExpr(v);
+    countSel[`miss_${i}`] = sql<number>`count(*) FILTER (WHERE (${contacts.whatsapp} IS NOT NULL OR ${contacts.phone} IS NOT NULL) AND ((${e}) IS NULL OR (${e})::text = ''))::int`;
+  }
+
+  const sampleSel = {
+    name: contacts.name,
+    municipio: contacts.municipio,
+    uf: contacts.uf,
+    phone: sql<string | null>`coalesce(${contacts.whatsapp}, ${contacts.phone})`,
+    attributes: contacts.attributes,
+  };
+
+  let countRow: Record<string, number> | undefined;
+  let sampleRows: Array<{
+    name: string | null;
+    municipio: string | null;
+    uf: string | null;
+    phone: string | null;
+    attributes: unknown;
+  }>;
+  if (input.mode === 'audience') {
+    const base = and(
+      eq(listMembers.audienceId, input.audienceId!),
+      eq(contacts.status, 'active'),
+    )!;
+    [countRow] = await db
+      .select(countSel)
+      .from(listMembers)
+      .innerJoin(contacts, eq(listMembers.contactId, contacts.id))
+      .where(base);
+    sampleRows = await db
+      .select(sampleSel)
+      .from(listMembers)
+      .innerJoin(contacts, eq(listMembers.contactId, contacts.id))
+      .where(and(base, hasPhone()))
+      .limit(8);
+  } else {
+    [countRow] = await db.select(countSel).from(contacts).where(whereCond!);
+    sampleRows = await db
+      .select(sampleSel)
+      .from(contacts)
+      .where(and(whereCond!, hasPhone()))
+      .limit(8);
+  }
+
+  return {
+    matched: countRow?.matched ?? 0,
+    withPhone: countRow?.withPhone ?? 0,
+    tokens,
+    sample: sampleRows.map((r) => ({
+      ...r,
+      attributes: (r.attributes ?? {}) as Record<string, unknown>,
+    })),
+    varCoverage: tplVars.map((v, i) => ({ variable: v, missing: countRow?.[`miss_${i}`] ?? 0 })),
+  };
+}

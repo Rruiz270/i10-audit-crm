@@ -165,6 +165,7 @@ export async function launchCampaign(formData: FormData): Promise<void> {
           // Merge vars = atributos do contact + campos canônicos
           const mergeVars: Record<string, unknown> = {
             ...((c.attributes ?? {}) as Record<string, unknown>),
+            nome: c.name ?? ((c.attributes as Record<string, unknown> | null)?.nome ?? ''),
             ibge: c.ibge,
             municipio: c.municipio,
             uf: c.uf,

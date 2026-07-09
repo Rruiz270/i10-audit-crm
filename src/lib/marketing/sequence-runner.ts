@@ -181,6 +181,7 @@ export async function runSequences(): Promise<RunResult> {
       const trackingToken = generateTrackingToken();
       const mergeVars: Record<string, unknown> = {
         ...((contact.attributes ?? {}) as Record<string, unknown>),
+        nome: contact.name ?? ((contact.attributes as Record<string, unknown> | null)?.nome ?? ''),
         ibge: contact.ibge,
         municipio: contact.municipio,
         uf: contact.uf,

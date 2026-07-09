@@ -6,10 +6,26 @@ import { getWhatsAppConfig } from '@/lib/marketing/whatsapp-health';
 import {
   createWaCampaign,
   getWaWizardData,
-  previewWaFilters,
-  previewWaPaste,
+  previewWaDetailed,
+  type WaPreviewDetailed,
   type WaPublicMode,
 } from '@/lib/actions/marketing/wa-wizard';
+
+// Meta limita conversas iniciadas pelo negócio por dia (tier atual ≈ 2k).
+const META_DAILY_TIER = 2000;
+
+// Resolve o valor de uma variável do template p/ um contato da amostra —
+// espelha o mergeVars do launch (canônicos + attributes).
+function sampleVarValue(
+  c: WaPreviewDetailed['sample'][number],
+  variable: string,
+): string | null {
+  if (variable === 'nome') return c.name ?? (c.attributes.nome as string | undefined) ?? null;
+  if (variable === 'municipio') return c.municipio;
+  if (variable === 'uf') return c.uf;
+  const v = c.attributes[variable];
+  return v == null || v === '' ? null : String(v);
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -34,17 +50,17 @@ export default async function NewWhatsAppCampaignPage({
     getWaWizardData(),
   ]);
 
-  // Prévia do público (GET) — sem enviar nada.
-  let preview: { matched: number; withPhone: number; tokens?: number } | null = null;
+  // Prévia do público (GET) — sem enviar nada. Detalhada: contagens + amostra
+  // de quem entra + cobertura das variáveis do template selecionado.
+  let preview: WaPreviewDetailed | null = null;
   if (wantsPreview) {
-    if (mode === 'paste') {
-      preview = await previewWaPaste(sp.list ?? '');
-    } else if (mode === 'audience') {
-      const aud = data.audiences.find((a) => a.id === Number(sp.audienceId));
-      preview = aud ? { matched: aud.contactCount, withPhone: aud.contactCount } : null;
-    } else {
-      preview = await previewWaFilters({ q: sp.q, source: sp.source, uf: sp.uf, role: sp.role });
-    }
+    preview = await previewWaDetailed({
+      mode,
+      filters: { q: sp.q, source: sp.source, uf: sp.uf, role: sp.role },
+      audienceId: Number(sp.audienceId) || undefined,
+      list: sp.list,
+      templateId: Number(sp.templateId) || undefined,
+    });
   }
 
   const selectedTemplate = data.templates.find((t) => t.id === Number(sp.templateId));
@@ -139,6 +155,11 @@ export default async function NewWhatsAppCampaignPage({
                 <input type="radio" name="mode" value="filters" defaultChecked={mode === 'filters'} />
                 Filtrar do Leads Hub (estado, origem/evento, papel)
               </label>
+              <p className="text-xs text-slate-400 mt-1">
+                Os filtros se <strong>combinam</strong> (interseção): UF <em>e</em> origem <em>e</em>{' '}
+                papel. Os números entre parênteses são o total de cada filtro isolado — a prévia
+                abaixo mostra o recorte combinado.
+              </p>
               <div className="grid grid-cols-2 gap-3 mt-3 sm:grid-cols-4">
                 <select name="uf" defaultValue={sp.uf ?? ''} className="border border-slate-300 rounded-md px-2 py-1.5 text-sm">
                   <option value="">UF — todas</option>
@@ -272,36 +293,174 @@ export default async function NewWhatsAppCampaignPage({
         </button>
       </form>
 
-      {/* Prévia + criação */}
+      {/* Revisão antes de criar — números, quem entra, mensagem de exemplo e
+          cobertura das variáveis. Nada é enviado aqui. */}
       {wantsPreview && (
         <section className="mt-6 rounded-xl border-2 border-i10-300 bg-white p-6">
-          <h2 className="text-base font-semibold text-slate-900 mb-3">Prévia do público</h2>
+          <h2 className="text-base font-semibold text-slate-900">Revisão antes de criar</h2>
+          <p className="text-xs text-slate-500 mt-0.5 mb-4">
+            Confira o recorte, a mensagem de exemplo e as variáveis. Nada é enviado agora — o
+            disparo real só acontece após o launch explícito na página da campanha.
+          </p>
+
+          {/* Resumo do que foi escolhido */}
+          <div className="flex flex-wrap gap-2 mb-4 text-xs">
+            <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-700">
+              Template: <strong>{selectedTemplate?.name ?? '— não escolhido —'}</strong>
+            </span>
+            {mode === 'filters' && (
+              <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-700">
+                Recorte: {[
+                  sp.uf && `UF ${sp.uf}`,
+                  sp.source && `origem ${sp.source}`,
+                  sp.role && `papel ${sp.role}`,
+                  sp.q && `busca "${sp.q}"`,
+                ]
+                  .filter(Boolean)
+                  .join(' + ') || 'todos os contatos ativos'}
+              </span>
+            )}
+            {mode === 'audience' && (
+              <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-700">
+                Audiência: {data.audiences.find((a) => a.id === Number(sp.audienceId))?.name ?? '—'}
+              </span>
+            )}
+            {mode === 'paste' && (
+              <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-700">
+                Lista colada ({preview?.tokens ?? 0} linhas)
+              </span>
+            )}
+            <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-700">
+              Rate: {sp.ratePerMinute ?? 30}/min
+            </span>
+            <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-700">
+              Projeto: {data.projects.find((p) => p.id === Number(sp.projectId))?.name ?? '—'}
+            </span>
+          </div>
+
           {!preview || preview.matched === 0 ? (
             <p className="text-sm text-amber-700 bg-amber-50 rounded p-3">
               Nenhum contato encontrado nesse recorte
               {mode === 'audience' ? ' — escolha uma audiência válida.' : '.'}
+              {mode === 'filters' &&
+                ' Lembre que os filtros se combinam — experimente afrouxar um deles.'}
             </p>
           ) : (
-            <div className="flex flex-wrap gap-6 text-sm">
-              <div>
-                <div className="text-2xl font-bold text-slate-900">
-                  {preview.matched.toLocaleString('pt-BR')}
-                </div>
-                <div className="text-xs text-slate-500">contatos no recorte</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-emerald-700">
-                  {preview.withPhone.toLocaleString('pt-BR')}
-                </div>
-                <div className="text-xs text-slate-500">com telefone (entram na campanha)</div>
-              </div>
-              {typeof preview.tokens === 'number' && (
+            <>
+              <div className="flex flex-wrap gap-6 text-sm">
                 <div>
-                  <div className="text-2xl font-bold text-slate-900">{preview.tokens}</div>
-                  <div className="text-xs text-slate-500">linhas coladas</div>
+                  <div className="text-2xl font-bold text-slate-900">
+                    {preview.matched.toLocaleString('pt-BR')}
+                  </div>
+                  <div className="text-xs text-slate-500">contatos no recorte</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-emerald-700">
+                    {preview.withPhone.toLocaleString('pt-BR')}
+                  </div>
+                  <div className="text-xs text-slate-500">com telefone (entram na campanha)</div>
+                </div>
+                {preview.matched > preview.withPhone && (
+                  <div>
+                    <div className="text-2xl font-bold text-amber-600">
+                      {(preview.matched - preview.withPhone).toLocaleString('pt-BR')}
+                    </div>
+                    <div className="text-xs text-slate-500">sem telefone (ficam de fora)</div>
+                  </div>
+                )}
+              </div>
+
+              {preview.withPhone > META_DAILY_TIER && (
+                <p className="mt-3 text-xs text-amber-700 bg-amber-50 rounded p-2">
+                  ⚠️ Recorte acima do tier diário da Meta (~
+                  {META_DAILY_TIER.toLocaleString('pt-BR')} conversas/dia). O rate espalha os
+                  envios, mas o que passar do limite diário pode falhar — considere dividir em
+                  lotes.
+                </p>
+              )}
+
+              {/* Cobertura das variáveis do template */}
+              {preview.varCoverage.length > 0 && (
+                <div className="mt-4">
+                  <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
+                    Variáveis do template
+                  </h3>
+                  <ul className="space-y-1 text-xs">
+                    {preview.varCoverage.map((v, i) => (
+                      <li key={v.variable}>
+                        {v.missing === 0 ? (
+                          <span className="text-emerald-700">
+                            ✓ {'{{'}
+                            {i + 1}
+                            {'}}'} <code>{v.variable}</code> — preenchida para todos
+                          </span>
+                        ) : (
+                          <span className="text-red-700">
+                            ✗ {'{{'}
+                            {i + 1}
+                            {'}}'} <code>{v.variable}</code> —{' '}
+                            <strong>{v.missing.toLocaleString('pt-BR')}</strong> contato(s) sem esse
+                            dado (sairia em branco!)
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
-            </div>
+
+              {/* Mensagem de exemplo com o 1º contato da amostra */}
+              {selectedTemplate?.text && preview.sample[0] && preview.varCoverage.length > 0 && (
+                <div className="mt-4">
+                  <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
+                    Exemplo real — como {preview.sample[0].name ?? 'o primeiro contato'} (
+                    {preview.sample[0].municipio ?? 'sem município'}) vai receber
+                  </h3>
+                  <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-sm text-slate-800 whitespace-pre-wrap max-w-lg">
+                    {preview.varCoverage.reduce(
+                      (body, v, i) =>
+                        body.replaceAll(
+                          `{{${i + 1}}}`,
+                          sampleVarValue(preview.sample[0], v.variable) ?? `⚠️(sem ${v.variable})`,
+                        ),
+                      selectedTemplate.text,
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Amostra de quem entra */}
+              {preview.sample.length > 0 && (
+                <div className="mt-4">
+                  <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
+                    Amostra do público ({preview.sample.length} de{' '}
+                    {preview.withPhone.toLocaleString('pt-BR')})
+                  </h3>
+                  <div className="overflow-x-auto rounded-lg border border-slate-200">
+                    <table className="w-full text-xs">
+                      <thead className="bg-slate-50 text-slate-500">
+                        <tr>
+                          <th className="text-left px-3 py-2 font-medium">Nome</th>
+                          <th className="text-left px-3 py-2 font-medium">Município</th>
+                          <th className="text-left px-3 py-2 font-medium">UF</th>
+                          <th className="text-left px-3 py-2 font-medium">Telefone</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {preview.sample.map((c, i) => (
+                          <tr key={i}>
+                            <td className="px-3 py-1.5 text-slate-800">{c.name ?? '—'}</td>
+                            <td className="px-3 py-1.5 text-slate-600">{c.municipio ?? '—'}</td>
+                            <td className="px-3 py-1.5 text-slate-600">{c.uf ?? '—'}</td>
+                            <td className="px-3 py-1.5 text-slate-600 font-mono">{c.phone ?? '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {canCreate && (
@@ -326,7 +485,7 @@ export default async function NewWhatsAppCampaignPage({
                 type="submit"
                 className="bg-i10-700 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-i10-800"
               >
-                Criar campanha (draft) →
+                Confirmar e criar campanha (draft) →
               </button>
             </form>
           )}
