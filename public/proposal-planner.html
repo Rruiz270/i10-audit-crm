@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>i10 · Planejador de Propostas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0A2463; --navy-dark:#061840; --navy-light:#1a3a7a;
+  --cyan:#00B4D8; --cyan-light:#48CAE4; --cyan-pale:#CAF0F8;
+  --green:#00E5A0; --green-dark:#00C48A; --green-pale:#B7F5E0;
+  --white:#fff; --off-white:#F8FAFC;
+  --g100:#F1F5F9; --g200:#E2E8F0; --g300:#CBD5E1; --g400:#94A3B8;
+  --g500:#64748B; --g600:#475569; --g700:#334155; --g800:#1E293B; --g900:#0F172A;
+  --grad-main:linear-gradient(135deg,#0A2463 0%,#00B4D8 100%);
+  --grad-accent:linear-gradient(90deg,#00B4D8 0%,#00E5A0 100%);
+  --grad-dark:linear-gradient(135deg,#061840 0%,#0A2463 100%);
+  --sh-sm:0 1px 3px rgba(0,0,0,.1); --sh-md:0 4px 12px rgba(0,0,0,.15); --sh-lg:0 20px 40px rgba(0,0,0,.2);
+  --r-sm:4px; --r-md:8px; --r-lg:16px; --r-xl:24px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:Inter,system-ui,sans-serif;color:var(--g700);background:var(--g100);line-height:1.6;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{letter-spacing:-.5px;line-height:1.15;color:var(--navy)}
+.serif{font-family:'Source Serif 4',Georgia,serif}
+button{font-family:inherit;cursor:pointer;border:none}
+input,select{font-family:inherit;font-size:14px}
+a{color:var(--cyan-light)}
+
+/* ---------- App shell ---------- */
+#app{display:grid;grid-template-columns:380px 1fr;height:100vh;overflow:hidden}
+/* Sidebar / configurator */
+#cfg{background:var(--navy-dark);color:#dbe4f5;overflow-y:auto;padding:0 0 60px}
+#cfg::-webkit-scrollbar{width:8px}#cfg::-webkit-scrollbar-thumb{background:var(--navy-light);border-radius:4px}
+.cfg-head{padding:22px 22px 18px;position:sticky;top:0;background:var(--navy-dark);z-index:5;border-bottom:1px solid rgba(255,255,255,.08)}
+.cfg-head .logo{height:34px;margin-bottom:10px}
+.cfg-head p{font-size:12px;color:var(--g400);letter-spacing:.3px}
+.cfg-sec{padding:18px 22px;border-bottom:1px solid rgba(255,255,255,.06)}
+.cfg-sec h3{color:#fff;font-size:13px;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.cfg-sec h3 .dot{width:7px;height:7px;border-radius:50%;background:var(--green)}
+label.fld{display:block;font-size:12px;color:var(--g400);margin:10px 0 5px;font-weight:500}
+.fld input,.fld select,input.inp,select.inp{width:100%;padding:9px 11px;border-radius:var(--r-sm);border:1px solid var(--navy-light);background:#0c2150;color:#fff;outline:none;transition:.15s}
+.fld input:focus,.inp:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(0,180,216,.2)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.hint{font-size:11px;color:var(--g500);margin-top:4px;line-height:1.4}
+.tier-badge{display:inline-block;margin-top:8px;padding:5px 12px;border-radius:99px;font-size:12px;font-weight:700;background:rgba(0,229,160,.15);color:var(--green);border:1px solid rgba(0,229,160,.3)}
+
+/* product cards in sidebar */
+.prod{border:1px solid var(--navy-light);border-radius:var(--r-md);margin-bottom:12px;overflow:hidden;transition:.2s;background:#0b1f4d}
+.prod.on{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan)}
+.prod-h{display:flex;align-items:center;gap:11px;padding:12px 13px;cursor:pointer;user-select:none}
+.prod-h .sw{width:38px;height:22px;border-radius:99px;background:var(--navy-light);position:relative;flex-shrink:0;transition:.2s}
+.prod-h .sw::after{content:"";position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;left:3px;transition:.2s}
+.prod.on .sw{background:var(--grad-accent)}
+.prod.on .sw::after{left:19px}
+.prod-h .nm{font-size:13.5px;font-weight:700;color:#fff;line-height:1.2}
+.prod-h .nm small{display:block;font-weight:400;font-size:11px;color:var(--g400);margin-top:2px}
+.prod-body{padding:0 13px;max-height:0;overflow:hidden;transition:max-height .25s ease}
+.prod.on .prod-body{max-height:900px;padding:4px 13px 15px}
+.kpi-mini{background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.2);border-radius:var(--r-sm);padding:9px 11px;margin-top:10px;font-size:12px}
+.kpi-mini b{color:var(--green);font-size:15px}
+.slider-wrap label{display:flex;justify-content:space-between}
+.slider-wrap label b{color:var(--cyan-light)}
+input[type=range]{width:100%;accent-color:var(--cyan)}
+
+/* main panel */
+#main{display:flex;flex-direction:column;overflow:hidden;background:var(--g100)}
+.tabs{display:flex;gap:6px;padding:12px 20px;background:#fff;border-bottom:1px solid var(--g200);align-items:center}
+.tab{padding:9px 18px;border-radius:99px;font-size:13.5px;font-weight:600;color:var(--g500);background:transparent;transition:.15s}
+.tab:hover{background:var(--g100)}
+.tab.active{background:var(--navy);color:#fff}
+.tabs .spacer{flex:1}
+.btn{padding:9px 16px;border-radius:var(--r-md);font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:7px;transition:.15s}
+.btn-pri{background:var(--grad-main);color:#fff}
+.btn-pri:hover{filter:brightness(1.08)}
+.btn-gho{background:var(--g100);color:var(--navy)}
+.btn-gho:hover{background:var(--g200)}
+#stage{flex:1;overflow-y:auto;padding:32px;display:flex;justify-content:center}
+#stage::-webkit-scrollbar{width:10px}#stage::-webkit-scrollbar-thumb{background:var(--g300);border-radius:5px}
+
+/* ===== PROPOSAL DOCUMENT ===== */
+.doc{width:820px;max-width:100%;background:#fff;box-shadow:var(--sh-lg);border-radius:6px;overflow:hidden}
+.doc-page{padding:54px 60px}
+.doc-page+.doc-page{border-top:1px dashed var(--g200)}
+.cover{background:var(--grad-dark);color:#fff;padding:64px 60px;position:relative;overflow:hidden}
+.cover::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(60deg,transparent,transparent 38px,rgba(255,255,255,.04) 38px,rgba(255,255,255,.04) 40px)}
+.cover::after{content:"";position:absolute;right:-120px;top:-120px;width:380px;height:380px;border-radius:50%;background:radial-gradient(circle,rgba(0,229,160,.25),transparent 70%)}
+.cover>*{position:relative;z-index:1}
+.cover .logo{height:42px;margin-bottom:48px}
+.cover .eyebrow{font-size:13px;letter-spacing:3px;text-transform:uppercase;color:var(--green);font-weight:700;margin-bottom:14px}
+.cover h1{color:#fff;font-size:46px;font-weight:800;margin-bottom:14px}
+.cover .sub{font-size:20px;color:#cfe0ff;max-width:560px;line-height:1.5}
+.cover .meta{margin-top:54px;display:flex;gap:40px;flex-wrap:wrap}
+.cover .meta div span{display:block;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#7ea0d8;margin-bottom:3px}
+.cover .meta div b{font-size:16px;color:#fff;font-weight:600}
+.cover .tagline{margin-top:42px;font-size:13px;letter-spacing:2px;color:var(--cyan-light);font-weight:600}
+
+.sec-tag{display:inline-block;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--cyan);margin-bottom:10px}
+.doc h2{font-size:30px;margin-bottom:8px}
+.doc h2+.lead{font-size:17px;color:var(--g500);margin-bottom:24px;line-height:1.55}
+.doc p{margin-bottom:14px;color:var(--g600);font-size:15px}
+.doc .accent-bar{width:54px;height:5px;border-radius:3px;background:var(--grad-accent);margin:0 0 24px}
+.callout{background:var(--off-white);border-left:4px solid var(--cyan);padding:18px 22px;border-radius:0 var(--r-md) var(--r-md) 0;margin:22px 0}
+.callout.green{border-color:var(--green)}
+.callout .q{font-family:'Source Serif 4',serif;font-size:17px;color:var(--navy);line-height:1.55}
+
+.kgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin:24px 0}
+.kcard{background:var(--off-white);border:1px solid var(--g200);border-radius:var(--r-lg);padding:20px}
+.kcard .v{font-size:28px;font-weight:800;color:var(--navy);line-height:1.05}
+.kcard .v.grad{background:var(--grad-main);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.kcard .l{font-size:12px;color:var(--g500);margin-top:6px;font-weight:500}
+
+table.t{width:100%;border-collapse:collapse;margin:20px 0;font-size:14px}
+table.t th{background:var(--navy);color:#fff;text-align:left;padding:11px 14px;font-size:12px;letter-spacing:.5px;text-transform:uppercase;font-weight:600}
+table.t th:first-child{border-radius:var(--r-sm) 0 0 0}table.t th:last-child{border-radius:0 var(--r-sm) 0 0;text-align:right}
+table.t td{padding:11px 14px;border-bottom:1px solid var(--g200);color:var(--g700)}
+table.t td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+table.t tr:nth-child(even) td{background:var(--off-white)}
+table.t tfoot td{font-weight:800;color:var(--navy);font-size:15px;border-top:2px solid var(--navy);background:var(--green-pale)!important}
+
+.prodblock{margin:30px 0;border:1px solid var(--g200);border-radius:var(--r-lg);overflow:hidden}
+.prodblock-h{background:var(--grad-main);color:#fff;padding:20px 26px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.prodblock-h h3{color:#fff;font-size:21px}
+.prodblock-h .pill{background:rgba(255,255,255,.18);padding:5px 13px;border-radius:99px;font-size:12px;font-weight:700;white-space:nowrap}
+.prodblock-h .num{font-size:12px;color:var(--cyan-pale);font-weight:600;letter-spacing:1px;margin-bottom:3px;text-transform:uppercase}
+.prodblock-body{padding:24px 26px}
+.prodblock-body ul{margin:8px 0 14px 2px;list-style:none}
+.prodblock-body li{padding:5px 0 5px 26px;position:relative;font-size:14.5px;color:var(--g600)}
+.prodblock-body li::before{content:"";position:absolute;left:0;top:11px;width:13px;height:13px;border-radius:50%;background:var(--grad-accent)}
+.feat2{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;margin:6px 0 8px}
+
+.steps{counter-reset:s;margin:20px 0}
+.step{display:flex;gap:16px;padding:14px 0;border-bottom:1px solid var(--g200)}
+.step:last-child{border:none}
+.step .n{counter-increment:s;flex-shrink:0;width:34px;height:34px;border-radius:50%;background:var(--grad-main);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px}
+.step .n::before{content:counter(s)}
+.step b{color:var(--navy);font-size:15px}
+.step p{margin:2px 0 0;font-size:13.5px}
+
+.about{background:var(--navy-dark);color:#cfe0ff}
+.about h2{color:#fff}
+.about .vals{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:20px}
+.about .val{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:var(--r-md);padding:16px}
+.about .val b{color:var(--green);font-size:22px;display:block}
+.about .val span{font-size:12.5px;color:#9fb6e0}
+.sign{display:flex;justify-content:space-between;align-items:flex-end;margin-top:40px;gap:30px;flex-wrap:wrap}
+.contact-card{background:var(--grad-accent);color:var(--navy);padding:20px 24px;border-radius:var(--r-lg);font-weight:600}
+.contact-card b{display:block;font-size:18px;margin-bottom:4px}
+.empty{text-align:center;color:var(--g400);padding:80px 20px;max-width:440px}
+.empty svg{width:54px;height:54px;margin-bottom:18px;opacity:.5}
+
+/* ===== DECK ===== */
+#deck{width:100%;max-width:1000px}
+.deck-nav{display:flex;justify-content:center;align-items:center;gap:18px;margin-bottom:16px}
+.deck-nav button{width:42px;height:42px;border-radius:50%;background:#fff;box-shadow:var(--sh-sm);color:var(--navy);font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.deck-nav button:hover{background:var(--navy);color:#fff}
+.deck-nav .count{font-size:13px;color:var(--g500);font-weight:600;min-width:70px;text-align:center}
+.slide{aspect-ratio:16/9;background:#fff;border-radius:var(--r-lg);box-shadow:var(--sh-lg);overflow:hidden;position:relative;display:none}
+.slide.show{display:block}
+.slide-inner{position:absolute;inset:0;padding:54px 64px;display:flex;flex-direction:column}
+.slide .kicker{font-size:13px;letter-spacing:3px;text-transform:uppercase;font-weight:700;color:var(--cyan);margin-bottom:14px}
+.slide h2{font-size:40px;margin-bottom:14px}
+.slide.dark{background:var(--grad-dark);color:#fff}
+.slide.dark::before{content:"";position:absolute;right:-100px;bottom:-100px;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(0,229,160,.22),transparent 70%)}
+.slide.dark h1,.slide.dark h2{color:#fff}
+.slide.dark .kicker{color:var(--green)}
+.slide .logo-s{height:34px;margin-bottom:auto}
+.slide.dark .big{font-size:58px;font-weight:800;line-height:1.05}
+.slide .pagenum{position:absolute;bottom:24px;right:34px;font-size:12px;color:var(--g400);font-weight:600}
+.slide.dark .pagenum{color:rgba(255,255,255,.4)}
+.s-kgrid{display:grid;gap:16px;margin-top:8px}
+.s-kgrid .kc{background:var(--off-white);border-radius:var(--r-lg);padding:20px 22px;border:1px solid var(--g200)}
+.slide.dark .s-kgrid .kc{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.12)}
+.s-kgrid .kc .v{font-size:34px;font-weight:800;color:var(--navy);line-height:1}
+.slide.dark .s-kgrid .kc .v{color:var(--green)}
+.s-kgrid .kc .l{font-size:13px;color:var(--g500);margin-top:6px}
+.slide.dark .s-kgrid .kc .l{color:#9fb6e0}
+.s-list{margin-top:10px}
+.s-list li{list-style:none;padding:10px 0 10px 30px;position:relative;font-size:18px;color:var(--g700);border-bottom:1px solid var(--g200)}
+.s-list li::before{content:"";position:absolute;left:0;top:17px;width:15px;height:15px;border-radius:50%;background:var(--grad-accent)}
+.slide table.t{font-size:15px}
+.slide.dark .sub{font-size:21px;color:#cfe0ff;max-width:680px}
+
+/* ===== PRINT ===== */
+@media print{
+  @page{margin:0;size:A4}
+  /* render backgrounds + gradient-clipped text exactly as on screen */
+  *,*::before,*::after{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  body{background:#fff}
+  #cfg,.tabs,.deck-nav,.no-print{display:none!important}
+  #app{display:block;height:auto}#main{overflow:visible;height:auto}
+  #stage{display:block;padding:0;overflow:visible}
+  .doc{width:100%;box-shadow:none;border-radius:0}
+
+  /* cover = exactly one page; content as ONE cohesive vertically-centered block */
+  .cover{min-height:297mm;padding:64px 52px;display:flex;flex-direction:column;justify-content:center;break-after:page;overflow:hidden}
+  .cover .logo{margin-bottom:30px}
+  .cover h1{font-size:54px}
+  .cover .meta{margin-top:36px}
+  .cover .tagline{margin-top:28px}
+  /* extra brand texture so the gradient field never reads as "empty" */
+  .cover::after{width:520px;height:520px;right:-160px;top:-160px}
+  .cover .glow2{position:absolute;left:-160px;bottom:-180px;width:480px;height:480px;border-radius:50%;background:radial-gradient(circle,rgba(0,180,216,.18),transparent 70%);z-index:0}
+
+  /* tighter, continuous body */
+  .doc-page{padding:36px 52px}
+  .doc-page+.doc-page{border-top:none;padding-top:10px}
+  .doc h2{font-size:26px}
+  .doc .accent-bar{margin-bottom:16px}
+  .kgrid{margin:14px 0}
+  .callout{margin:14px 0}
+  .prodblock{margin:14px 0}
+  .prodblock-body{padding:18px 24px}
+  .steps{margin:10px 0}
+  .step{padding:9px 0}
+  /* keep KPI numbers from overflowing/clipping the card */
+  .kcard{padding:15px 16px}
+  .kcard .v{font-size:21px;line-height:1.12;word-break:break-word}
+
+  /* keep headings with their content; never orphan a section title */
+  .sec-tag,.doc h2,.doc .accent-bar,.doc h2+.lead,.prodblock-h,table.t thead,tfoot td{break-after:avoid}
+  /* product card flows/breaks cleanly across pages (no harsh bordered cut) */
+  .prodblock{break-inside:auto;border:none;border-radius:0;overflow:visible;box-shadow:none}
+  .prodblock-body{background:var(--off-white)}
+  /* atomic units that must never split */
+  .kcard,.step,.callout,.s-kgrid .kc,.contact-card,table.t tr,.kgrid,.feat2{break-inside:avoid}
+
+  /* dark "Sobre" closing page fills the full last page (no white below) */
+  .doc-page.about{break-before:page;min-height:297mm;display:flex;flex-direction:column;justify-content:center;padding:56px 52px}
+  .about .sign{margin-top:34px}
+}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--navy);color:#fff;padding:13px 22px;border-radius:99px;font-size:13.5px;font-weight:600;box-shadow:var(--sh-lg);opacity:0;pointer-events:none;transition:.25s;z-index:9999}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.ok{background:var(--green-dark)}#toast.warn{background:#b45309}
+@media print{#toast{display:none!important}}
+#gate{position:fixed;inset:0;z-index:10000;background:var(--grad-dark);display:flex;align-items:center;justify-content:center;padding:24px}
+#gate::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(60deg,transparent,transparent 38px,rgba(255,255,255,.04) 38px,rgba(255,255,255,.04) 40px)}
+#gate.ok{display:none}
+.gate-card{position:relative;background:#fff;border-radius:var(--r-xl);box-shadow:var(--sh-lg);padding:40px 34px;width:100%;max-width:380px;text-align:center}
+.gate-card .logo{height:36px;margin-bottom:20px}
+.gate-card h2{font-size:20px;color:var(--navy);margin-bottom:8px}
+.gate-card p{font-size:13.5px;color:var(--g500);margin-bottom:20px;line-height:1.5}
+.gate-card input{width:100%;padding:13px 15px;border:1px solid var(--g200);border-radius:var(--r-md);font-size:15px;outline:none;margin-bottom:12px;text-align:center}
+.gate-card input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(0,180,216,.18)}
+.gate-card button{width:100%;background:var(--grad-main);color:#fff;border:none;padding:13px;border-radius:var(--r-md);font:inherit;font-weight:700;font-size:15px;cursor:pointer}
+.gate-card button:hover{filter:brightness(1.08)}
+.gate-card button:disabled{opacity:.6;cursor:default}
+.gate-card .gate-err{color:#b91c1c;font-size:13px;margin-top:11px;min-height:16px;font-weight:500}
+@media print{#gate{display:none!important}}
+/* ===== PDF PREVIEW OVERLAY ===== */
+#preview{position:fixed;inset:0;z-index:9998;background:#e9edf3;display:none;flex-direction:column}
+#preview.show{display:flex}
+.pv-bar{display:flex;align-items:center;gap:12px;padding:11px 18px;background:var(--navy);color:#fff;box-shadow:var(--sh-lg);flex:0 0 auto;flex-wrap:wrap}
+.pv-bar .pv-title{font-weight:700;font-size:15px}
+.pv-bar .pv-hint{font-size:12.5px;opacity:.82;flex:1 1 auto;min-width:120px;line-height:1.4}
+.pv-bar .btn{white-space:nowrap;cursor:pointer;border:none}
+.pv-scroll{flex:1 1 auto;overflow:auto;padding:28px;display:flex;flex-direction:column;align-items:center;gap:22px;-webkit-overflow-scrolling:touch}
+#pvPaper{width:794px;max-width:100%;display:flex;flex-direction:column;align-items:center;gap:22px}
+#pvPaper .doc{width:794px;max-width:100%;background:#fff;box-shadow:var(--sh-lg);border-radius:4px;overflow:hidden}
+#pvPaper.deck{width:980px;align-items:stretch}
+#pvPaper.deck>*{width:100%}
+#pvPaper.deck .slide{display:block!important;width:100%;max-width:980px;margin:0 0 22px;box-shadow:var(--sh-lg)}
+#pvPaper.deck .pagenum{display:none}
+@media(max-width:860px){
+  .pv-bar{padding:9px 12px;gap:8px}
+  .pv-bar .pv-hint{display:none}
+  .pv-scroll{padding:12px}
+}
+/* when the preview is open, print ONLY the previewed content */
+@media print{
+  body.previewing #app,body.previewing #mobnav,body.previewing #gate{display:none!important}
+  body.previewing #preview{position:static;display:block;background:#fff}
+  body.previewing .pv-bar{display:none!important}
+  body.previewing .pv-scroll{display:block;overflow:visible;padding:0;background:#fff}
+  body.previewing #pvPaper{width:100%;max-width:none;display:block;gap:0}
+  body.previewing #pvPaper .doc{width:100%;box-shadow:none;border-radius:0}
+  body.previewing.preview-deck #pvPaper .slide{display:block!important;width:100%;aspect-ratio:16/9;box-shadow:none;border-radius:0;page-break-after:always;margin:0}
+}
+/* ===== MOBILE ===== */
+#mobnav{display:none}
+@media(max-width:860px){
+  #app{display:block;height:auto;overflow:visible}
+  #cfg{width:100%;height:auto;max-height:none;overflow:visible;padding-bottom:90px}
+  .cfg-head{position:static}
+  #main{height:auto;overflow:visible}
+  #stage{padding:14px 12px 96px;overflow:visible}
+  /* two app "screens" toggled by the bottom nav */
+  body[data-mview="result"] #cfg{display:none}
+  body[data-mview="cfg"] #main, body:not([data-mview]) #main{display:none}
+  body[data-mview="result"] #main{display:flex}
+  /* bottom tab bar */
+  #mobnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:9000;background:#fff;border-top:1px solid var(--g200);box-shadow:0 -4px 16px rgba(10,36,99,.08)}
+  #mobnav button{flex:1;background:none;border:none;padding:13px 8px;font:inherit;font-size:13px;font-weight:600;color:var(--g500);display:flex;align-items:center;justify-content:center;gap:6px}
+  #mobnav button.active{color:var(--navy);box-shadow:inset 0 -3px 0 var(--cyan)}
+  /* tabs/actions wrap nicely */
+  .tabs{flex-wrap:wrap;gap:8px;padding:10px 12px;position:sticky;top:0}
+  .tabs .spacer{display:none}
+  .tabs .tab{flex:0 0 auto;padding:8px 14px;font-size:13px}
+  .tabs .btn{flex:1 1 auto;justify-content:center}
+  /* document fits the screen */
+  .doc{width:100%;border-radius:0}
+  .doc-page{padding:26px 20px}
+  .cover{padding:40px 22px}
+  .cover h1{font-size:34px}
+  .cover .sub{font-size:16px}
+  .cover .meta{gap:18px 24px;margin-top:30px}
+  .doc h2{font-size:24px}
+  .doc h2+.lead{font-size:15px}
+  .prodblock-h{flex-direction:column;gap:8px}
+  .prodblock-h .pill{align-self:flex-start}
+  .feat2{grid-template-columns:1fr}
+  .kgrid{grid-template-columns:1fr 1fr}
+  .about .vals{grid-template-columns:1fr 1fr}
+  .sign{flex-direction:column;align-items:flex-start}
+  /* deck scales down to the viewport */
+  #deck{max-width:100%}
+  .slide-inner{padding:7vw 7vw}
+  .slide h2{font-size:6.4vw}
+  .slide .kicker{font-size:3vw;letter-spacing:2px;margin-bottom:8px}
+  .slide.dark .big{font-size:8.4vw}
+  .slide .sub,.slide.dark .sub{font-size:3.6vw}
+  .slide .s-kgrid{gap:2.2vw}
+  .slide .s-kgrid .kc{padding:2.6vw}
+  .slide .s-kgrid .kc .v{font-size:5vw}
+  .slide .s-kgrid .kc .l{font-size:2.6vw}
+  .slide .s-list li{font-size:3.4vw;padding:1.6vw 0 1.6vw 5vw}
+  .slide .s-list li::before{width:2.4vw;height:2.4vw;top:2.6vw}
+  .slide table.t{font-size:2.8vw}
+  .slide .pagenum{font-size:2.4vw}
+  .deck-nav{margin-bottom:10px}
+}
+@media(max-width:430px){
+  .kgrid{grid-template-columns:1fr}
+  .cover h1{font-size:28px}
+  .doc-page{padding:22px 16px}
+}
+</style>
+</head>
+<body>
+<!-- ============ PASSWORD GATE ============ -->
+<div id="gate">
+  <div class="gate-card">
+    <svg class="logo" viewBox="0 0 320 100"><circle cx="20" cy="50" r="6" fill="#00B4D8"/><circle cx="55" cy="22" r="6" fill="#00E5A0"/><circle cx="90" cy="58" r="6" fill="#00B4D8"/><circle cx="125" cy="34" r="6" fill="#00B4D8"/><circle cx="160" cy="68" r="6" fill="#00E5A0"/><line x1="20" y1="50" x2="55" y2="22" stroke="url(#gg)" stroke-width="2.5"/><line x1="55" y1="22" x2="90" y2="58" stroke="url(#gg)" stroke-width="2.5"/><line x1="90" y1="58" x2="125" y2="34" stroke="url(#gg)" stroke-width="2.5"/><line x1="125" y1="34" x2="160" y2="68" stroke="url(#gg)" stroke-width="2.5"/><text x="185" y="52" font-family="Inter" font-weight="800" font-size="44" fill="#fff">i</text><text x="204" y="52" font-family="Inter" font-weight="800" font-size="44" fill="#00E5A0">10</text><text x="185" y="72" font-family="Inter" font-size="14" fill="rgba(255,255,255,.55)">Instituto</text><defs><linearGradient id="gg" x1="20" y1="50" x2="160" y2="50" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#00B4D8"/><stop offset="100%" stop-color="#00E5A0"/></linearGradient></defs></svg>
+    <h2>Planejador de Propostas</h2>
+    <p>Área restrita do Instituto i10. Informe a senha para continuar.</p>
+    <input id="gatePass" type="password" placeholder="Senha" autocomplete="current-password">
+    <button id="gateBtn">Entrar</button>
+    <div class="gate-err" id="gateErr"></div>
+  </div>
+</div>
+<script>
+(function(){
+  var g=document.getElementById('gate');
+  // Embutido no CRM i10 (usuário já autenticado) — sem senha.
+  g.classList.add('ok'); return;
+  var btn=document.getElementById('gateBtn'), pass=document.getElementById('gatePass'), err=document.getElementById('gateErr');
+  function submit(){
+    var v=pass.value.trim(); if(!v){return;}
+    err.textContent='Verificando…'; btn.disabled=true;
+    fetch('/api/proposals',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'login',password:v})})
+      .then(function(r){return r.json().catch(function(){return{};}).then(function(j){return{ok:r.ok&&j.ok};});})
+      .then(function(o){ if(o.ok){ sessionStorage.setItem('i10_gate_ok','1'); g.classList.add('ok'); } else { err.textContent='Senha incorreta.'; btn.disabled=false; pass.select(); } })
+      .catch(function(){ err.textContent='Erro de conexão. Tente novamente.'; btn.disabled=false; });
+  }
+  btn.addEventListener('click',submit);
+  pass.addEventListener('keydown',function(e){ if(e.key==='Enter')submit(); });
+  pass.focus();
+})();
+</script>
+<div id="app">
+  <!-- ============ CONFIGURATOR ============ -->
+  <aside id="cfg">
+    <div class="cfg-head">
+      <svg class="logo" viewBox="0 0 320 100" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="20" cy="50" r="6" fill="#00B4D8"/><circle cx="55" cy="22" r="6" fill="#00E5A0"/><circle cx="90" cy="58" r="6" fill="#00B4D8"/><circle cx="125" cy="34" r="6" fill="#00B4D8"/><circle cx="160" cy="68" r="6" fill="#00E5A0"/>
+        <line x1="20" y1="50" x2="55" y2="22" stroke="url(#g)" stroke-width="2.5"/><line x1="55" y1="22" x2="90" y2="58" stroke="url(#g)" stroke-width="2.5"/><line x1="90" y1="58" x2="125" y2="34" stroke="url(#g)" stroke-width="2.5"/><line x1="125" y1="34" x2="160" y2="68" stroke="url(#g)" stroke-width="2.5"/>
+        <text x="185" y="52" font-family="Inter,sans-serif" font-weight="800" font-size="44" letter-spacing="-1" fill="#fff">i</text><text x="204" y="52" font-family="Inter,sans-serif" font-weight="800" font-size="44" letter-spacing="-1" fill="#00E5A0">10</text>
+        <text x="185" y="72" font-family="Inter,sans-serif" font-weight="400" font-size="14" letter-spacing="1" fill="rgba(255,255,255,.5)">Instituto</text>
+        <defs><linearGradient id="g" x1="20" y1="50" x2="160" y2="50" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#00B4D8"/><stop offset="100%" stop-color="#00E5A0"/></linearGradient></defs>
+      </svg>
+      <p>Planejador de Propostas · Inovação · Inteligência · Impacto</p>
+    </div>
+
+    <div class="cfg-sec">
+      <h3><span class="dot"></span>Município</h3>
+      <label class="fld">Buscar município (SP)
+        <input id="muniSearch" class="inp" list="muniList" placeholder="Ex.: Sorocaba, Campinas…" autocomplete="off">
+      </label>
+      <datalist id="muniList"></datalist>
+      <div class="row2">
+        <label class="fld">População (hab.)
+          <input id="pop" class="inp" type="number" placeholder="ex.: 18000">
+        </label>
+        <label class="fld">UF
+          <input id="uf" class="inp" value="SP">
+        </label>
+      </div>
+      <div id="tierBadge"></div>
+      <label class="fld">Prefeito(a) / Gestor(a)
+        <input id="gestor" class="inp" placeholder="Nome do(a) gestor(a)">
+      </label>
+      <div class="row2">
+        <label class="fld">Secretaria
+          <input id="secretaria" class="inp" placeholder="Sec. de Educação">
+        </label>
+        <label class="fld">Data
+          <input id="dataProp" class="inp" type="date">
+        </label>
+      </div>
+      <div id="muniData" class="kpi-mini" style="display:none"></div>
+      <label class="fld">Empresa / Cliente (opcional — substitui o município no título)
+        <input id="empresa" class="inp" placeholder="Ex.: Rede Educar Ltda.">
+      </label>
+    </div>
+
+    <div class="cfg-sec">
+      <h3><span class="dot"></span>Identificação da proposta</h3>
+      <label class="fld">Assunto / nome da proposta
+        <input id="assunto" class="inp" placeholder="Proposta de Parceria">
+      </label>
+      <div class="row2">
+        <label class="fld">Nº da proposta
+          <input id="propNum" class="inp" placeholder="P-0001">
+        </label>
+        <label class="fld">Versão
+          <input id="propVer" class="inp" type="number" min="1" value="1">
+        </label>
+      </div>
+      <div id="verHint" class="hint"></div>
+    </div>
+
+    <div class="cfg-sec">
+      <h3><span class="dot"></span>Produtos da proposta</h3>
+      <div id="products"></div>
+    </div>
+
+    <div class="cfg-sec">
+      <h3><span class="dot"></span>Responsável i10</h3>
+      <label class="fld">Nome
+        <input id="repName" class="inp" placeholder="Seu nome">
+      </label>
+      <div class="row2">
+        <label class="fld">E-mail
+          <input id="repEmail" class="inp" placeholder="nome@institutoi10.com.br">
+        </label>
+        <label class="fld">Telefone
+          <input id="repPhone" class="inp" placeholder="(00) 00000-0000">
+        </label>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main id="main">
+    <div class="tabs">
+      <button class="tab active" data-view="proposal">📄 Proposta</button>
+      <button class="tab" data-view="deck">🖥️ Apresentação</button>
+      <span class="spacer"></span>
+      <button class="btn btn-gho no-print" id="btnReset">↺ Limpar</button>
+      <button class="btn btn-gho no-print" id="btnPreview">👁 Pré-visualizar</button>
+      <button class="btn btn-pri no-print" id="btnPrint">⬇︎ Gerar PDF</button>
+    </div>
+    <div id="stage">
+      <div id="proposalView"></div>
+      <div id="deckView" style="display:none"></div>
+    </div>
+  </main>
+</div>
+<!-- ============ MOBILE NAV ============ -->
+<nav id="mobnav" class="no-print">
+  <button data-mview="cfg" class="active">⚙️ Configurar</button>
+  <button data-mview="result">📄 Resultado</button>
+</nav>
+<!-- ============ PDF PREVIEW ============ -->
+<div id="preview" aria-hidden="true">
+  <div class="pv-bar">
+    <span class="pv-title">👁 Pré-visualização</span>
+    <span class="pv-hint">Confira o documento abaixo. Para baixar, clique em “Salvar PDF” e escolha <b>Salvar como PDF</b> no destino da impressão.</span>
+    <button class="btn btn-pri" id="pvPrint">⬇︎ Salvar PDF</button>
+    <button class="btn btn-gho" id="pvClose">✕ Fechar</button>
+  </div>
+  <div class="pv-scroll"><div id="pvPaper"></div></div>
+</div>
+
+<script>
+/* ====================== DATA ====================== */
+const MUNIS = JSON.parse('[{"n":"Adamantina","ei":291,"ai":848,"af":0,"tm":2673,"tr":22758468.0,"pt":8283795.0,"pp":35.5},{"n":"Adolfo","ei":21,"ai":231,"af":223,"tm":732,"tr":5779000.0,"pt":3058206.0,"pp":50.4},{"n":"Aguaí","ei":284,"ai":1414,"af":493,"tm":3818,"tr":29892394.0,"pt":12898505.0,"pp":41.8},{"n":"Agudos","ei":188,"ai":1664,"af":0,"tm":3878,"tr":31869323.0,"pt":12030294.0,"pp":36.8},{"n":"Alambari","ei":0,"ai":371,"af":0,"tm":661,"tr":5205463.0,"pt":2902098.0,"pp":55.0},{"n":"Alfredo Marcondes","ei":0,"ai":0,"af":0,"tm":195,"tr":1945179.0,"pt":1268711.0,"pp":64.6},{"n":"Altair","ei":73,"ai":102,"af":0,"tm":385,"tr":3145883.0,"pt":1438918.0,"pp":44.0},{"n":"Altinópolis","ei":847,"ai":405,"af":0,"tm":2057,"tr":19012070.0,"pt":3127868.0,"pp":15.7},{"n":"Alto Alegre","ei":0,"ai":186,"af":0,"tm":316,"tr":2427879.0,"pt":1568697.0,"pp":62.8},{"n":"Alumínio","ei":305,"ai":615,"af":771,"tm":2638,"tr":21830031.0,"pt":8515844.0,"pp":37.6},{"n":"Alvinlândia","ei":0,"ai":211,"af":0,"tm":406,"tr":3215167.0,"pt":1742008.0,"pp":52.2},{"n":"Americana","ei":2141,"ai":2331,"af":1924,"tm":13519,"tr":112666804.0,"pt":38988651.0,"pp":33.7},{"n":"Amparo","ei":149,"ai":2074,"af":0,"tm":5192,"tr":42553152.0,"pt":17086013.0,"pp":38.5},{"n":"Américo Brasiliense","ei":193,"ai":1820,"af":953,"tm":4853,"tr":37774456.0,"pt":16377539.0,"pp":41.6},{"n":"Américo de Campos","ei":394,"ai":0,"af":152,"tm":770,"tr":7181346.0,"pt":1495188.0,"pp":20.6},{"n":"Analândia","ei":38,"ai":278,"af":217,"tm":847,"tr":6599949.0,"pt":3588239.0,"pp":51.8},{"n":"Andradina","ei":806,"ai":1765,"af":0,"tm":4788,"tr":38993151.0,"pt":16203052.0,"pp":40.1},{"n":"Angatuba","ei":173,"ai":1284,"af":995,"tm":3761,"tr":30013706.0,"pt":14394194.0,"pp":45.5},{"n":"Anhembi","ei":0,"ai":403,"af":347,"tm":1093,"tr":8494408.0,"pt":4380013.0,"pp":50.8},{"n":"Anhumas","ei":50,"ai":171,"af":0,"tm":442,"tr":3651787.0,"pt":1597152.0,"pp":41.6},{"n":"Aparecida","ei":439,"ai":1232,"af":1408,"tm":4626,"tr":36304786.0,"pt":16310637.0,"pp":43.5},{"n":"Aparecida DOeste","ei":85,"ai":115,"af":0,"tm":360,"tr":3075619.0,"pt":1567629.0,"pp":49.4},{"n":"Apiaí","ei":640,"ai":216,"af":0,"tm":2063,"tr":19070863.0,"pt":3900175.0,"pp":19.4},{"n":"Aramina","ei":0,"ai":287,"af":0,"tm":549,"tr":4243642.0,"pt":2548334.0,"pp":57.4},{"n":"Arandu","ei":0,"ai":446,"af":0,"tm":832,"tr":6454192.0,"pt":2799856.0,"pp":41.4},{"n":"Arapeí","ei":0,"ai":139,"af":140,"tm":370,"tr":2645535.0,"pt":1928945.0,"pp":69.0},{"n":"Araraquara","ei":2080,"ai":3152,"af":2064,"tm":17610,"tr":150639896.0,"pt":48206846.0,"pp":30.7},{"n":"Araras","ei":1411,"ai":2445,"af":1863,"tm":14895,"tr":117317766.0,"pt":50215796.0,"pp":41.8},{"n":"Araçariguama","ei":273,"ai":1347,"af":1246,"tm":4193,"tr":34351126.0,"pt":13693373.0,"pp":41.2},{"n":"Araçatuba","ei":3099,"ai":5629,"af":0,"tm":16533,"tr":138444320.0,"pt":47876854.0,"pp":32.9},{"n":"Araçoiaba da Serra","ei":305,"ai":1726,"af":1621,"tm":5258,"tr":40747521.0,"pt":18700768.0,"pp":44.5},{"n":"Arco-Íris","ei":41,"ai":69,"af":0,"tm":206,"tr":1755629.0,"pt":1086877.0,"pp":61.3},{"n":"Arealva","ei":56,"ai":363,"af":0,"tm":790,"tr":6622042.0,"pt":2382169.0,"pp":34.3},{"n":"Areias","ei":0,"ai":235,"af":187,"tm":593,"tr":4228608.0,"pt":2679870.0,"pp":62.0},{"n":"Areiópolis","ei":226,"ai":652,"af":273,"tm":1716,"tr":13484878.0,"pt":5083595.0,"pp":36.6},{"n":"Ariranha","ei":144,"ai":197,"af":0,"tm":665,"tr":5652851.0,"pt":2272511.0,"pp":39.2},{"n":"Artur Nogueira","ei":211,"ai":2595,"af":0,"tm":5397,"tr":42483721.0,"pt":19038517.0,"pp":43.2},{"n":"Arujá","ei":860,"ai":4673,"af":0,"tm":10415,"tr":81485157.0,"pt":35709825.0,"pp":42.2},{"n":"Aspásia","ei":0,"ai":17,"af":0,"tm":115,"tr":1019977.0,"pt":925931.0,"pp":90.6},{"n":"Assis","ei":2594,"ai":1983,"af":0,"tm":8881,"tr":79367372.0,"pt":19536222.0,"pp":23.6},{"n":"Atibaia","ei":3330,"ai":5354,"af":0,"tm":15989,"tr":136817161.0,"pt":46534982.0,"pp":32.1},{"n":"Auriflama","ei":40,"ai":548,"af":0,"tm":1138,"tr":9009527.0,"pt":4225672.0,"pp":44.8},{"n":"Avanhandava","ei":252,"ai":344,"af":0,"tm":1145,"tr":9880152.0,"pt":2338366.0,"pp":22.8},{"n":"Avaré","ei":0,"ai":4590,"af":0,"tm":8584,"tr":65292486.0,"pt":30970966.0,"pp":45.7},{"n":"Avaí","ei":0,"ai":277,"af":0,"tm":503,"tr":3668781.0,"pt":2593262.0,"pp":67.8},{"n":"Bady Bassitt","ei":102,"ai":1519,"af":1048,"tm":4113,"tr":32104611.0,"pt":14198228.0,"pp":43.8},{"n":"Balbinos","ei":0,"ai":75,"af":0,"tm":143,"tr":1168676.0,"pt":1311143.0,"pp":109.2},{"n":"Bananal","ei":110,"ai":395,"af":397,"tm":1297,"tr":9963440.0,"pt":4906527.0,"pp":48.2},{"n":"Barbosa","ei":421,"ai":0,"af":0,"tm":757,"tr":7038856.0,"pt":1911833.0,"pp":25.1},{"n":"Bariri","ei":0,"ai":1419,"af":788,"tm":3802,"tr":29012651.0,"pt":11282524.0,"pp":37.8},{"n":"Barra Bonita","ei":0,"ai":1169,"af":0,"tm":2452,"tr":19052431.0,"pt":6938337.0,"pp":35.1},{"n":"Barra do Chapéu","ei":266,"ai":121,"af":0,"tm":694,"tr":6855499.0,"pt":1807053.0,"pp":24.9},{"n":"Barra do Turvo","ei":0,"ai":470,"af":0,"tm":766,"tr":5743279.0,"pt":3058536.0,"pp":51.6},{"n":"Barretos","ei":2594,"ai":3410,"af":652,"tm":12885,"tr":112904853.0,"pt":24074038.0,"pp":19.9},{"n":"Barrinha","ei":303,"ai":1726,"af":1710,"tm":5467,"tr":41442583.0,"pt":19852923.0,"pp":46.5},{"n":"Barueri","ei":1045,"ai":23491,"af":20549,"tm":65764,"tr":495865185.0,"pt":237162702.0,"pp":46.7},{"n":"Barão de Antonina","ei":0,"ai":189,"af":0,"tm":335,"tr":2553375.0,"pt":1980634.0,"pp":76.5},{"n":"Bastos","ei":162,"ai":1034,"af":0,"tm":2198,"tr":17590458.0,"pt":7744749.0,"pp":42.7},{"n":"Batatais","ei":83,"ai":1999,"af":421,"tm":5058,"tr":39775193.0,"pt":13158618.0,"pp":32.0},{"n":"Bauru","ei":0,"ai":6559,"af":1434,"tm":23285,"tr":191921753.0,"pt":68961268.0,"pp":34.7},{"n":"Bebedouro","ei":895,"ai":2307,"af":0,"tm":6613,"tr":54908833.0,"pt":19378598.0,"pp":34.2},{"n":"Bento de Abreu","ei":0,"ai":144,"af":0,"tm":279,"tr":2281141.0,"pt":1727075.0,"pp":74.8},{"n":"Bernardino de Campos","ei":0,"ai":578,"af":0,"tm":1088,"tr":8589575.0,"pt":3616780.0,"pp":40.9},{"n":"Bertioga","ei":3260,"ai":1946,"af":0,"tm":9229,"tr":78050323.0,"pt":24169841.0,"pp":29.2},{"n":"Bilac","ei":153,"ai":254,"af":0,"tm":691,"tr":5838479.0,"pt":2515784.0,"pp":41.9},{"n":"Birigui","ei":584,"ai":5029,"af":0,"tm":10756,"tr":85220558.0,"pt":35439404.0,"pp":40.0},{"n":"Biritiba Mirim","ei":0,"ai":1746,"af":0,"tm":2967,"tr":22676700.0,"pt":11734789.0,"pp":50.2},{"n":"Boa Esperança do Sul","ei":177,"ai":598,"af":694,"tm":2225,"tr":17635051.0,"pt":7365694.0,"pp":39.9},{"n":"Bocaina","ei":0,"ai":523,"af":0,"tm":1010,"tr":7630385.0,"pt":4472784.0,"pp":58.2},{"n":"Bofete","ei":0,"ai":677,"af":292,"tm":1479,"tr":11321078.0,"pt":5929872.0,"pp":51.2},{"n":"Boituva","ei":462,"ai":3131,"af":3048,"tm":9570,"tr":74634037.0,"pt":34161653.0,"pp":44.5},{"n":"Bom Sucesso de Itararé","ei":0,"ai":256,"af":0,"tm":519,"tr":3838069.0,"pt":2586693.0,"pp":65.2},{"n":"Boracéia","ei":0,"ai":297,"af":0,"tm":605,"tr":5014916.0,"pt":2526861.0,"pp":49.6},{"n":"Borborema","ei":252,"ai":100,"af":0,"tm":962,"tr":8958218.0,"pt":2690315.0,"pp":29.0},{"n":"Borebi","ei":319,"ai":0,"af":132,"tm":642,"tr":5916587.0,"pt":1707214.0,"pp":28.4},{"n":"Borá","ei":0,"ai":61,"af":0,"tm":103,"tr":765391.0,"pt":1220578.0,"pp":159.0},{"n":"Botucatu","ei":4047,"ai":2964,"af":1913,"tm":15816,"tr":137295841.0,"pt":38191144.0,"pp":27.3},{"n":"Bragança Paulista","ei":3877,"ai":4509,"af":0,"tm":15417,"tr":131954735.0,"pt":42092627.0,"pp":31.3},{"n":"Braúna","ei":64,"ai":285,"af":0,"tm":634,"tr":5329962.0,"pt":1980083.0,"pp":36.1},{"n":"Brejo Alegre","ei":167,"ai":0,"af":0,"tm":290,"tr":2864499.0,"pt":1270318.0,"pp":42.5},{"n":"Brodowski","ei":339,"ai":1041,"af":886,"tm":3441,"tr":27210615.0,"pt":9436705.0,"pp":33.4},{"n":"Brotas","ei":243,"ai":914,"af":318,"tm":2673,"tr":21432302.0,"pt":9164735.0,"pp":41.7},{"n":"Buri","ei":112,"ai":1463,"af":1138,"tm":4099,"tr":31535143.0,"pt":12565990.0,"pp":37.2},{"n":"Buritama","ei":80,"ai":807,"af":0,"tm":1565,"tr":12080571.0,"pt":6095640.0,"pp":48.8},{"n":"Buritizal","ei":0,"ai":215,"af":199,"tm":637,"tr":5017203.0,"pt":2339742.0,"pp":45.6},{"n":"Bálsamo","ei":68,"ai":368,"af":0,"tm":853,"tr":6872183.0,"pt":3023571.0,"pp":43.7},{"n":"Cabreúva","ei":0,"ai":3529,"af":0,"tm":6607,"tr":49804240.0,"pt":25237295.0,"pp":50.0},{"n":"Cabrália Paulista","ei":0,"ai":262,"af":0,"tm":447,"tr":3398835.0,"pt":2192717.0,"pp":61.5},{"n":"Cachoeira Paulista","ei":0,"ai":1227,"af":130,"tm":2394,"tr":18525987.0,"pt":9642259.0,"pp":49.6},{"n":"Caconde","ei":0,"ai":803,"af":0,"tm":1465,"tr":11530744.0,"pt":5733555.0,"pp":48.0},{"n":"Cafelândia","ei":218,"ai":544,"af":0,"tm":1498,"tr":12218812.0,"pt":4990756.0,"pp":38.9},{"n":"Caiabu","ei":36,"ai":128,"af":0,"tm":330,"tr":2780508.0,"pt":1555275.0,"pp":55.0},{"n":"Caieiras","ei":0,"ai":4992,"af":0,"tm":9383,"tr":69948677.0,"pt":35578817.0,"pp":50.0},{"n":"Caiuá","ei":0,"ai":210,"af":0,"tm":346,"tr":2700244.0,"pt":1598538.0,"pp":57.2},{"n":"Cajamar","ei":0,"ai":5875,"af":5126,"tm":17501,"tr":134818842.0,"pt":50069868.0,"pp":36.0},{"n":"Cajati","ei":222,"ai":1728,"af":0,"tm":3370,"tr":26194837.0,"pt":13660983.0,"pp":48.1},{"n":"Cajobi","ei":51,"ai":483,"af":353,"tm":1356,"tr":10522336.0,"pt":5078578.0,"pp":46.6},{"n":"Cajuru","ei":494,"ai":815,"af":281,"tm":2559,"tr":21521979.0,"pt":7714262.0,"pp":35.1},{"n":"Campina do Monte Alegre","ei":0,"ai":384,"af":287,"tm":1026,"tr":7718297.0,"pt":4777760.0,"pp":56.5},{"n":"Campinas","ei":3298,"ai":7936,"af":6203,"tm":62875,"tr":529013548.0,"pt":164064152.0,"pp":30.7},{"n":"Campo Limpo Paulista","ei":489,"ai":4103,"af":1965,"tm":9968,"tr":75447371.0,"pt":36741660.0,"pp":47.4},{"n":"Campos Novos Paulista","ei":0,"ai":326,"af":0,"tm":612,"tr":4726995.0,"pt":2613918.0,"pp":54.4},{"n":"Campos do Jordão","ei":1291,"ai":1649,"af":1958,"tm":7590,"tr":62111650.0,"pt":22715356.0,"pp":35.2},{"n":"Cananéia","ei":0,"ai":818,"af":0,"tm":1328,"tr":9821538.0,"pt":5945020.0,"pp":57.4},{"n":"Canas","ei":0,"ai":344,"af":301,"tm":929,"tr":6746361.0,"pt":4067963.0,"pp":58.4},{"n":"Canitar","ei":0,"ai":439,"af":358,"tm":1190,"tr":8628139.0,"pt":4984912.0,"pp":56.7},{"n":"Capela do Alto","ei":171,"ai":1299,"af":1212,"tm":3898,"tr":29468406.0,"pt":14773178.0,"pp":47.9},{"n":"Capivari","ei":1132,"ai":1773,"af":1073,"tm":6438,"tr":52077015.0,"pt":15303953.0,"pp":28.4},{"n":"Capão Bonito","ei":162,"ai":2666,"af":1688,"tm":6934,"tr":54450889.0,"pt":24201923.0,"pp":42.3},{"n":"Caraguatatuba","ei":2205,"ai":6614,"af":4172,"tm":21187,"tr":169668861.0,"pt":68176711.0,"pp":38.0},{"n":"Carapicuíba","ei":0,"ai":5030,"af":0,"tm":19476,"tr":154305147.0,"pt":62476244.0,"pp":39.0},{"n":"Cardoso","ei":98,"ai":423,"af":248,"tm":1180,"tr":9542801.0,"pt":3314420.0,"pp":33.7},{"n":"Casa Branca","ei":306,"ai":860,"af":0,"tm":2474,"tr":21208077.0,"pt":5862089.0,"pp":25.5},{"n":"Castilho","ei":0,"ai":1156,"af":124,"tm":2289,"tr":17764044.0,"pt":7143079.0,"pp":39.0},{"n":"Catanduva","ei":1328,"ai":2700,"af":1229,"tm":9959,"tr":84404184.0,"pt":21992801.0,"pp":24.7},{"n":"Catiguá","ei":0,"ai":321,"af":0,"tm":561,"tr":4465873.0,"pt":2765297.0,"pp":58.6},{"n":"Caçapava","ei":552,"ai":4057,"af":742,"tm":9028,"tr":69809505.0,"pt":33693001.0,"pp":45.7},{"n":"Cedral","ei":0,"ai":784,"af":646,"tm":2090,"tr":15846741.0,"pt":8002352.0,"pp":49.4},{"n":"Cerqueira César","ei":40,"ai":1167,"af":0,"tm":2197,"tr":17042216.0,"pt":8154828.0,"pp":46.3},{"n":"Cerquilho","ei":0,"ai":2050,"af":1812,"tm":6151,"tr":47155894.0,"pt":22265547.0,"pp":46.5},{"n":"Cesário Lange","ei":0,"ai":1259,"af":1049,"tm":3424,"tr":27036997.0,"pt":12955282.0,"pp":47.0},{"n":"Charqueada","ei":279,"ai":763,"af":497,"tm":2384,"tr":19020077.0,"pt":5860036.0,"pp":29.4},{"n":"Chavantes","ei":0,"ai":693,"af":120,"tm":1414,"tr":10783784.0,"pt":5882546.0,"pp":55.3},{"n":"Clementina","ei":218,"ai":251,"af":0,"tm":848,"tr":7431030.0,"pt":2705252.0,"pp":34.1},{"n":"Colina","ei":273,"ai":955,"af":557,"tm":2705,"tr":22395871.0,"pt":6865913.0,"pp":29.7},{"n":"Colômbia","ei":350,"ai":197,"af":539,"tm":1459,"tr":12427530.0,"pt":3477599.0,"pp":26.9},{"n":"Conchal","ei":416,"ai":1413,"af":128,"tm":3589,"tr":29189783.0,"pt":11684742.0,"pp":38.6},{"n":"Conchas","ei":376,"ai":434,"af":555,"tm":2061,"tr":17936306.0,"pt":5944228.0,"pp":32.7},{"n":"Cordeirópolis","ei":845,"ai":730,"af":0,"tm":3105,"tr":27331666.0,"pt":7893048.0,"pp":28.2},{"n":"Coroados","ei":0,"ai":310,"af":0,"tm":523,"tr":4138735.0,"pt":2581100.0,"pp":59.8},{"n":"Coronel Macedo","ei":240,"ai":0,"af":0,"tm":435,"tr":4272401.0,"pt":1018850.0,"pp":22.2},{"n":"Corumbataí","ei":88,"ai":177,"af":250,"tm":786,"tr":6082607.0,"pt":3265361.0,"pp":50.8},{"n":"Cosmorama","ei":43,"ai":437,"af":276,"tm":1192,"tr":9218033.0,"pt":4380152.0,"pp":46.2},{"n":"Cosmópolis","ei":890,"ai":2199,"af":2140,"tm":7969,"tr":62828281.0,"pt":28062017.0,"pp":43.5},{"n":"Cotia","ei":825,"ai":15479,"af":1821,"tm":31088,"tr":232910281.0,"pt":114530486.0,"pp":47.5},{"n":"Cravinhos","ei":253,"ai":1616,"af":434,"tm":3772,"tr":30160085.0,"pt":11659456.0,"pp":38.6},{"n":"Cristais Paulista","ei":63,"ai":534,"af":457,"tm":1592,"tr":12239074.0,"pt":5451063.0,"pp":43.3},{"n":"Cruzeiro","ei":180,"ai":2605,"af":1335,"tm":6846,"tr":52428010.0,"pt":25634000.0,"pp":46.3},{"n":"Cruzália","ei":112,"ai":0,"af":0,"tm":225,"tr":2228198.0,"pt":1042078.0,"pp":46.2},{"n":"Cubatão","ei":1921,"ai":3749,"af":3069,"tm":14328,"tr":113323367.0,"pt":47360023.0,"pp":41.6},{"n":"Cunha","ei":66,"ai":1062,"af":0,"tm":1887,"tr":14180724.0,"pt":7788811.0,"pp":53.4},{"n":"Cássia dos Coqueiros","ei":0,"ai":165,"af":142,"tm":442,"tr":3312230.0,"pt":2356731.0,"pp":67.4},{"n":"Cândido Mota","ei":0,"ai":927,"af":0,"tm":2477,"tr":20064892.0,"pt":8629431.0,"pp":40.6},{"n":"Cândido Rodrigues","ei":280,"ai":0,"af":0,"tm":418,"tr":4083504.0,"pt":1205192.0,"pp":29.4},{"n":"Descalvado","ei":85,"ai":1288,"af":1068,"tm":4041,"tr":31005872.0,"pt":15267188.0,"pp":46.8},{"n":"Diadema","ei":8402,"ai":1744,"af":0,"tm":28146,"tr":249619264.0,"pt":70510131.0,"pp":27.0},{"n":"Dirce Reis","ei":0,"ai":26,"af":0,"tm":118,"tr":1084359.0,"pt":1130299.0,"pp":103.3},{"n":"Divinolândia","ei":43,"ai":486,"af":362,"tm":1422,"tr":11063486.0,"pt":5720009.0,"pp":49.6},{"n":"Dobrada","ei":67,"ai":30,"af":0,"tm":562,"tr":5308719.0,"pt":1058058.0,"pp":18.4},{"n":"Dois Córregos","ei":168,"ai":1250,"af":532,"tm":3171,"tr":24597761.0,"pt":11166034.0,"pp":44.1},{"n":"Dolcinópolis","ei":0,"ai":146,"af":0,"tm":280,"tr":2284736.0,"pt":1725297.0,"pp":72.3},{"n":"Dourado","ei":17,"ai":386,"af":335,"tm":1097,"tr":8070926.0,"pt":4819615.0,"pp":59.3},{"n":"Dracena","ei":337,"ai":1528,"af":0,"tm":3873,"tr":31952317.0,"pt":10011047.0,"pp":31.0},{"n":"Duartina","ei":362,"ai":282,"af":0,"tm":1185,"tr":10077546.0,"pt":3628436.0,"pp":35.5},{"n":"Dumont","ei":212,"ai":328,"af":409,"tm":1420,"tr":11604734.0,"pt":4482804.0,"pp":37.1},{"n":"Echaporã","ei":0,"ai":413,"af":0,"tm":730,"tr":5603829.0,"pt":2567144.0,"pp":43.6},{"n":"Eldorado","ei":0,"ai":853,"af":0,"tm":1663,"tr":11447145.0,"pt":6928312.0,"pp":48.2},{"n":"Elias Fausto","ei":215,"ai":1139,"af":758,"tm":3014,"tr":22905860.0,"pt":8792227.0,"pp":37.5},{"n":"Elisiário","ei":0,"ai":159,"af":129,"tm":414,"tr":3211899.0,"pt":2233982.0,"pp":66.0},{"n":"Embaúba","ei":116,"ai":0,"af":0,"tm":207,"tr":2043550.0,"pt":1035616.0,"pp":49.2},{"n":"Embu","ei":2280,"ai":9037,"af":1013,"tm":24120,"tr":185605100.0,"pt":79584422.0,"pp":40.8},{"n":"Embu-Guaçu","ei":0,"ai":1740,"af":333,"tm":4847,"tr":38853357.0,"pt":16300341.0,"pp":40.3},{"n":"Emilianópolis","ei":274,"ai":3,"af":0,"tm":434,"tr":4271094.0,"pt":975664.0,"pp":20.6},{"n":"Engenheiro Coelho","ei":86,"ai":946,"af":0,"tm":2136,"tr":17570751.0,"pt":7178896.0,"pp":38.7},{"n":"Espírito Santo do Pinhal","ei":22,"ai":841,"af":0,"tm":2302,"tr":19373621.0,"pt":5290065.0,"pp":27.0},{"n":"Espírito Santo do Turvo","ei":283,"ai":10,"af":0,"tm":576,"tr":5627686.0,"pt":1073799.0,"pp":18.7},{"n":"Estiva Gerbi","ei":885,"ai":91,"af":136,"tm":1730,"tr":16056881.0,"pt":3880983.0,"pp":24.0},{"n":"Estrela DOeste","ei":0,"ai":446,"af":0,"tm":905,"tr":7112062.0,"pt":3749974.0,"pp":51.4},{"n":"Estrela do Norte","ei":0,"ai":168,"af":0,"tm":298,"tr":2390950.0,"pt":1565443.0,"pp":64.6},{"n":"Euclides da Cunha Paulista","ei":122,"ai":306,"af":0,"tm":756,"tr":6170291.0,"pt":2516236.0,"pp":39.6},{"n":"Fartura","ei":358,"ai":544,"af":0,"tm":1844,"tr":15981387.0,"pt":5588133.0,"pp":34.0},{"n":"Fernando Prestes","ei":573,"ai":0,"af":0,"tm":851,"tr":8393815.0,"pt":1257872.0,"pp":14.9},{"n":"Fernandópolis","ei":780,"ai":2345,"af":0,"tm":6320,"tr":52755148.0,"pt":18554904.0,"pp":34.2},{"n":"Fernão","ei":88,"ai":20,"af":0,"tm":198,"tr":1816089.0,"pt":889414.0,"pp":48.6},{"n":"Ferraz de Vasconcelos","ei":301,"ai":9853,"af":1347,"tm":19359,"tr":146519168.0,"pt":68540092.0,"pp":44.1},{"n":"Flora Rica","ei":0,"ai":68,"af":59,"tm":201,"tr":1529476.0,"pt":1481637.0,"pp":96.2},{"n":"Floreal","ei":132,"ai":0,"af":0,"tm":223,"tr":2202707.0,"pt":1041186.0,"pp":46.4},{"n":"Florínea","ei":0,"ai":23,"af":0,"tm":170,"tr":1536012.0,"pt":806731.0,"pp":52.0},{"n":"Flórida Paulista","ei":116,"ai":362,"af":0,"tm":931,"tr":7669602.0,"pt":3318325.0,"pp":41.6},{"n":"Franca","ei":470,"ai":11760,"af":0,"tm":28169,"tr":225658785.0,"pt":85538921.0,"pp":36.7},{"n":"Francisco Morato","ei":1297,"ai":10928,"af":0,"tm":21789,"tr":167897545.0,"pt":74116684.0,"pp":41.8},{"n":"Franco da Rocha","ei":1749,"ai":6936,"af":132,"tm":16787,"tr":134015654.0,"pt":52316215.0,"pp":37.9},{"n":"Gabriel Monteiro","ei":157,"ai":0,"af":0,"tm":284,"tr":2799137.0,"pt":1263769.0,"pp":44.7},{"n":"Garça","ei":884,"ai":994,"af":0,"tm":3629,"tr":31634820.0,"pt":6749187.0,"pp":20.7},{"n":"Gastão Vidigal","ei":35,"ai":41,"af":0,"tm":213,"tr":1756609.0,"pt":1179501.0,"pp":65.5},{"n":"Gavião Peixoto","ei":344,"ai":0,"af":295,"tm":986,"tr":8620622.0,"pt":2154412.0,"pp":23.6},{"n":"General Salgado","ei":0,"ai":480,"af":421,"tm":1306,"tr":10138986.0,"pt":5136190.0,"pp":49.2},{"n":"Getulina","ei":0,"ai":402,"af":0,"tm":694,"tr":5249566.0,"pt":3042423.0,"pp":56.0},{"n":"Glicério","ei":63,"ai":213,"af":0,"tm":497,"tr":4133833.0,"pt":2072246.0,"pp":48.7},{"n":"Guaimbê","ei":241,"ai":100,"af":0,"tm":591,"tr":5500230.0,"pt":1399745.0,"pp":24.7},{"n":"Guaiçara","ei":194,"ai":537,"af":0,"tm":1274,"tr":10638353.0,"pt":3954091.0,"pp":36.7},{"n":"Guapiara","ei":0,"ai":1151,"af":336,"tm":2174,"tr":17203432.0,"pt":8556238.0,"pp":47.2},{"n":"Guapiaçu","ei":0,"ai":1212,"af":898,"tm":3179,"tr":24005906.0,"pt":11564746.0,"pp":46.5},{"n":"Guaraci","ei":0,"ai":557,"af":484,"tm":1630,"tr":12681903.0,"pt":5263344.0,"pp":39.2},{"n":"Guarani DOeste","ei":96,"ai":0,"af":0,"tm":196,"tr":1939950.0,"pt":1171196.0,"pp":59.3},{"n":"Guarantã","ei":0,"ai":352,"af":0,"tm":625,"tr":4709674.0,"pt":2314926.0,"pp":48.3},{"n":"Guararapes","ei":0,"ai":1244,"af":0,"tm":2931,"tr":22840825.0,"pt":8559544.0,"pp":36.3},{"n":"Guararema","ei":660,"ai":1457,"af":0,"tm":3944,"tr":33355104.0,"pt":9379633.0,"pp":27.2},{"n":"Guaratinguetá","ei":2170,"ai":3255,"af":1602,"tm":11865,"tr":97317077.0,"pt":36540739.0,"pp":35.8},{"n":"Guaraçaí","ei":0,"ai":303,"af":0,"tm":560,"tr":4262597.0,"pt":2033909.0,"pp":47.2},{"n":"Guareí","ei":0,"ai":785,"af":0,"tm":1416,"tr":11088095.0,"pt":4939347.0,"pp":43.7},{"n":"Guariba","ei":317,"ai":1934,"af":1659,"tm":5726,"tr":44387151.0,"pt":15140706.0,"pp":33.0},{"n":"Guarujá","ei":1023,"ai":10392,"af":7072,"tm":32643,"tr":250736958.0,"pt":113147197.0,"pp":42.4},{"n":"Guarulhos","ei":2546,"ai":54585,"af":0,"tm":113248,"tr":863799529.0,"pt":396847755.0,"pp":44.6},{"n":"Guará","ei":330,"ai":689,"af":785,"tm":2759,"tr":22151580.0,"pt":8241291.0,"pp":36.0},{"n":"Guatapará","ei":32,"ai":412,"af":331,"tm":1171,"tr":8769762.0,"pt":4634047.0,"pp":51.2},{"n":"Guaíra","ei":165,"ai":1518,"af":0,"tm":3292,"tr":27145907.0,"pt":10185542.0,"pp":36.8},{"n":"Guzolândia","ei":0,"ai":251,"af":0,"tm":435,"tr":3251116.0,"pt":2205169.0,"pp":65.4},{"n":"Gália","ei":0,"ai":321,"af":0,"tm":573,"tr":4422080.0,"pt":2544500.0,"pp":56.1},{"n":"Herculândia","ei":0,"ai":462,"af":0,"tm":893,"tr":7307495.0,"pt":2753246.0,"pp":36.6},{"n":"Holambra","ei":338,"ai":465,"af":569,"tm":2387,"tr":21276086.0,"pt":7199797.0,"pp":32.6},{"n":"Hortolândia","ei":4466,"ai":8850,"af":64,"tm":24749,"tr":202799986.0,"pt":73205420.0,"pp":34.8},{"n":"Iacanga","ei":120,"ai":461,"af":464,"tm":1557,"tr":12302475.0,"pt":4615725.0,"pp":35.9},{"n":"Iacri","ei":0,"ai":72,"af":0,"tm":340,"tr":2837047.0,"pt":1550988.0,"pp":54.0},{"n":"Iaras","ei":0,"ai":402,"af":347,"tm":1104,"tr":8601291.0,"pt":4273222.0,"pp":47.8},{"n":"Ibaté","ei":402,"ai":1750,"af":0,"tm":4082,"tr":31835972.0,"pt":14495256.0,"pp":42.8},{"n":"Ibirarema","ei":31,"ai":342,"af":0,"tm":687,"tr":5379310.0,"pt":2508957.0,"pp":44.9},{"n":"Ibirá","ei":264,"ai":317,"af":465,"tm":1602,"tr":13361997.0,"pt":4878155.0,"pp":35.6},{"n":"Ibitinga","ei":469,"ai":2289,"af":0,"tm":5496,"tr":44480684.0,"pt":18411100.0,"pp":39.4},{"n":"Ibiúna","ei":0,"ai":5117,"af":0,"tm":8674,"tr":67562891.0,"pt":32156532.0,"pp":44.9},{"n":"Icém","ei":0,"ai":345,"af":310,"tm":957,"tr":7424167.0,"pt":3247551.0,"pp":41.7},{"n":"Iepê","ei":0,"ai":434,"af":0,"tm":798,"tr":6003846.0,"pt":3552835.0,"pp":58.7},{"n":"Igarapava","ei":38,"ai":1115,"af":920,"tm":3261,"tr":25966821.0,"pt":10602412.0,"pp":40.0},{"n":"Igaratá","ei":332,"ai":463,"af":383,"tm":1706,"tr":14845931.0,"pt":3932637.0,"pp":25.9},{"n":"Igaraçu do Tietê","ei":0,"ai":1008,"af":0,"tm":2069,"tr":15949687.0,"pt":6359452.0,"pp":38.2},{"n":"Iguape","ei":0,"ai":1521,"af":0,"tm":2735,"tr":20862735.0,"pt":10691016.0,"pp":47.4},{"n":"Ilha Comprida","ei":474,"ai":671,"af":559,"tm":2551,"tr":20925712.0,"pt":6627736.0,"pp":30.3},{"n":"Ilha Solteira","ei":1056,"ai":0,"af":0,"tm":1966,"tr":18854057.0,"pt":3751057.0,"pp":19.2},{"n":"Ilhabela","ei":2356,"ai":564,"af":1499,"tm":6684,"tr":59536477.0,"pt":14038223.0,"pp":22.6},{"n":"Indaiatuba","ei":3937,"ai":9836,"af":0,"tm":26329,"tr":218018596.0,"pt":77082198.0,"pp":34.5},{"n":"Indiana","ei":0,"ai":262,"af":0,"tm":482,"tr":3731529.0,"pt":2376611.0,"pp":62.9},{"n":"Indiaporã","ei":188,"ai":0,"af":0,"tm":359,"tr":3515180.0,"pt":1344059.0,"pp":37.7},{"n":"Inúbia Paulista","ei":0,"ai":182,"af":0,"tm":334,"tr":2568408.0,"pt":2023915.0,"pp":74.3},{"n":"Ipaussu","ei":0,"ai":728,"af":654,"tm":2110,"tr":16074202.0,"pt":7986935.0,"pp":48.0},{"n":"Iperó","ei":0,"ai":2268,"af":1884,"tm":6134,"tr":46493856.0,"pt":22846887.0,"pp":46.4},{"n":"Ipeúna","ei":223,"ai":203,"af":0,"tm":795,"tr":6811396.0,"pt":2575660.0,"pp":36.5},{"n":"Ipiguá","ei":0,"ai":439,"af":0,"tm":734,"tr":5612980.0,"pt":3188458.0,"pp":56.1},{"n":"Iporanga","ei":29,"ai":183,"af":66,"tm":435,"tr":2936103.0,"pt":1923340.0,"pp":53.3},{"n":"Ipuã","ei":211,"ai":487,"af":585,"tm":1988,"tr":16325193.0,"pt":4505528.0,"pp":26.4},{"n":"Iracemápolis","ei":129,"ai":1191,"af":0,"tm":2270,"tr":17944868.0,"pt":7699689.0,"pp":41.0},{"n":"Irapuru","ei":0,"ai":286,"af":0,"tm":505,"tr":3791335.0,"pt":2713354.0,"pp":70.6},{"n":"Irapuã","ei":109,"ai":329,"af":0,"tm":807,"tr":6526090.0,"pt":2342550.0,"pp":34.1},{"n":"Itaberá","ei":0,"ai":0,"af":0,"tm":1087,"tr":10664123.0,"pt":1887376.0,"pp":16.8},{"n":"Itajobi","ei":321,"ai":478,"af":688,"tm":2355,"tr":19527990.0,"pt":6981742.0,"pp":34.6},{"n":"Itaju","ei":0,"ai":246,"af":0,"tm":462,"tr":3760942.0,"pt":2214736.0,"pp":57.4},{"n":"Itanhaém","ei":259,"ai":7127,"af":5276,"tm":18345,"tr":137792201.0,"pt":68225185.0,"pp":47.2},{"n":"Itapecerica da Serra","ei":1,"ai":10033,"af":0,"tm":16376,"tr":119189626.0,"pt":63211669.0,"pp":50.4},{"n":"Itapetininga","ei":1212,"ai":6292,"af":0,"tm":14843,"tr":123052353.0,"pt":45938495.0,"pp":36.1},{"n":"Itapeva","ei":561,"ai":4980,"af":3961,"tm":14710,"tr":113113048.0,"pt":53854303.0,"pp":44.6},{"n":"Itapevi","ei":6220,"ai":11628,"af":0,"tm":29069,"tr":231203134.0,"pt":94238458.0,"pp":39.6},{"n":"Itapira","ei":584,"ai":2185,"af":0,"tm":5588,"tr":45232251.0,"pt":18079348.0,"pp":39.4},{"n":"Itapirapuã Paulista","ei":42,"ai":282,"af":0,"tm":546,"tr":4184799.0,"pt":2278038.0,"pp":51.7},{"n":"Itaporanga","ei":0,"ai":731,"af":0,"tm":1359,"tr":10640135.0,"pt":5845079.0,"pp":52.4},{"n":"Itapura","ei":35,"ai":200,"af":0,"tm":434,"tr":3627276.0,"pt":1697606.0,"pp":44.4},{"n":"Itapuí","ei":606,"ai":214,"af":0,"tm":1755,"tr":16375195.0,"pt":3652024.0,"pp":22.0},{"n":"Itaquaquecetuba","ei":4062,"ai":19709,"af":0,"tm":41982,"tr":319841156.0,"pt":119272783.0,"pp":34.6},{"n":"Itararé","ei":124,"ai":2494,"af":283,"tm":5050,"tr":39003903.0,"pt":19320566.0,"pp":45.7},{"n":"Itariri","ei":268,"ai":531,"af":0,"tm":1402,"tr":11606351.0,"pt":5420540.0,"pp":42.5},{"n":"Itatiba","ei":479,"ai":5115,"af":4617,"tm":16092,"tr":124869079.0,"pt":56416751.0,"pp":44.9},{"n":"Itatinga","ei":125,"ai":1008,"af":458,"tm":2569,"tr":19888267.0,"pt":9115699.0,"pp":44.6},{"n":"Itaí","ei":35,"ai":1479,"af":0,"tm":2753,"tr":20930614.0,"pt":10179994.0,"pp":46.0},{"n":"Itaóca","ei":158,"ai":0,"af":0,"tm":350,"tr":3426500.0,"pt":1035468.0,"pp":26.3},{"n":"Itirapina","ei":238,"ai":642,"af":400,"tm":2024,"tr":16118321.0,"pt":6832581.0,"pp":40.0},{"n":"Itirapuã","ei":0,"ai":361,"af":0,"tm":672,"tr":5227016.0,"pt":2969797.0,"pp":55.2},{"n":"Itobi","ei":0,"ai":57,"af":0,"tm":341,"tr":2910252.0,"pt":1771885.0,"pp":57.0},{"n":"Itu","ei":3150,"ai":5587,"af":0,"tm":16699,"tr":141399901.0,"pt":32324441.0,"pp":22.5},{"n":"Itupeva","ei":377,"ai":3690,"af":0,"tm":7192,"tr":54330524.0,"pt":27112462.0,"pp":49.6},{"n":"Ituverava","ei":262,"ai":1250,"af":1210,"tm":4548,"tr":35980263.0,"pt":12275446.0,"pp":33.5},{"n":"Itápolis","ei":292,"ai":1128,"af":188,"tm":3446,"tr":28366219.0,"pt":8775806.0,"pp":30.3},{"n":"Jaborandi","ei":658,"ai":0,"af":1,"tm":932,"tr":9167377.0,"pt":1279718.0,"pp":13.2},{"n":"Jaboticabal","ei":604,"ai":1892,"af":699,"tm":5981,"tr":50242036.0,"pt":17311866.0,"pp":34.0},{"n":"Jacareí","ei":1898,"ai":9526,"af":0,"tm":20897,"tr":162643126.0,"pt":74603801.0,"pp":43.2},{"n":"Jaci","ei":48,"ai":468,"af":0,"tm":942,"tr":7533322.0,"pt":2707886.0,"pp":35.5},{"n":"Jacupiranga","ei":79,"ai":971,"af":0,"tm":1807,"tr":14009818.0,"pt":7436956.0,"pp":50.5},{"n":"Jaguariúna","ei":97,"ai":2956,"af":2446,"tm":8591,"tr":66716516.0,"pt":31359568.0,"pp":47.0},{"n":"Jales","ei":47,"ai":1978,"af":0,"tm":4033,"tr":31928786.0,"pt":14418590.0,"pp":42.7},{"n":"Jambeiro","ei":0,"ai":421,"af":324,"tm":1082,"tr":8278794.0,"pt":4374189.0,"pp":51.0},{"n":"Jandira","ei":676,"ai":4533,"af":0,"tm":10355,"tr":83364598.0,"pt":31589470.0,"pp":36.4},{"n":"Jardinópolis","ei":345,"ai":1962,"af":1787,"tm":6346,"tr":48988324.0,"pt":22351514.0,"pp":43.4},{"n":"Jarinu","ei":498,"ai":2147,"af":0,"tm":4741,"tr":38071200.0,"pt":16562029.0,"pp":41.0},{"n":"Jaú","ei":506,"ai":5053,"af":451,"tm":10771,"tr":84036260.0,"pt":36628256.0,"pp":42.7},{"n":"Jeriquara","ei":88,"ai":260,"af":142,"tm":715,"tr":5756777.0,"pt":2231308.0,"pp":37.7},{"n":"Joanópolis","ei":73,"ai":682,"af":653,"tm":1959,"tr":14780684.0,"pt":7496327.0,"pp":49.1},{"n":"José Bonifácio","ei":263,"ai":645,"af":584,"tm":3088,"tr":25504008.0,"pt":9934500.0,"pp":37.9},{"n":"João Ramalho","ei":39,"ai":264,"af":0,"tm":516,"tr":4047228.0,"pt":2215722.0,"pp":53.6},{"n":"Jumirim","ei":28,"ai":185,"af":174,"tm":574,"tr":5229712.0,"pt":2182262.0,"pp":40.5},{"n":"Jundiaí","ei":2389,"ai":16343,"af":0,"tm":33203,"tr":253195639.0,"pt":100100442.0,"pp":38.2},{"n":"Junqueirópolis","ei":1045,"ai":0,"af":0,"tm":1993,"tr":19710955.0,"pt":1653962.0,"pp":8.3},{"n":"Juquitiba","ei":61,"ai":1031,"af":78,"tm":2444,"tr":19280104.0,"pt":8362917.0,"pp":41.2},{"n":"Juquiá","ei":208,"ai":948,"af":0,"tm":2028,"tr":16341827.0,"pt":7357947.0,"pp":43.7},{"n":"Júlio Mesquita","ei":18,"ai":269,"af":0,"tm":575,"tr":4549210.0,"pt":2301139.0,"pp":49.7},{"n":"Lagoinha","ei":26,"ai":263,"af":0,"tm":487,"tr":3840684.0,"pt":2525697.0,"pp":63.5},{"n":"Laranjal Paulista","ei":39,"ai":1451,"af":945,"tm":3930,"tr":30250432.0,"pt":14288946.0,"pp":45.1},{"n":"Lavrinhas","ei":0,"ai":425,"af":339,"tm":1055,"tr":7647379.0,"pt":4775614.0,"pp":61.2},{"n":"Lavínia","ei":0,"ai":236,"af":205,"tm":614,"tr":4549864.0,"pt":2798692.0,"pp":59.2},{"n":"Leme","ei":1374,"ai":3779,"af":0,"tm":10160,"tr":82379933.0,"pt":33790423.0,"pp":38.4},{"n":"Lençóis Paulista","ei":1268,"ai":2824,"af":736,"tm":8283,"tr":67869505.0,"pt":25680280.0,"pp":36.1},{"n":"Limeira","ei":3909,"ai":8665,"af":0,"tm":23003,"tr":194219512.0,"pt":63030474.0,"pp":31.4},{"n":"Lindóia","ei":162,"ai":216,"af":307,"tm":1046,"tr":8527808.0,"pt":3332980.0,"pp":37.9},{"n":"Lins","ei":62,"ai":851,"af":313,"tm":4586,"tr":38674412.0,"pt":13643349.0,"pp":34.4},{"n":"Lorena","ei":367,"ai":3562,"af":1161,"tm":8155,"tr":62099738.0,"pt":29716251.0,"pp":46.4},{"n":"Lourdes","ei":126,"ai":0,"af":0,"tm":253,"tr":2375916.0,"pt":1014838.0,"pp":42.0},{"n":"Louveira","ei":1792,"ai":1721,"af":0,"tm":6415,"tr":56198021.0,"pt":15553879.0,"pp":27.5},{"n":"Lucianópolis","ei":0,"ai":128,"af":0,"tm":239,"tr":1749746.0,"pt":1531696.0,"pp":86.5},{"n":"Lucélia","ei":212,"ai":654,"af":320,"tm":2101,"tr":17214119.0,"pt":5037311.0,"pp":28.5},{"n":"Luiziânia","ei":224,"ai":126,"af":0,"tm":632,"tr":5574743.0,"pt":2158099.0,"pp":36.8},{"n":"Lupércio","ei":0,"ai":241,"af":0,"tm":466,"tr":3640348.0,"pt":1853625.0,"pp":50.2},{"n":"Lutécia","ei":0,"ai":162,"af":0,"tm":321,"tr":2485725.0,"pt":1559283.0,"pp":61.8},{"n":"Luís Antônio","ei":0,"ai":778,"af":627,"tm":2147,"tr":16833057.0,"pt":7713615.0,"pp":44.4},{"n":"Macatuba","ei":250,"ai":728,"af":0,"tm":1973,"tr":16086947.0,"pt":6377927.0,"pp":38.2},{"n":"Macaubal","ei":0,"ai":322,"af":0,"tm":589,"tr":4482540.0,"pt":2664848.0,"pp":57.0},{"n":"Macedônia","ei":214,"ai":0,"af":0,"tm":354,"tr":3491322.0,"pt":1086287.0,"pp":30.1},{"n":"Magda","ei":176,"ai":0,"af":0,"tm":292,"tr":2883127.0,"pt":1272390.0,"pp":42.0},{"n":"Mairinque","ei":109,"ai":2747,"af":2510,"tm":7734,"tr":59891525.0,"pt":27485755.0,"pp":44.1},{"n":"Mairiporã","ei":230,"ai":4723,"af":0,"tm":8634,"tr":66407582.0,"pt":31231514.0,"pp":45.2},{"n":"Manduri","ei":0,"ai":516,"af":0,"tm":943,"tr":7153910.0,"pt":4094224.0,"pp":55.2},{"n":"Maraba Paulista","ei":0,"ai":186,"af":25,"tm":344,"tr":2583932.0,"pt":1727164.0,"pp":65.4},{"n":"Maracaí","ei":18,"ai":643,"af":0,"tm":1236,"tr":9593865.0,"pt":4045800.0,"pp":40.7},{"n":"Marapoama","ei":183,"ai":0,"af":0,"tm":339,"tr":3250463.0,"pt":1188884.0,"pp":36.1},{"n":"Marinópolis","ei":93,"ai":0,"af":0,"tm":188,"tr":1862169.0,"pt":1029267.0,"pp":52.7},{"n":"Mariápolis","ei":19,"ai":131,"af":0,"tm":310,"tr":2630829.0,"pt":1409779.0,"pp":49.4},{"n":"Martinópolis","ei":0,"ai":1093,"af":99,"tm":2251,"tr":17460992.0,"pt":8420115.0,"pp":46.4},{"n":"Marília","ei":2403,"ai":5969,"af":0,"tm":18711,"tr":156644722.0,"pt":54364840.0,"pp":34.0},{"n":"Matão","ei":217,"ai":1117,"af":1342,"tm":5887,"tr":48378004.0,"pt":18619002.0,"pp":37.2},{"n":"Mauá","ei":0,"ai":673,"af":337,"tm":16635,"tr":142879506.0,"pt":45504263.0,"pp":30.3},{"n":"Mendonça","ei":428,"ai":0,"af":0,"tm":773,"tr":7614371.0,"pt":1174379.0,"pp":15.1},{"n":"Meridiano","ei":271,"ai":0,"af":0,"tm":510,"tr":5028969.0,"pt":1363757.0,"pp":26.6},{"n":"Mesópolis","ei":28,"ai":98,"af":0,"tm":246,"tr":2065119.0,"pt":1317629.0,"pp":60.5},{"n":"Miguelópolis","ei":171,"ai":792,"af":793,"tm":2666,"tr":20393663.0,"pt":7828776.0,"pp":37.1},{"n":"Mineiros do Tietê","ei":278,"ai":305,"af":0,"tm":1073,"tr":9057895.0,"pt":2848499.0,"pp":30.2},{"n":"Mira Estrela","ei":60,"ai":108,"af":0,"tm":310,"tr":2707630.0,"pt":1502571.0,"pp":55.0},{"n":"Miracatu","ei":532,"ai":828,"af":0,"tm":2358,"tr":20670015.0,"pt":7504235.0,"pp":34.4},{"n":"Mirandópolis","ei":250,"ai":667,"af":0,"tm":1652,"tr":13736849.0,"pt":6184369.0,"pp":43.7},{"n":"Mirante do Paranapanema","ei":183,"ai":375,"af":0,"tm":1148,"tr":10081827.0,"pt":3258139.0,"pp":31.4},{"n":"Mirassol","ei":677,"ai":2170,"af":0,"tm":5181,"tr":41923976.0,"pt":13764561.0,"pp":32.2},{"n":"Mirassolândia","ei":0,"ai":283,"af":0,"tm":558,"tr":4586793.0,"pt":2073032.0,"pp":44.6},{"n":"Mococa","ei":0,"ai":1561,"af":387,"tm":4538,"tr":35129345.0,"pt":16226232.0,"pp":44.9},{"n":"Mogi Guaçu","ei":765,"ai":6646,"af":3173,"tm":16831,"tr":130706072.0,"pt":57440848.0,"pp":43.3},{"n":"Mogi Mirim","ei":729,"ai":3119,"af":1059,"tm":8484,"tr":67801905.0,"pt":28132994.0,"pp":40.5},{"n":"Mogi das Cruzes","ei":11633,"ai":13608,"af":0,"tm":47727,"tr":404380067.0,"pt":123065088.0,"pp":29.8},{"n":"Mombuca","ei":110,"ai":231,"af":241,"tm":873,"tr":6934604.0,"pt":3176244.0,"pp":45.2},{"n":"Moncoes","ei":121,"ai":0,"af":0,"tm":195,"tr":1928185.0,"pt":1031578.0,"pp":52.9},{"n":"Mongaguá","ei":59,"ai":3802,"af":3345,"tm":10176,"tr":75062617.0,"pt":40196371.0,"pp":50.9},{"n":"Monte Alegre do Sul","ei":23,"ai":367,"af":373,"tm":1062,"tr":7970840.0,"pt":4221714.0,"pp":53.0},{"n":"Monte Alto","ei":689,"ai":1185,"af":752,"tm":4546,"tr":37429670.0,"pt":10079340.0,"pp":26.5},{"n":"Monte Aprazível","ei":182,"ai":849,"af":518,"tm":2572,"tr":20946857.0,"pt":7419048.0,"pp":34.2},{"n":"Monte Azul Paulista","ei":426,"ai":464,"af":339,"tm":2018,"tr":17084702.0,"pt":5821248.0,"pp":32.5},{"n":"Monte Castelo","ei":0,"ai":221,"af":0,"tm":422,"tr":3161570.0,"pt":1983607.0,"pp":60.9},{"n":"Monte Mor","ei":1256,"ai":3325,"af":2438,"tm":10661,"tr":82437108.0,"pt":35777495.0,"pp":42.5},{"n":"Monteiro Lobato","ei":0,"ai":285,"af":0,"tm":507,"tr":4091544.0,"pt":2590283.0,"pp":60.0},{"n":"Morro Agudo","ei":64,"ai":1554,"af":834,"tm":3991,"tr":30103547.0,"pt":15269375.0,"pp":48.9},{"n":"Morungaba","ei":0,"ai":689,"af":634,"tm":2035,"tr":15461431.0,"pt":8483812.0,"pp":53.9},{"n":"Motuca","ei":42,"ai":211,"af":193,"tm":613,"tr":4676454.0,"pt":2626811.0,"pp":53.0},{"n":"Murutinga do Sul","ei":186,"ai":0,"af":0,"tm":318,"tr":3141635.0,"pt":1299904.0,"pp":38.5},{"n":"Nantes","ei":0,"ai":176,"af":0,"tm":319,"tr":2373629.0,"pt":1968862.0,"pp":81.7},{"n":"Narandiba","ei":117,"ai":312,"af":364,"tm":1211,"tr":9682104.0,"pt":4454988.0,"pp":43.5},{"n":"Natividade da Serra","ei":185,"ai":221,"af":37,"tm":621,"tr":5208045.0,"pt":2563403.0,"pp":48.0},{"n":"Nazaré Paulista","ei":69,"ai":780,"af":0,"tm":1755,"tr":14488727.0,"pt":5952484.0,"pp":39.3},{"n":"Neves Paulista","ei":0,"ai":418,"af":0,"tm":790,"tr":6330330.0,"pt":3200721.0,"pp":49.0},{"n":"Nhandeara","ei":71,"ai":300,"af":0,"tm":683,"tr":5931915.0,"pt":2298137.0,"pp":38.3},{"n":"Nipoã","ei":0,"ai":359,"af":0,"tm":643,"tr":4901839.0,"pt":2600421.0,"pp":49.8},{"n":"Nova Aliança","ei":241,"ai":228,"af":0,"tm":833,"tr":7468940.0,"pt":2551802.0,"pp":33.5},{"n":"Nova Campina","ei":0,"ai":587,"af":406,"tm":1542,"tr":12032186.0,"pt":5457146.0,"pp":42.4},{"n":"Nova Canaã Paulista","ei":96,"ai":0,"af":0,"tm":168,"tr":1661507.0,"pt":1022244.0,"pp":61.1},{"n":"Nova Castilho","ei":76,"ai":0,"af":0,"tm":132,"tr":1304957.0,"pt":1009765.0,"pp":76.4},{"n":"Nova Europa","ei":82,"ai":411,"af":456,"tm":1475,"tr":11724020.0,"pt":5292087.0,"pp":44.3},{"n":"Nova Granada","ei":0,"ai":971,"af":0,"tm":1772,"tr":13630962.0,"pt":6590073.0,"pp":46.5},{"n":"Nova Guataporanga","ei":0,"ai":111,"af":0,"tm":228,"tr":1807592.0,"pt":1550745.0,"pp":82.2},{"n":"Nova Independência","ei":384,"ai":0,"af":166,"tm":821,"tr":7357824.0,"pt":2325657.0,"pp":30.6},{"n":"Nova Luzitânia","ei":172,"ai":0,"af":0,"tm":288,"tr":2843256.0,"pt":1063605.0,"pp":36.5},{"n":"Nova Odessa","ei":1021,"ai":1879,"af":0,"tm":5209,"tr":42323012.0,"pt":16845470.0,"pp":39.2},{"n":"Novais","ei":46,"ai":281,"af":245,"tm":844,"tr":6569556.0,"pt":3358239.0,"pp":48.9},{"n":"Novo Horizonte","ei":488,"ai":1419,"af":1377,"tm":4741,"tr":37239139.0,"pt":16418814.0,"pp":42.2},{"n":"Nuporanga","ei":193,"ai":229,"af":332,"tm":1134,"tr":9412812.0,"pt":3772875.0,"pp":38.6},{"n":"Ocauçu","ei":100,"ai":156,"af":0,"tm":524,"tr":4430577.0,"pt":1529307.0,"pp":33.6},{"n":"Olímpia","ei":864,"ai":2167,"af":0,"tm":6001,"tr":49588675.0,"pt":18069803.0,"pp":34.3},{"n":"Onda Verde","ei":0,"ai":318,"af":0,"tm":583,"tr":4553132.0,"pt":2148655.0,"pp":46.2},{"n":"Oriente","ei":295,"ai":0,"af":0,"tm":550,"tr":5287149.0,"pt":1057306.0,"pp":19.7},{"n":"Orindiúva","ei":719,"ai":0,"af":0,"tm":1032,"tr":10170687.0,"pt":1320062.0,"pp":12.5},{"n":"Orlândia","ei":1168,"ai":1143,"af":913,"tm":5264,"tr":44449898.0,"pt":14133695.0,"pp":31.1},{"n":"Osasco","ei":1739,"ai":35647,"af":0,"tm":67997,"tr":520060592.0,"pt":233296497.0,"pp":43.7},{"n":"Oscar Bressane","ei":0,"ai":130,"af":95,"tm":330,"tr":2490627.0,"pt":2018026.0,"pp":75.3},{"n":"Osvaldo Cruz","ei":1082,"ai":0,"af":0,"tm":1920,"tr":18585091.0,"pt":3804401.0,"pp":20.2},{"n":"Ourinhos","ei":151,"ai":4287,"af":1481,"tm":10116,"tr":76665952.0,"pt":37994400.0,"pp":48.4},{"n":"Ouro Verde","ei":22,"ai":426,"af":424,"tm":1322,"tr":9812829.0,"pt":4294592.0,"pp":40.9},{"n":"Ouroeste","ei":681,"ai":0,"af":0,"tm":1142,"tr":11232823.0,"pt":2102967.0,"pp":18.3},{"n":"Pacaembu","ei":84,"ai":322,"af":0,"tm":788,"tr":6257778.0,"pt":3258203.0,"pp":50.4},{"n":"Palestina","ei":0,"ai":592,"af":522,"tm":1695,"tr":12779293.0,"pt":5680495.0,"pp":42.8},{"n":"Palmares Paulista","ei":0,"ai":591,"af":0,"tm":1050,"tr":8103934.0,"pt":3468407.0,"pp":41.0},{"n":"Palmeira DOeste","ei":34,"ai":308,"af":0,"tm":618,"tr":4893669.0,"pt":2242604.0,"pp":43.9},{"n":"Palmital","ei":340,"ai":578,"af":0,"tm":1825,"tr":15949033.0,"pt":3928279.0,"pp":23.9},{"n":"Panorama","ei":0,"ai":851,"af":0,"tm":1488,"tr":11322369.0,"pt":6224228.0,"pp":51.9},{"n":"Paraguaçu Paulista","ei":0,"ai":2245,"af":1336,"tm":5746,"tr":43097881.0,"pt":21782612.0,"pp":47.9},{"n":"Paraibuna","ei":0,"ai":986,"af":0,"tm":1641,"tr":12760779.0,"pt":6495987.0,"pp":50.1},{"n":"Paranapanema","ei":45,"ai":1172,"af":954,"tm":3266,"tr":26485732.0,"pt":9572554.0,"pp":34.7},{"n":"Paranapuã","ei":0,"ai":239,"af":0,"tm":495,"tr":4106708.0,"pt":2264001.0,"pp":53.1},{"n":"Parapuã","ei":197,"ai":295,"af":0,"tm":881,"tr":7512079.0,"pt":2785015.0,"pp":36.0},{"n":"Paraíso","ei":118,"ai":187,"af":247,"tm":855,"tr":6900289.0,"pt":3161278.0,"pp":44.4},{"n":"Pardinho","ei":48,"ai":522,"af":374,"tm":1268,"tr":9488959.0,"pt":4935792.0,"pp":51.6},{"n":"Pariquera-Açu","ei":230,"ai":902,"af":0,"tm":1724,"tr":13935583.0,"pt":5456500.0,"pp":37.6},{"n":"Parisi","ei":186,"ai":0,"af":0,"tm":328,"tr":3240658.0,"pt":1077514.0,"pp":32.2},{"n":"Patrocínio Paulista","ei":64,"ai":892,"af":0,"tm":1719,"tr":13255783.0,"pt":6834084.0,"pp":49.8},{"n":"Paulicéia","ei":0,"ai":568,"af":0,"tm":1022,"tr":7725160.0,"pt":3673459.0,"pp":46.0},{"n":"Paulistânia","ei":0,"ai":132,"af":0,"tm":273,"tr":2154338.0,"pt":1572292.0,"pp":67.3},{"n":"Paulo de Faria","ei":5,"ai":309,"af":306,"tm":984,"tr":7651300.0,"pt":3764825.0,"pp":47.5},{"n":"Paulínia","ei":0,"ai":5736,"af":2604,"tm":13714,"tr":107325731.0,"pt":46772811.0,"pp":42.4},{"n":"Pederneiras","ei":618,"ai":1629,"af":0,"tm":4351,"tr":36320931.0,"pt":13009955.0,"pp":34.5},{"n":"Pedra Bela","ei":151,"ai":172,"af":270,"tm":850,"tr":7619894.0,"pt":2949675.0,"pp":37.2},{"n":"Pedranópolis","ei":82,"ai":58,"af":0,"tm":245,"tr":2229505.0,"pt":1340321.0,"pp":59.7},{"n":"Pedregulho","ei":0,"ai":1029,"af":0,"tm":1728,"tr":12987913.0,"pt":5619826.0,"pp":41.5},{"n":"Pedreira","ei":737,"ai":1324,"af":0,"tm":4241,"tr":36667220.0,"pt":11040509.0,"pp":29.6},{"n":"Pedrinhas Paulista","ei":159,"ai":0,"af":0,"tm":316,"tr":3099476.0,"pt":886290.0,"pp":28.7},{"n":"Pedro de Toledo","ei":133,"ai":477,"af":0,"tm":1107,"tr":9020394.0,"pt":4205465.0,"pp":44.1},{"n":"Penápolis","ei":1431,"ai":782,"af":0,"tm":5298,"tr":48701710.0,"pt":7284498.0,"pp":14.4},{"n":"Pereira Barreto","ei":341,"ai":853,"af":0,"tm":2334,"tr":20185910.0,"pt":5166956.0,"pp":24.7},{"n":"Pereiras","ei":142,"ai":385,"af":0,"tm":911,"tr":7442141.0,"pt":3355314.0,"pp":44.0},{"n":"Peruíbe","ei":373,"ai":3916,"af":261,"tm":7995,"tr":61538963.0,"pt":29056693.0,"pp":44.1},{"n":"Piacatu","ei":199,"ai":97,"af":0,"tm":534,"tr":4840725.0,"pt":1580106.0,"pp":31.7},{"n":"Piedade","ei":147,"ai":2944,"af":0,"tm":5196,"tr":42117415.0,"pt":18638153.0,"pp":42.6},{"n":"Pilar do Sul","ei":558,"ai":1156,"af":0,"tm":3232,"tr":27063550.0,"pt":10552390.0,"pp":37.5},{"n":"Pindamonhangaba","ei":195,"ai":8420,"af":0,"tm":15101,"tr":111918652.0,"pt":58151449.0,"pp":49.6},{"n":"Pindorama","ei":0,"ai":644,"af":473,"tm":1721,"tr":13439451.0,"pt":6512833.0,"pp":46.6},{"n":"Pinhalzinho","ei":180,"ai":624,"af":695,"tm":2279,"tr":18067520.0,"pt":8201293.0,"pp":44.1},{"n":"Piquerobi","ei":0,"ai":169,"af":0,"tm":327,"tr":2669720.0,"pt":1920524.0,"pp":67.4},{"n":"Piquete","ei":236,"ai":317,"af":0,"tm":917,"tr":7405539.0,"pt":2678574.0,"pp":35.0},{"n":"Piracaia","ei":495,"ai":1212,"af":150,"tm":3290,"tr":27589634.0,"pt":10225470.0,"pp":35.9},{"n":"Piracicaba","ei":1457,"ai":15527,"af":0,"tm":35912,"tr":289646314.0,"pt":114447315.0,"pp":38.9},{"n":"Piraju","ei":88,"ai":1401,"af":0,"tm":3045,"tr":25116737.0,"pt":10214598.0,"pp":39.9},{"n":"Pirajuí","ei":0,"ai":855,"af":0,"tm":1703,"tr":13549586.0,"pt":4675382.0,"pp":32.8},{"n":"Pirangi","ei":0,"ai":517,"af":0,"tm":910,"tr":6856823.0,"pt":3297303.0,"pp":46.7},{"n":"Pirapora do Bom Jesus","ei":66,"ai":1271,"af":1033,"tm":3627,"tr":28562959.0,"pt":9515659.0,"pp":32.4},{"n":"Pirapozinho","ei":87,"ai":1204,"af":0,"tm":2423,"tr":18922033.0,"pt":7757666.0,"pp":40.0},{"n":"Pirassununga","ei":1102,"ai":1473,"af":0,"tm":5143,"tr":44889623.0,"pt":14737299.0,"pp":31.7},{"n":"Piratininga","ei":159,"ai":458,"af":0,"tm":1166,"tr":9759689.0,"pt":3643155.0,"pp":35.0},{"n":"Pitangueiras","ei":251,"ai":1581,"af":379,"tm":3844,"tr":30028053.0,"pt":10925887.0,"pp":34.8},{"n":"Planalto","ei":0,"ai":255,"af":0,"tm":443,"tr":3353081.0,"pt":2119318.0,"pp":61.7},{"n":"Platina","ei":73,"ai":122,"af":0,"tm":382,"tr":3297524.0,"pt":1115454.0,"pp":33.2},{"n":"Poloni","ei":35,"ai":33,"af":0,"tm":311,"tr":2826916.0,"pt":1178030.0,"pp":40.9},{"n":"Pompéia","ei":477,"ai":570,"af":0,"tm":1953,"tr":16858221.0,"pt":5665845.0,"pp":32.1},{"n":"Pongaí","ei":0,"ai":178,"af":0,"tm":347,"tr":2510563.0,"pt":2174922.0,"pp":85.5},{"n":"Pontal","ei":0,"ai":2226,"af":526,"tm":4630,"tr":34354705.0,"pt":17570443.0,"pp":48.9},{"n":"Pontalinda","ei":0,"ai":240,"af":0,"tm":490,"tr":4050823.0,"pt":2344119.0,"pp":54.6},{"n":"Pontes Gestal","ei":142,"ai":0,"af":0,"tm":277,"tr":2739657.0,"pt":1059979.0,"pp":37.2},{"n":"Populina","ei":217,"ai":0,"af":0,"tm":363,"tr":3582830.0,"pt":1347307.0,"pp":36.5},{"n":"Porangaba","ei":276,"ai":198,"af":0,"tm":898,"tr":8703730.0,"pt":2536000.0,"pp":26.5},{"n":"Porto Feliz","ei":499,"ai":2643,"af":1977,"tm":7772,"tr":60811547.0,"pt":27491717.0,"pp":44.0},{"n":"Porto Ferreira","ei":746,"ai":1957,"af":0,"tm":4990,"tr":40633726.0,"pt":17161867.0,"pp":39.9},{"n":"Potim","ei":248,"ai":866,"af":799,"tm":2829,"tr":21874444.0,"pt":9888565.0,"pp":42.5},{"n":"Potirendaba","ei":251,"ai":776,"af":771,"tm":2730,"tr":21784571.0,"pt":9250373.0,"pp":40.9},{"n":"Poá","ei":0,"ai":6560,"af":2177,"tm":13482,"tr":100033923.0,"pt":51364161.0,"pp":48.6},{"n":"Pracinha","ei":0,"ai":84,"af":0,"tm":157,"tr":1280119.0,"pt":1427605.0,"pp":110.0},{"n":"Pradópolis","ei":485,"ai":588,"af":605,"tm":2564,"tr":21057090.0,"pt":5948646.0,"pp":27.1},{"n":"Praia Grande","ei":1708,"ai":19789,"af":13549,"tm":53875,"tr":415268023.0,"pt":192020264.0,"pp":44.5},{"n":"Pratânia","ei":424,"ai":0,"af":0,"tm":720,"tr":7103238.0,"pt":1724075.0,"pp":23.8},{"n":"Presidente Alves","ei":0,"ai":0,"af":0,"tm":149,"tr":1353325.0,"pt":1188201.0,"pp":87.0},{"n":"Presidente Bernardes","ei":576,"ai":66,"af":108,"tm":1161,"tr":10791334.0,"pt":2761080.0,"pp":25.1},{"n":"Presidente Epitácio","ei":414,"ai":524,"af":0,"tm":2701,"tr":23219713.0,"pt":6194272.0,"pp":25.2},{"n":"Presidente Prudente","ei":2110,"ai":7148,"af":0,"tm":18569,"tr":150769051.0,"pt":59637270.0,"pp":37.4},{"n":"Presidente Venceslau","ei":218,"ai":1097,"af":0,"tm":2558,"tr":20785657.0,"pt":8830616.0,"pp":41.2},{"n":"Promissão","ei":44,"ai":1048,"af":0,"tm":2530,"tr":20081494.0,"pt":9112928.0,"pp":43.2},{"n":"Quadra","ei":0,"ai":308,"af":274,"tm":783,"tr":6603381.0,"pt":3444148.0,"pp":50.6},{"n":"Quatá","ei":40,"ai":618,"af":0,"tm":1317,"tr":10571357.0,"pt":4919579.0,"pp":44.9},{"n":"Queiroz","ei":48,"ai":181,"af":0,"tm":482,"tr":3897222.0,"pt":1996447.0,"pp":50.4},{"n":"Queluz","ei":0,"ai":513,"af":420,"tm":1377,"tr":10139640.0,"pt":5915119.0,"pp":56.1},{"n":"Quintana","ei":379,"ai":0,"af":0,"tm":830,"tr":8067331.0,"pt":1675809.0,"pp":20.4},{"n":"Rafard","ei":144,"ai":499,"af":0,"tm":1137,"tr":9404593.0,"pt":4069290.0,"pp":43.0},{"n":"Rancharia","ei":0,"ai":1657,"af":33,"tm":3094,"tr":24328403.0,"pt":10816037.0,"pp":42.8},{"n":"Redenção da Serra","ei":90,"ai":138,"af":0,"tm":341,"tr":3057023.0,"pt":1894549.0,"pp":57.8},{"n":"Regente Feijó","ei":130,"ai":784,"af":0,"tm":1853,"tr":15206518.0,"pt":6221350.0,"pp":40.5},{"n":"Reginópolis","ei":0,"ai":330,"af":0,"tm":600,"tr":4837784.0,"pt":2753069.0,"pp":54.2},{"n":"Registro","ei":226,"ai":2608,"af":0,"tm":5620,"tr":44323553.0,"pt":20543437.0,"pp":43.5},{"n":"Restinga","ei":95,"ai":437,"af":405,"tm":1298,"tr":10004847.0,"pt":5111597.0,"pp":49.7},{"n":"Ribeira","ei":0,"ai":205,"af":0,"tm":371,"tr":3155769.0,"pt":1592060.0,"pp":49.5},{"n":"Ribeirão Bonito","ei":0,"ai":612,"af":533,"tm":1697,"tr":12797921.0,"pt":6664848.0,"pp":49.0},{"n":"Ribeirão Branco","ei":0,"ai":1406,"af":0,"tm":2414,"tr":18870168.0,"pt":7939470.0,"pp":39.2},{"n":"Ribeirão Corrente","ei":102,"ai":236,"af":280,"tm":921,"tr":7375799.0,"pt":2771654.0,"pp":35.5},{"n":"Ribeirão Grande","ei":0,"ai":470,"af":0,"tm":771,"tr":6386346.0,"pt":3410081.0,"pp":49.6},{"n":"Ribeirão Pires","ei":0,"ai":2034,"af":890,"tm":7548,"tr":61443746.0,"pt":27905044.0,"pp":44.2},{"n":"Ribeirão Preto","ei":0,"ai":13093,"af":9478,"tm":47542,"tr":375176395.0,"pt":150694893.0,"pp":39.9},{"n":"Ribeirão do Sul","ei":0,"ai":245,"af":0,"tm":474,"tr":3598190.0,"pt":2229983.0,"pp":60.1},{"n":"Ribeirão dos Índios","ei":15,"ai":57,"af":0,"tm":147,"tr":1268680.0,"pt":1129415.0,"pp":86.0},{"n":"Rifaina","ei":63,"ai":173,"af":0,"tm":476,"tr":4023371.0,"pt":1600680.0,"pp":38.3},{"n":"Rincão","ei":62,"ai":433,"af":57,"tm":1011,"tr":8174835.0,"pt":3122828.0,"pp":36.6},{"n":"Rinópolis","ei":0,"ai":86,"af":0,"tm":462,"tr":3948531.0,"pt":1934361.0,"pp":48.3},{"n":"Rio Claro","ei":1121,"ai":8007,"af":0,"tm":17658,"tr":139140983.0,"pt":60081468.0,"pp":41.2},{"n":"Rio Grande da Serra","ei":0,"ai":103,"af":0,"tm":1886,"tr":15916352.0,"pt":5715686.0,"pp":34.8},{"n":"Rio das Pedras","ei":0,"ai":1800,"af":1157,"tm":4403,"tr":32936018.0,"pt":16565747.0,"pp":48.7},{"n":"Riolândia","ei":89,"ai":436,"af":460,"tm":1528,"tr":12293978.0,"pt":5243137.0,"pp":40.9},{"n":"Riversul","ei":344,"ai":0,"af":0,"tm":643,"tr":5965282.0,"pt":1593807.0,"pp":24.6},{"n":"Rosana","ei":247,"ai":334,"af":0,"tm":1351,"tr":11764626.0,"pt":2889865.0,"pp":23.4},{"n":"Roseira","ei":282,"ai":476,"af":582,"tm":2040,"tr":16492193.0,"pt":6821082.0,"pp":39.6},{"n":"Rubinéia","ei":234,"ai":16,"af":0,"tm":435,"tr":4242661.0,"pt":1099511.0,"pp":25.7},{"n":"Rubiácea","ei":47,"ai":165,"af":0,"tm":357,"tr":3004962.0,"pt":1217698.0,"pp":39.8},{"n":"Sabino","ei":97,"ai":142,"af":0,"tm":449,"tr":3884476.0,"pt":1483070.0,"pp":37.4},{"n":"Sagres","ei":157,"ai":0,"af":0,"tm":276,"tr":2630829.0,"pt":992442.0,"pp":36.8},{"n":"Sales","ei":397,"ai":0,"af":0,"tm":654,"tr":6232287.0,"pt":1283205.0,"pp":20.3},{"n":"Sales Oliveira","ei":147,"ai":346,"af":0,"tm":982,"tr":8131713.0,"pt":2446137.0,"pp":29.1},{"n":"Salesópolis","ei":0,"ai":975,"af":0,"tm":1675,"tr":12803183.0,"pt":6171619.0,"pp":45.0},{"n":"Salmourão","ei":0,"ai":292,"af":0,"tm":580,"tr":4395609.0,"pt":2784830.0,"pp":61.7},{"n":"Saltinho","ei":265,"ai":282,"af":0,"tm":932,"tr":7731696.0,"pt":2274939.0,"pp":29.0},{"n":"Salto","ei":336,"ai":3974,"af":74,"tm":10518,"tr":84028351.0,"pt":35110301.0,"pp":40.7},{"n":"Salto Grande","ei":160,"ai":341,"af":0,"tm":1066,"tr":9075216.0,"pt":3713088.0,"pp":39.0},{"n":"Salto de Pirapora","ei":140,"ai":2171,"af":419,"tm":4641,"tr":35767852.0,"pt":17260391.0,"pp":46.8},{"n":"Sandovalina","ei":79,"ai":187,"af":190,"tm":676,"tr":5490753.0,"pt":2559303.0,"pp":45.7},{"n":"Santa Adélia","ei":169,"ai":517,"af":366,"tm":1619,"tr":12920148.0,"pt":5360079.0,"pp":40.5},{"n":"Santa Albertina","ei":256,"ai":72,"af":0,"tm":632,"tr":5563958.0,"pt":2055105.0,"pp":36.5},{"n":"Santa Branca","ei":345,"ai":356,"af":602,"tm":1846,"tr":15474830.0,"pt":5529812.0,"pp":34.8},{"n":"Santa Bárbara DOeste","ei":3149,"ai":4390,"af":0,"tm":15095,"tr":130850898.0,"pt":39735323.0,"pp":29.0},{"n":"Santa Clara DOeste","ei":163,"ai":0,"af":0,"tm":315,"tr":3115817.0,"pt":1296869.0,"pp":41.3},{"n":"Santa Cruz da Conceição","ei":23,"ai":178,"af":0,"tm":413,"tr":3147158.0,"pt":2212799.0,"pp":70.4},{"n":"Santa Cruz da Esperança","ei":0,"ai":138,"af":130,"tm":390,"tr":2988360.0,"pt":1740281.0,"pp":57.4},{"n":"Santa Cruz das Palmeiras","ei":0,"ai":1496,"af":0,"tm":2716,"tr":20385166.0,"pt":11294482.0,"pp":51.2},{"n":"Santa Cruz do Rio Pardo","ei":769,"ai":1135,"af":457,"tm":4603,"tr":39574972.0,"pt":12596423.0,"pp":30.6},{"n":"Santa Ernestina","ei":72,"ai":219,"af":0,"tm":626,"tr":5370486.0,"pt":2085248.0,"pp":37.6},{"n":"Santa Fé do Sul","ei":845,"ai":1493,"af":739,"tm":4991,"tr":40738959.0,"pt":15810645.0,"pp":37.4},{"n":"Santa Gertrudes","ei":148,"ai":1478,"af":1253,"tm":4337,"tr":32503974.0,"pt":16129551.0,"pp":47.0},{"n":"Santa Isabel","ei":101,"ai":2850,"af":0,"tm":5137,"tr":39789279.0,"pt":18905952.0,"pp":45.7},{"n":"Santa Lúcia","ei":0,"ai":430,"af":0,"tm":740,"tr":5339112.0,"pt":3104310.0,"pp":55.7},{"n":"Santa Maria da Serra","ei":387,"ai":0,"af":0,"tm":734,"tr":7257166.0,"pt":1739405.0,"pp":23.5},{"n":"Santa Mercedes","ei":0,"ai":186,"af":0,"tm":364,"tr":2891297.0,"pt":1655833.0,"pp":56.4},{"n":"Santa Rita DOeste","ei":28,"ai":97,"af":0,"tm":241,"tr":1949428.0,"pt":1512325.0,"pp":77.1},{"n":"Santa Rita do Passa Quatro","ei":305,"ai":560,"af":125,"tm":1871,"tr":16014722.0,"pt":4077644.0,"pp":24.7},{"n":"Santa Rosa de Viterbo","ei":317,"ai":836,"af":0,"tm":2046,"tr":17067054.0,"pt":5938560.0,"pp":34.3},{"n":"Santa Salete","ei":0,"ai":16,"af":0,"tm":100,"tr":870298.0,"pt":917425.0,"pp":101.3},{"n":"Santana da Ponte Pensa","ei":8,"ai":0,"af":0,"tm":72,"tr":721272.0,"pt":1040473.0,"pp":145.4},{"n":"Santana de Parnaíba","ei":2622,"ai":7179,"af":8068,"tm":26492,"tr":208450222.0,"pt":66992614.0,"pp":31.3},{"n":"Santo Anastácio","ei":44,"ai":499,"af":0,"tm":1234,"tr":10249775.0,"pt":4874538.0,"pp":46.8},{"n":"Santo André","ei":1277,"ai":19000,"af":0,"tm":44958,"tr":347306357.0,"pt":158749203.0,"pp":44.3},{"n":"Santo Antônio da Alegria","ei":136,"ai":268,"af":340,"tm":1136,"tr":9278493.0,"pt":3962413.0,"pp":41.9},{"n":"Santo Antônio de Posse","ei":583,"ai":884,"af":1072,"tm":4082,"tr":33840958.0,"pt":11725573.0,"pp":34.0},{"n":"Santo Antônio do Aracangua","ei":84,"ai":453,"af":407,"tm":1343,"tr":10017086.0,"pt":5475212.0,"pp":52.7},{"n":"Santo Antônio do Jardim","ei":0,"ai":322,"af":0,"tm":586,"tr":4503783.0,"pt":2701370.0,"pp":57.9},{"n":"Santo Antônio do Pinhal","ei":18,"ai":484,"af":408,"tm":1243,"tr":10446270.0,"pt":4871230.0,"pp":44.9},{"n":"Santo Expedito","ei":0,"ai":176,"af":0,"tm":333,"tr":2563506.0,"pt":1764627.0,"pp":64.9},{"n":"Santos","ei":8748,"ai":5316,"af":3338,"tm":30295,"tr":266781583.0,"pt":45637995.0,"pp":16.4},{"n":"Santópolis do Aguapeí","ei":267,"ai":0,"af":0,"tm":496,"tr":4905434.0,"pt":1488058.0,"pp":29.7},{"n":"Sarapuí","ei":29,"ai":598,"af":0,"tm":1161,"tr":9590940.0,"pt":3968996.0,"pp":39.9},{"n":"Sarutaiá","ei":46,"ai":186,"af":0,"tm":421,"tr":3402430.0,"pt":1716187.0,"pp":49.3},{"n":"Sebastianópolis do Sul","ei":42,"ai":164,"af":0,"tm":384,"tr":3182159.0,"pt":1464044.0,"pp":45.7},{"n":"Serra Azul","ei":26,"ai":558,"af":0,"tm":1010,"tr":7556411.0,"pt":4115419.0,"pp":53.6},{"n":"Serra Negra","ei":221,"ai":86,"af":0,"tm":1579,"tr":15105403.0,"pt":1804505.0,"pp":11.8},{"n":"Serrana","ei":531,"ai":2145,"af":909,"tm":6153,"tr":48674912.0,"pt":21635463.0,"pp":41.8},{"n":"Sertãozinho","ei":589,"ai":6408,"af":2756,"tm":15579,"tr":118469007.0,"pt":57022096.0,"pp":46.5},{"n":"Sete Barras","ei":0,"ai":908,"af":136,"tm":1705,"tr":13074730.0,"pt":7195933.0,"pp":51.7},{"n":"Severínia","ei":0,"ai":863,"af":674,"tm":2339,"tr":18332139.0,"pt":6916390.0,"pp":36.7},{"n":"Silveiras","ei":0,"ai":387,"af":66,"tm":709,"tr":5391418.0,"pt":3137149.0,"pp":56.1},{"n":"Socorro","ei":70,"ai":1423,"af":0,"tm":3066,"tr":24923297.0,"pt":10732786.0,"pp":41.9},{"n":"Sorocaba","ei":1061,"ai":28831,"af":2172,"tm":61754,"tr":479104549.0,"pt":214381264.0,"pp":43.6},{"n":"Sud Mennucci","ei":654,"ai":75,"af":51,"tm":1104,"tr":10124280.0,"pt":2758455.0,"pp":26.3},{"n":"Sumaré","ei":603,"ai":10532,"af":1707,"tm":25086,"tr":191694358.0,"pt":87867981.0,"pp":43.6},{"n":"Suzano","ei":315,"ai":11894,"af":0,"tm":26800,"tr":206545780.0,"pt":92038670.0,"pp":42.4},{"n":"Suzanápolis","ei":0,"ai":214,"af":0,"tm":395,"tr":2971366.0,"pt":1633145.0,"pp":54.3},{"n":"São Bento do Sapucaí","ei":0,"ai":479,"af":0,"tm":830,"tr":6419484.0,"pt":3184474.0,"pp":47.6},{"n":"São Bernardo do Campo","ei":9551,"ai":29642,"af":0,"tm":72532,"tr":588698561.0,"pt":221053329.0,"pp":37.2},{"n":"São Caetano do Sul","ei":3045,"ai":3317,"af":5334,"tm":17931,"tr":150738985.0,"pt":51140931.0,"pp":33.7},{"n":"São Carlos","ei":683,"ai":4677,"af":801,"tm":16332,"tr":133760660.0,"pt":52838234.0,"pp":38.0},{"n":"São Francisco","ei":0,"ai":28,"af":0,"tm":145,"tr":1271622.0,"pt":1098837.0,"pp":84.2},{"n":"São Joaquim da Barra","ei":74,"ai":968,"af":0,"tm":3141,"tr":25988996.0,"pt":7751714.0,"pp":28.5},{"n":"São José da Bela Vista","ei":18,"ai":396,"af":0,"tm":749,"tr":5901554.0,"pt":2447821.0,"pp":40.2},{"n":"São José do Barreiro","ei":0,"ai":225,"af":222,"tm":659,"tr":4998689.0,"pt":3019304.0,"pp":56.4},{"n":"São José do Rio Pardo","ei":92,"ai":1072,"af":238,"tm":3565,"tr":29207937.0,"pt":10448099.0,"pp":34.4},{"n":"São José do Rio Preto","ei":65,"ai":19231,"af":878,"tm":39047,"tr":304939552.0,"pt":131801861.0,"pp":42.2},{"n":"São José dos Campos","ei":7195,"ai":23868,"af":13450,"tm":77854,"tr":606250750.0,"pt":262063771.0,"pp":40.9},{"n":"São João da Boa Vista","ei":1324,"ai":2191,"af":0,"tm":7087,"tr":61607250.0,"pt":18794897.0,"pp":29.4},{"n":"São João das Duas Pontes","ei":0,"ai":131,"af":0,"tm":249,"tr":1869686.0,"pt":1698558.0,"pp":89.6},{"n":"São João de Iracema","ei":113,"ai":0,"af":0,"tm":216,"tr":2136691.0,"pt":1038875.0,"pp":46.5},{"n":"São João do Pau DAlho","ei":56,"ai":49,"af":0,"tm":195,"tr":1766741.0,"pt":1185993.0,"pp":66.8},{"n":"São Lourenço da Serra","ei":22,"ai":898,"af":0,"tm":1561,"tr":11778287.0,"pt":6190520.0,"pp":50.9},{"n":"São Luíz do Paraitinga","ei":51,"ai":551,"af":474,"tm":1482,"tr":11520858.0,"pt":4752223.0,"pp":39.4},{"n":"São Manuel","ei":215,"ai":1822,"af":0,"tm":3581,"tr":28058363.0,"pt":12838203.0,"pp":44.0},{"n":"São Miguel Arcanjo","ei":0,"ai":1936,"af":53,"tm":3388,"tr":26773718.0,"pt":10650527.0,"pp":38.9},{"n":"São Paulo","ei":74726,"ai":186962,"af":168942,"tm":984975,"tr":8080059759.0,"pt":2650230177.0,"pp":32.0},{"n":"São Pedro","ei":499,"ai":1434,"af":1398,"tm":5001,"tr":41018170.0,"pt":15371396.0,"pp":35.7},{"n":"São Pedro do Turvo","ei":0,"ai":485,"af":0,"tm":908,"tr":7138583.0,"pt":3467163.0,"pp":46.9},{"n":"São Roque","ei":1435,"ai":2685,"af":3598,"tm":11902,"tr":95372355.0,"pt":34867484.0,"pp":32.8},{"n":"São Sebastião","ei":0,"ai":5602,"af":4818,"tm":16330,"tr":125736632.0,"pt":57236611.0,"pp":43.4},{"n":"São Sebastião da Grama","ei":238,"ai":248,"af":146,"tm":1165,"tr":9397354.0,"pt":3889799.0,"pp":38.6},{"n":"São Simão","ei":335,"ai":0,"af":0,"tm":753,"tr":7427762.0,"pt":1333867.0,"pp":17.8},{"n":"São Vicente","ei":2608,"ai":13609,"af":7313,"tm":37779,"tr":289766695.0,"pt":135680001.0,"pp":43.9},{"n":"Tabapuã","ei":230,"ai":325,"af":356,"tm":1386,"tr":11628918.0,"pt":3592761.0,"pp":30.1},{"n":"Tabatinga","ei":117,"ai":653,"af":321,"tm":1860,"tr":14852843.0,"pt":6913131.0,"pp":44.6},{"n":"Taboão da Serra","ei":2020,"ai":11572,"af":0,"tm":23853,"tr":184515888.0,"pt":80154015.0,"pp":41.9},{"n":"Taciba","ei":132,"ai":289,"af":0,"tm":789,"tr":6628382.0,"pt":2240242.0,"pp":32.6},{"n":"Taguaí","ei":329,"ai":482,"af":0,"tm":1626,"tr":14372823.0,"pt":4188387.0,"pp":28.0},{"n":"Taiaçu","ei":109,"ai":184,"af":0,"tm":641,"tr":5500557.0,"pt":2522041.0,"pp":42.2},{"n":"Taiúva","ei":208,"ai":89,"af":0,"tm":599,"tr":5581933.0,"pt":1818233.0,"pp":31.2},{"n":"Tambaú","ei":73,"ai":926,"af":0,"tm":1979,"tr":16074414.0,"pt":5532579.0,"pp":33.2},{"n":"Tanabi","ei":208,"ai":1123,"af":227,"tm":2694,"tr":22115124.0,"pt":8707271.0,"pp":38.9},{"n":"Tapiratiba","ei":572,"ai":372,"af":0,"tm":1810,"tr":15023831.0,"pt":5406614.0,"pp":35.6},{"n":"Tapiraí","ei":539,"ai":0,"af":0,"tm":951,"tr":9394184.0,"pt":1968322.0,"pp":20.2},{"n":"Taquaral","ei":65,"ai":48,"af":0,"tm":231,"tr":2024268.0,"pt":1181352.0,"pp":57.7},{"n":"Taquaritinga","ei":723,"ai":1772,"af":46,"tm":4382,"tr":36427994.0,"pt":10514889.0,"pp":27.9},{"n":"Taquarituba","ei":169,"ai":1055,"af":0,"tm":2626,"tr":21404817.0,"pt":6898763.0,"pp":31.3},{"n":"Taquarivaí","ei":0,"ai":459,"af":353,"tm":1249,"tr":9731731.0,"pt":4289205.0,"pp":42.0},{"n":"Tarabai","ei":191,"ai":408,"af":121,"tm":1095,"tr":8764419.0,"pt":4162697.0,"pp":44.8},{"n":"Tarumã","ei":467,"ai":532,"af":0,"tm":1969,"tr":17048752.0,"pt":3448447.0,"pp":19.8},{"n":"Tatuí","ei":1168,"ai":5582,"af":1317,"tm":13539,"tr":106159980.0,"pt":47922511.0,"pp":42.9},{"n":"Taubaté","ei":8575,"ai":7898,"af":9770,"tm":39077,"tr":329988279.0,"pt":109967716.0,"pp":32.4},{"n":"Tejupá","ei":0,"ai":264,"af":44,"tm":561,"tr":4550190.0,"pt":2153454.0,"pp":45.3},{"n":"Teodoro Sampaio","ei":330,"ai":878,"af":128,"tm":2574,"tr":20584015.0,"pt":8615741.0,"pp":40.4},{"n":"Terra Roxa","ei":174,"ai":309,"af":251,"tm":1106,"tr":9032077.0,"pt":2979629.0,"pp":31.9},{"n":"Tietê","ei":773,"ai":998,"af":1486,"tm":5151,"tr":43608409.0,"pt":14212328.0,"pp":32.0},{"n":"Timburi","ei":37,"ai":113,"af":0,"tm":264,"tr":2114468.0,"pt":1269153.0,"pp":59.2},{"n":"Torre de Pedra","ei":0,"ai":157,"af":0,"tm":297,"tr":2277873.0,"pt":1935505.0,"pp":78.6},{"n":"Torrinha","ei":148,"ai":82,"af":0,"tm":688,"tr":6319219.0,"pt":2129577.0,"pp":33.1},{"n":"Trabiju","ei":0,"ai":88,"af":100,"tm":307,"tr":2315130.0,"pt":1789331.0,"pp":76.3},{"n":"Tremembé","ei":156,"ai":1671,"af":1601,"tm":5061,"tr":38667696.0,"pt":18614239.0,"pp":45.9},{"n":"Três Fronteiras","ei":0,"ai":395,"af":0,"tm":652,"tr":4792030.0,"pt":3202144.0,"pp":65.1},{"n":"Tuiuti","ei":156,"ai":280,"af":295,"tm":988,"tr":8926435.0,"pt":3345836.0,"pp":35.7},{"n":"Tupi Paulista","ei":103,"ai":511,"af":517,"tm":1789,"tr":13689135.0,"pt":5687836.0,"pp":39.3},{"n":"Tupã","ei":1118,"ai":792,"af":0,"tm":4375,"tr":39515378.0,"pt":7140763.0,"pp":17.6},{"n":"Turiúba","ei":84,"ai":0,"af":0,"tm":174,"tr":1722621.0,"pt":1024383.0,"pp":58.8},{"n":"Turmalina","ei":80,"ai":0,"af":0,"tm":162,"tr":1601701.0,"pt":1135210.0,"pp":70.3},{"n":"Ubarana","ei":0,"ai":356,"af":335,"tm":1032,"tr":7886278.0,"pt":4095061.0,"pp":50.0},{"n":"Ubatuba","ei":753,"ai":5351,"af":1008,"tm":12797,"tr":100255533.0,"pt":43184831.0,"pp":40.7},{"n":"Ubirajara","ei":0,"ai":376,"af":0,"tm":646,"tr":4777978.0,"pt":2960780.0,"pp":59.0},{"n":"Uchoa","ei":94,"ai":420,"af":461,"tm":1434,"tr":11354396.0,"pt":5079435.0,"pp":44.1},{"n":"União Paulista","ei":7,"ai":20,"af":0,"tm":107,"tr":932392.0,"pt":892322.0,"pp":93.6},{"n":"Uru","ei":103,"ai":0,"af":0,"tm":182,"tr":1798768.0,"pt":1156312.0,"pp":63.0},{"n":"Urupês","ei":30,"ai":647,"af":576,"tm":1935,"tr":14810097.0,"pt":6162046.0,"pp":40.0},{"n":"Urânia","ei":43,"ai":45,"af":0,"tm":439,"tr":3994285.0,"pt":1558827.0,"pp":38.6},{"n":"Valentim Gentil","ei":0,"ai":808,"af":0,"tm":1494,"tr":11300473.0,"pt":5085248.0,"pp":42.9},{"n":"Valinhos","ei":162,"ai":4677,"af":2573,"tm":10388,"tr":77150237.0,"pt":40918408.0,"pp":52.0},{"n":"Valparaíso","ei":411,"ai":931,"af":0,"tm":2456,"tr":20343008.0,"pt":8084357.0,"pp":37.9},{"n":"Vargem","ei":0,"ai":609,"af":499,"tm":1575,"tr":12571849.0,"pt":6474400.0,"pp":50.9},{"n":"Vargem Grande Paulista","ei":0,"ai":2931,"af":0,"tm":5123,"tr":38235259.0,"pt":19548950.0,"pp":49.5},{"n":"Vargem Grande do Sul","ei":275,"ai":1758,"af":0,"tm":3819,"tr":29875759.0,"pt":13539497.0,"pp":43.5},{"n":"Vera Cruz","ei":0,"ai":480,"af":0,"tm":926,"tr":7145724.0,"pt":3043677.0,"pp":40.9},{"n":"Vinhedo","ei":5565,"ai":318,"af":481,"tm":9827,"tr":93262071.0,"pt":15740299.0,"pp":16.6},{"n":"Viradouro","ei":323,"ai":606,"af":456,"tm":2227,"tr":18180499.0,"pt":5511022.0,"pp":29.0},{"n":"Vista Alegre do Alto","ei":154,"ai":373,"af":0,"tm":977,"tr":7964712.0,"pt":2613830.0,"pp":32.2},{"n":"Vitória Brasil","ei":0,"ai":80,"af":0,"tm":194,"tr":1552679.0,"pt":1362766.0,"pp":86.7},{"n":"Votorantim","ei":630,"ai":5356,"af":0,"tm":11687,"tr":91805474.0,"pt":39731879.0,"pp":41.9},{"n":"Votuporanga","ei":1914,"ai":2309,"af":23,"tm":8551,"tr":76384894.0,"pt":13504263.0,"pp":17.3},{"n":"Várzea Paulista","ei":62,"ai":6207,"af":0,"tm":11209,"tr":81644591.0,"pt":45699818.0,"pp":54.1},{"n":"Zacarias","ei":37,"ai":111,"af":0,"tm":279,"tr":2167738.0,"pt":1422332.0,"pp":63.3},{"n":"bom jesus dos perdoes","ei":383,"ai":1152,"af":0,"tm":2737,"tr":21847319.0,"pt":9190719.0,"pp":40.7},{"n":"Águas da Prata","ei":0,"ai":333,"af":0,"tm":476,"tr":3618648.0,"pt":2539932.0,"pp":69.6},{"n":"Águas de Lindóia","ei":550,"ai":379,"af":497,"tm":2279,"tr":19880047.0,"pt":4829715.0,"pp":23.8},{"n":"Águas de Santa Bárbara","ei":0,"ai":450,"af":0,"tm":819,"tr":6503998.0,"pt":3354880.0,"pp":49.8},{"n":"Águas de São Pedro","ei":545,"ai":0,"af":0,"tm":716,"tr":7049314.0,"pt":1719348.0,"pp":24.8},{"n":"Álvares Florence","ei":155,"ai":0,"af":82,"tm":400,"tr":3772985.0,"pt":1474566.0,"pp":38.6},{"n":"Álvares Machado","ei":183,"ai":1282,"af":921,"tm":3642,"tr":27440363.0,"pt":10828487.0,"pp":38.0},{"n":"Álvaro de Carvalho","ei":39,"ai":146,"af":0,"tm":345,"tr":2846524.0,"pt":1599613.0,"pp":53.7},{"n":"Óleo","ei":107,"ai":45,"af":0,"tm":260,"tr":2452897.0,"pt":909809.0,"pp":36.3}]');
+// field map: n=nome, ei=mat. infantil, ai=anos iniciais EF, af=anos finais EF,
+// tm=total matrículas, tr=receita FUNDEB atual, pt=ganho potencial integral, pp=% potencial
+const POP = JSON.parse('{"Adamantina":34687,"Adolfo":4351,"Aguaí":32072,"Agudos":37680,"Alambari":6141,"Alfredo Marcondes":4445,"Altair":3451,"Altinópolis":16818,"Alto Alegre":3841,"Alumínio":17301,"Alvinlândia":2885,"Americana":237240,"Amparo":68008,"Américo Brasiliense":33019,"Américo de Campos":5870,"Analândia":4589,"Andradina":59783,"Angatuba":24022,"Anhembi":5674,"Anhumas":4023,"Aparecida":32569,"Aparecida DOeste":4086,"Apiaí":24585,"Aramina":5420,"Arandu":6885,"Arapeí":2330,"Araraquara":242228,"Araras":130866,"Araçariguama":21522,"Araçatuba":200124,"Araçoiaba da Serra":32443,"Arco-Íris":2044,"Arealva":8130,"Areias":3577,"Areiópolis":10130,"Ariranha":7602,"Artur Nogueira":51456,"Arujá":86678,"Aspásia":1842,"Assis":101409,"Atibaia":158647,"Auriflama":13692,"Avanhandava":11263,"Avaré":92805,"Avaí":4483,"Bady Bassitt":27260,"Balbinos":3887,"Bananal":9969,"Barbosa":5640,"Bariri":31595,"Barra Bonita":34346,"Barra do Chapéu":5179,"Barra do Turvo":6876,"Barretos":122485,"Barrinha":32092,"Barueri":316473,"Barão de Antonina":3531,"Bastos":21503,"Batatais":58402,"Bauru":379146,"Bebedouro":76373,"Bento de Abreu":2606,"Bernardino de Campos":11607,"Bertioga":64188,"Bilac":7319,"Birigui":118979,"Biritiba Mirim":29683,"Boa Esperança do Sul":12978,"Bocaina":11259,"Bofete":10460,"Boituva":61081,"Bom Sucesso de Itararé":3555,"Boracéia":4715,"Borborema":14226,"Borebi":2713,"Borá":907,"Botucatu":145155,"Bragança Paulista":176811,"Braúna":5356,"Brejo Alegre":2565,"Brodowski":25201,"Brotas":23898,"Buri":20250,"Buritama":17210,"Buritizal":4356,"Bálsamo":9596,"Cabreúva":47011,"Cabrália Paulista":4299,"Cachoeira Paulista":31564,"Caconde":17101,"Cafelândia":16654,"Caiabu":3712,"Caieiras":95032,"Caiuá":5466,"Cajamar":92689,"Cajati":28515,"Cajobi":9133,"Cajuru":23830,"Campina do Monte Alegre":5954,"Campinas":1139047,"Campo Limpo Paulista":77632,"Campos Novos Paulista":4888,"Campos do Jordão":46974,"Cananéia":12289,"Canas":4931,"Canitar":6283,"Capela do Alto":22866,"Capivari":50068,"Capão Bonito":46337,"Caraguatatuba":134873,"Carapicuíba":386984,"Cardoso":11345,"Casa Branca":28083,"Castilho":19977,"Catanduva":115791,"Catiguá":7003,"Caçapava":96202,"Cedral":12618,"Cerqueira César":21469,"Cerquilho":44695,"Cesário Lange":19048,"Charqueada":15535,"Chavantes":12211,"Clementina":6982,"Colina":18486,"Colômbia":6629,"Conchal":28101,"Conchas":15232,"Cordeirópolis":24514,"Coroados":5400,"Coronel Macedo":4280,"Corumbataí":4195,"Cosmorama":8719,"Cosmópolis":59773,"Cotia":274413,"Cravinhos":33281,"Cristais Paulista":9272,"Cruzeiro":74961,"Cruzália":2108,"Cubatão":112476,"Cunha":22110,"Cássia dos Coqueiros":2799,"Cândido Mota":29449,"Cândido Rodrigues":2889,"Descalvado":31756,"Diadema":393237,"Dirce Reis":1620,"Divinolândia":11158,"Dobrada":8759,"Dois Córregos":24510,"Dolcinópolis":2207,"Dourado":8096,"Dracena":45474,"Duartina":12328,"Dumont":9471,"Echaporã":6205,"Eldorado":13069,"Elias Fausto":17699,"Elisiário":3138,"Embaúba":2323,"Embu-Guaçu":66970,"Emilianópolis":3014,"Engenheiro Coelho":19566,"Espírito Santo do Pinhal":39816,"Espírito Santo do Turvo":4157,"Estiva Gerbi":11295,"Estrela DOeste":9417,"Estrela do Norte":2703,"Euclides da Cunha Paulista":7924,"Fartura":16641,"Fernando Prestes":5942,"Fernandópolis":71186,"Fernão":1656,"Ferraz de Vasconcelos":179198,"Flora Rica":1487,"Floreal":2733,"Florínea":3851,"Flórida Paulista":12958,"Franca":352536,"Francisco Morato":165139,"Franco da Rocha":144849,"Gabriel Monteiro":2763,"Garça":42110,"Gastão Vidigal":3252,"Gavião Peixoto":4702,"General Salgado":10312,"Getulina":10232,"Glicério":4138,"Guaimbê":5512,"Guaiçara":11239,"Guapiara":17071,"Guapiaçu":21711,"Guaraci":10350,"Guarani DOeste":1968,"Guarantã":6427,"Guararapes":31043,"Guararema":31236,"Guaratinguetá":118044,"Guaraçaí":7441,"Guareí":15013,"Guariba":37498,"Guarujá":287634,"Guarulhos":1291771,"Guará":18606,"Guatapará":7320,"Guaíra":39279,"Guzolândia":4246,"Gália":6380,"Herculândia":9125,"Holambra":15094,"Hortolândia":236641,"Iacanga":10437,"Iacri":6131,"Iaras":8010,"Ibaté":32178,"Ibirarema":6385,"Ibirá":11690,"Ibitinga":60033,"Ibiúna":75605,"Icém":7819,"Iepê":7619,"Igarapava":26212,"Igaratá":10605,"Igaraçu do Tietê":23106,"Iguape":29115,"Ilha Comprida":13419,"Ilha Solteira":25549,"Ilhabela":34934,"Indaiatuba":255748,"Indiana":5090,"Indiaporã":4035,"Inúbia Paulista":3615,"Ipaussu":13712,"Iperó":36459,"Ipeúna":6831,"Ipiguá":6761,"Iporanga":4046,"Ipuã":14454,"Iracemápolis":21967,"Irapuru":7085,"Irapuã":6867,"Itaberá":17983,"Itajobi":16989,"Itaju":3618,"Itanhaém":112476,"Itapecerica da Serra":158522,"Itapetininga":157790,"Itapeva":89728,"Itapevi":232297,"Itapira":72022,"Itapirapuã Paulista":4306,"Itaporanga":14085,"Itapura":3979,"Itapuí":13659,"Itaquaquecetuba":369275,"Itararé":44438,"Itariri":15528,"Itatiba":121590,"Itatinga":19070,"Itaí":25180,"Itaóca":3422,"Itirapina":16148,"Itirapuã":5779,"Itobi":8046,"Itu":168240,"Itupeva":70616,"Ituverava":37571,"Itápolis":39493,"Jaborandi":6221,"Jaboticabal":71821,"Jacareí":240275,"Jaci":7613,"Jacupiranga":16097,"Jaguariúna":59347,"Jales":48776,"Jambeiro":6397,"Jandira":118045,"Jardinópolis":45282,"Jarinu":37535,"Jaú":133497,"Jeriquara":3863,"Joanópolis":12815,"José Bonifácio":36633,"João Ramalho":4371,"Jumirim":3056,"Jundiaí":443221,"Junqueirópolis":20448,"Juquitiba":27404,"Juquiá":17154,"Júlio Mesquita":4254,"Lagoinha":5083,"Laranjal Paulista":26261,"Lavrinhas":7171,"Lavínia":9689,"Leme":98161,"Lençóis Paulista":66505,"Limeira":291869,"Lindóia":7014,"Lins":74779,"Lorena":84855,"Lourdes":1950,"Louveira":51847,"Lucianópolis":2372,"Lucélia":20061,"Luiziânia":4701,"Lupércio":3981,"Lutécia":2661,"Luís Antônio":12265,"Macatuba":16829,"Macaubal":7481,"Macedônia":3963,"Magda":3165,"Mairinque":50027,"Mairiporã":93853,"Manduri":9871,"Maraba Paulista":4573,"Maracaí":12673,"Marapoama":3292,"Marinópolis":1860,"Mariápolis":3513,"Martinópolis":24881,"Marília":237627,"Matão":79033,"Mauá":418261,"Mendonça":6159,"Meridiano":4572,"Mesópolis":1952,"Miguelópolis":19441,"Mineiros do Tietê":11230,"Mira Estrela":3126,"Miracatu":18553,"Mirandópolis":27983,"Mirante do Paranapanema":15917,"Mirassol":63337,"Mirassolândia":4669,"Mococa":67681,"Mogi Guaçu":153658,"Mogi Mirim":92558,"Mogi das Cruzes":451505,"Mombuca":3722,"Moncoes":1937,"Mongaguá":61951,"Monte Alegre do Sul":8627,"Monte Alto":47574,"Monte Aprazível":22280,"Monte Azul Paulista":18151,"Monte Castelo":4222,"Monte Mor":64662,"Monteiro Lobato":4138,"Morro Agudo":27933,"Morungaba":13720,"Motuca":4034,"Murutinga do Sul":3737,"Nantes":2660,"Narandiba":5713,"Natividade da Serra":6999,"Nazaré Paulista":18217,"Neves Paulista":9699,"Nhandeara":9852,"Nipoã":4750,"Nova Aliança":6693,"Nova Campina":8497,"Nova Canaã Paulista":2032,"Nova Castilho":1062,"Nova Europa":9311,"Nova Granada":19419,"Nova Guataporanga":2156,"Nova Independência":4609,"Nova Luzitânia":2837,"Nova Odessa":62019,"Novais":4412,"Novo Horizonte":38324,"Nuporanga":7391,"Ocauçu":4331,"Olímpia":55074,"Onda Verde":4771,"Oriente":6085,"Orindiúva":6024,"Orlândia":38319,"Osasco":728615,"Oscar Bressane":2470,"Osvaldo Cruz":31272,"Ourinhos":103970,"Ouro Verde":7779,"Ouroeste":10294,"Pacaembu":14877,"Palestina":11476,"Palmares Paulista":9650,"Palmeira DOeste":8903,"Palmital":19594,"Panorama":14964,"Paraguaçu Paulista":41120,"Paraibuna":17667,"Paranapanema":19395,"Paranapuã":4031,"Parapuã":10580,"Paraíso":6099,"Pardinho":7153,"Pariquera-Açu":19233,"Parisi":2892,"Patrocínio Paulista":14512,"Paulicéia":7955,"Paulistânia":2090,"Paulo de Faria":7400,"Paulínia":110537,"Pederneiras":44827,"Pedra Bela":6557,"Pedranópolis":2787,"Pedregulho":15525,"Pedreira":43112,"Pedrinhas Paulista":2804,"Pedro de Toledo":11281,"Penápolis":61679,"Pereira Barreto":24095,"Pereiras":8737,"Peruíbe":68352,"Piacatu":5519,"Piedade":52970,"Pilar do Sul":27619,"Pindamonhangaba":165428,"Pindorama":14542,"Pinhalzinho":15224,"Piquerobi":3264,"Piquete":12490,"Piracaia":26029,"Piracicaba":423323,"Piraju":29436,"Pirajuí":22431,"Pirangi":10885,"Pirapora do Bom Jesus":18370,"Pirapozinho":25348,"Pirassununga":73545,"Piratininga":15108,"Pitangueiras":33674,"Planalto":4389,"Platina":3025,"Poloni":5592,"Pompéia":20196,"Pongaí":3395,"Pontal":37607,"Pontalinda":4127,"Pontes Gestal":2387,"Populina":4127,"Porangaba":10451,"Porto Feliz":56497,"Porto Ferreira":52649,"Potim":20392,"Potirendaba":18496,"Poá":103765,"Pracinha":2578,"Pradópolis":17078,"Praia Grande":349935,"Pratânia":5126,"Presidente Alves":3804,"Presidente Bernardes":14490,"Presidente Epitácio":39505,"Presidente Prudente":225668,"Presidente Venceslau":35201,"Promissão":35131,"Quadra":3405,"Quatá":13163,"Queiroz":3265,"Queluz":9159,"Quintana":7038,"Rafard":8965,"Rancharia":28588,"Redenção da Serra":4494,"Regente Feijó":20145,"Reginópolis":7662,"Registro":59947,"Restinga":6404,"Ribeira":3132,"Ribeirão Bonito":10989,"Ribeirão Branco":18627,"Ribeirão Corrente":4608,"Ribeirão Grande":7450,"Ribeirão Pires":115559,"Ribeirão Preto":698642,"Ribeirão do Sul":4677,"Ribeirão dos Índios":2025,"Rifaina":4049,"Rincão":9098,"Rinópolis":9259,"Rio Claro":201418,"Rio Grande da Serra":44170,"Rio das Pedras":31328,"Riolândia":10309,"Riversul":5599,"Rosana":17440,"Roseira":10832,"Rubinéia":3833,"Rubiácea":2700,"Sabino":5112,"Sagres":2474,"Sales":6437,"Sales Oliveira":11411,"Salesópolis":15202,"Salmourão":4808,"Saltinho":8161,"Salto":134319,"Salto Grande":9050,"Salto de Pirapora":43748,"Sandovalina":3645,"Santa Adélia":14018,"Santa Albertina":6393,"Santa Branca":13975,"Santa Bárbara DOeste":183347,"Santa Clara DOeste":2598,"Santa Cruz da Conceição":4277,"Santa Cruz da Esperança":2116,"Santa Cruz das Palmeiras":28864,"Santa Cruz do Rio Pardo":46442,"Santa Ernestina":6118,"Santa Fé do Sul":34794,"Santa Gertrudes":23611,"Santa Isabel":53174,"Santa Lúcia":7149,"Santa Maria da Serra":5243,"Santa Mercedes":2956,"Santa Rita DOeste":2733,"Santa Rita do Passa Quatro":24833,"Santa Rosa de Viterbo":23411,"Santa Salete":1645,"Santana da Ponte Pensa":1670,"Santana de Parnaíba":154105,"Santo Anastácio":17963,"Santo André":748919,"Santo Antônio da Alegria":6775,"Santo Antônio de Posse":23244,"Santo Antônio do Aracangua":8379,"Santo Antônio do Jardim":6126,"Santo Antônio do Pinhal":7133,"Santo Expedito":3000,"Santos":418608,"Santópolis do Aguapeí":3899,"Sarapuí":10369,"Sarutaiá":3704,"Sebastianópolis do Sul":3130,"Serra Azul":12746,"Serra Negra":29894,"Serrana":43909,"Sertãozinho":126887,"Sete Barras":12730,"Severínia":14576,"Silveiras":6186,"Socorro":40122,"Sorocaba":723682,"Sud Mennucci":7355,"Sumaré":279545,"Suzano":307429,"Suzanápolis":3408,"São Bento do Sapucaí":11674,"São Bernardo do Campo":810729,"São Caetano do Sul":165655,"São Carlos":254857,"São Francisco":2602,"São Joaquim da Barra":48558,"São José da Bela Vista":7626,"São José do Barreiro":3853,"São José do Rio Pardo":52205,"São José do Rio Preto":480393,"São José dos Campos":697054,"São João da Boa Vista":92547,"São João das Duas Pontes":2580,"São João de Iracema":1846,"São João do Pau DAlho":2242,"São Lourenço da Serra":16067,"São Luíz do Paraitinga":10337,"São Manuel":37289,"São Miguel Arcanjo":32039,"São Paulo":11451999,"São Pedro":38256,"São Pedro do Turvo":7217,"São Roque":79484,"São Sebastião":81595,"São Sebastião da Grama":10441,"São Simão":13442,"São Vicente":329911,"Tabapuã":11323,"Tabatinga":14769,"Taboão da Serra":273542,"Taciba":6260,"Taguaí":12669,"Taiaçu":5677,"Taiúva":6548,"Tambaú":21435,"Tanabi":25265,"Tapiratiba":11816,"Tapiraí":7996,"Taquaral":2619,"Taquaritinga":52260,"Taquarituba":24350,"Taquarivaí":6876,"Tarabai":6536,"Tarumã":14882,"Tatuí":123942,"Taubaté":310739,"Tejupá":4127,"Teodoro Sampaio":22173,"Terra Roxa":7904,"Tietê":37663,"Timburi":2464,"Torre de Pedra":2046,"Torrinha":9335,"Trabiju":1682,"Tremembé":51173,"Três Fronteiras":6804,"Tuiuti":6778,"Tupi Paulista":15854,"Tupã":63928,"Turiúba":1818,"Turmalina":1669,"Ubarana":5365,"Ubatuba":92981,"Ubirajara":5132,"Uchoa":10394,"União Paulista":1603,"Uru":1387,"Urupês":13744,"Urânia":8833,"Valentim Gentil":14098,"Valinhos":126373,"Valparaíso":24241,"Vargem":10512,"Vargem Grande Paulista":50415,"Vargem Grande do Sul":40133,"Vera Cruz":10176,"Vinhedo":76540,"Viradouro":17414,"Vista Alegre do Alto":8109,"Vitória Brasil":1794,"Votorantim":127923,"Votuporanga":96634,"Várzea Paulista":115771,"Zacarias":2692,"bom jesus dos perdoes":22006,"Águas da Prata":7369,"Águas de Lindóia":17930,"Águas de Santa Bárbara":7177,"Águas de São Pedro":2780,"Álvares Florence":3915,"Álvares Machado":27255,"Álvaro de Carvalho":4808,"Óleo":2512}');
+if(POP['Embu']==null) POP['Embu']=250691; // IBGE: "Embu das Artes" (Censo 2022)
+const MUNI_BY_NAME = {}; MUNIS.forEach(m=>MUNI_BY_NAME[m.n.toLowerCase()]=m);
+
+/* ---- Constants (fonte: documentação Projeto Integral i10, FUNDEB 2025/26) ---- */
+const C = {
+  VAAF_BASE:5962.79, INTEGRAL:8944.19, FACTOR:1.50, PETI:1693.22,
+  GAIN_AI:4674.62, GAIN_AF:4078.34
+};
+
+/* ---- Catálogo de produtos ---- */
+const PRODUCTS = {
+  integral:{
+    name:'Projeto Integral i10', tag:'Educação Integral · FUNDEB 1,50x',
+    pill:'Sem custo ao município',
+    desc:'O i10 opera o contraturno escolar (inglês, espanhol, programação, matemática, IA e esportes). Os alunos permanecem matriculados na rede municipal e passam a ser declarados em jornada integral no Censo Escolar, ativando o multiplicador de 1,50x do FUNDEB — receita nova que hoje não é captada.',
+    bullets:[
+      'Inglês e Espanhol — Alumni by Better',
+      'Programação e Matemática avançada — Sprix',
+      'Introdução à Inteligência Artificial — Instituto i10',
+      'Esportes e práticas corporais — Instituto i10',
+      'Alunos seguem na rede pública municipal',
+      'Modelo de repasse sobre a receita nova gerada'
+    ]
+  },
+  fundeb:{
+    name:'Programa i10 de Aceleração FUNDEB', tag:'Diagnóstico e captação de recursos',
+    pill:'Investimento por porte',
+    desc:'Diagnóstico completo da posição do município no FUNDEB a partir de dados oficiais (INEP, STN, SICONFI), identificando recursos não captados, oportunidades de reenquadramento de matrículas e um plano de ação para maximizar o repasse — com relatório executivo e acompanhamento técnico.',
+    bullets:[
+      'Diagnóstico FUNDEB com dados INEP + STN + SICONFI',
+      'Identificação de recursos não captados',
+      'Mapa de oportunidades de reenquadramento',
+      'Relatório executivo por município',
+      'Plano de ação e acompanhamento técnico'
+    ]
+  },
+  bilingue:{
+    name:'Município Bilíngue', tag:'Educação bilíngue · parceria Alumni',
+    pill:'Investimento plurianual',
+    desc:'Programa plurianual de educação bilíngue (português–inglês) para o Ensino Fundamental, em parceria com a Alumni. Modelo de coensino que, ao final do contrato, deixa a rede municipal autônoma para conduzir o programa — com professores capacitados, material digital e infraestrutura.',
+    bullets:[
+      'Professores certificados Alumni em sala',
+      'Modelo de coensino com docentes da rede',
+      'Material digital e tablets para os alunos',
+      'Capacitação contínua dos professores municipais',
+      'Autonomia plena da rede ao final do contrato'
+    ]
+  },
+  radar:{
+    name:'Radar Fiscal 360', tag:'Inteligência fiscal municipal · SaaS',
+    pill:'Assinatura mensal',
+    desc:'Plataforma de monitoramento inteligente da gestão fiscal do município: indicadores fiscais, limites legais da LRF e execução orçamentária por função em tempo real, para decisões seguras e em conformidade.',
+    bullets:[
+      'Painel de Receita Corrente Líquida e Resultado Primário',
+      'Indicadores LRF com alertas de conformidade',
+      'Execução orçamentária por função',
+      'Comparativo entre municípios paulistas',
+      'Dados oficiais SICONFI atualizados'
+    ]
+  }
+};
+
+const RADAR_PLANS = {
+  essencial:{name:'Essencial', price:499, feats:['Painel fiscal do município','Indicadores LRF','Atualização mensal SICONFI']},
+  profissional:{name:'Profissional', price:1999, feats:['Tudo do Essencial','Execução orçamentária por função','Comparativos e alertas','Suporte prioritário']},
+  personalizado:{name:'Personalizado', price:null, feats:['Integrações sob medida','Dashboards customizados','Dados da rede municipal','Onboarding dedicado']}
+};
+
+/* ====================== STATE ====================== */
+const state = {
+  muni:'', empresa:'', pop:null, uf:'SP', gestor:'', secretaria:'Secretaria Municipal de Educação',
+  data:new Date().toISOString().slice(0,10),
+  assunto:'Proposta de Parceria', propNum:'', propVer:1,
+  rep:{name:'',email:'',phone:''},
+  muniRow:null,
+  enabled:{integral:false,fundeb:false,bilingue:false,radar:false},
+  integral:{pct:30, split:70, growth:100},
+  fundeb:{},
+  bilingue:{students:600, years:4, alumniMonthly:90000, tabletPrice:1200, tablets:660, trainYear:20000},
+  radar:{plan:'profissional'}
+};
+
+/* ====================== HELPERS ====================== */
+const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
+const brl=n=>n==null?'—':n.toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0});
+const brl2=n=>n==null?'—':n.toLocaleString('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2,maximumFractionDigits:2});
+const num=n=>n==null?'—':n.toLocaleString('pt-BR');
+const fmtDate=d=>{if(!d)return'';const [y,m,dd]=d.split('-');const meses=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];return `${dd} de ${meses[+m-1]} de ${y}`;};
+const norm=s=>(s||'').normalize('NFKD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
+const targetName=()=>state.empresa.trim()||state.muni.trim();
+
+/* ---- Proposal numbering + versioning (persisted in localStorage) ---- */
+const REG_KEY='i10_prop_registry', SEQ_KEY='i10_prop_seq';
+const readReg=()=>{try{return JSON.parse(localStorage.getItem(REG_KEY)||'{}')}catch(e){return{}}};
+const padNum=n=>'P-'+String(n).padStart(4,'0');
+function propKey(){return norm(targetName())+'|'+norm(state.assunto);}
+// suggest defaults for the current target+assunto without consuming a number
+function suggestMeta(){
+  const reg=readReg(), k=propKey();
+  if(targetName() && reg[k]) return {numero:reg[k].numero, versao:(reg[k].versao||1)+1, existing:true};
+  const seq=(+localStorage.getItem(SEQ_KEY)||0);
+  return {numero:padNum(seq+1), versao:1, existing:false};
+}
+// persist the meta actually used at export time
+function commitMeta(numero,versao){
+  if(!targetName())return;
+  const reg=readReg(), k=propKey(), brandNew=!reg[k];
+  if(brandNew){
+    const m=/^P-?(\d+)$/.exec(numero), seq=(+localStorage.getItem(SEQ_KEY)||0);
+    if(m && (+m[1])===seq+1) localStorage.setItem(SEQ_KEY, seq+1); // consume sequential
+  }
+  reg[k]={numero,versao};
+  localStorage.setItem(REG_KEY, JSON.stringify(reg));
+}
+// repopulate the Nº / Versão fields + hint from the registry
+function refreshProposalMeta(){
+  const s=suggestMeta();
+  state.propNum=s.numero; state.propVer=s.versao;
+  const nEl=$('#propNum'), vEl=$('#propVer'), h=$('#verHint');
+  if(nEl)nEl.value=s.numero; if(vEl)vEl.value=s.versao;
+  if(h)h.textContent = !targetName()? 'Informe o município ou a empresa para gerar o número.'
+      : s.existing? `Já existe proposta "${state.assunto}" para ${targetName()} — esta sai como versão ${s.versao}.`
+      : `Nova proposta para ${targetName()} — versão 1.`;
+}
+
+function fundebTier(pop){
+  if(!pop||pop<=0) return {price:null,label:'Informe a população'};
+  if(pop<=5000) return {price:10000,label:'Até 5 mil hab.'};
+  if(pop<=10000) return {price:20000,label:'Até 10 mil hab.'};
+  if(pop<=20000) return {price:30000,label:'Até 20 mil hab.'};
+  return {price:60000,label:'Acima de 20 mil hab.'};
+}
+
+/* Projeto Integral calc */
+function calcIntegral(){
+  const r=state.muniRow; const pct=state.integral.pct/100; const split=state.integral.split/100;
+  const ai=r?Math.round((r.ai||0)*pct):0, af=r?Math.round((r.af||0)*pct):0;
+  const students=ai+af;
+  const addFundeb = ai*C.GAIN_AI + af*C.GAIN_AF;
+  const i10=addFundeb*split, muni=addFundeb*(1-split);
+  const perStudentMonth = students? i10/students/12 : 0;
+  return {ai,af,students,addFundeb,i10,muni,split,perStudentMonth, potential:r?r.pt:null};
+}
+/* Bilíngue calc */
+function calcBilingue(){
+  const b=state.bilingue;
+  const annual = b.alumniMonthly*12 + b.trainYear;
+  const recurring = annual*b.years;
+  const tablets = b.tablets*b.tabletPrice;
+  const total = recurring + tablets;
+  const perStudentYear = (b.students&&b.years)? total/b.students/b.years : 0;
+  return {annual,tablets,total,perStudentYear,perYear:total/b.years};
+}
+function calcRadar(){
+  const p=RADAR_PLANS[state.radar.plan];
+  return {plan:p, monthly:p.price, annual:p.price?p.price*12:null};
+}
+function calcFundeb(){ return fundebTier(state.pop); }
+
+/* ====================== SIDEBAR RENDER ====================== */
+function buildMuniList(){
+  const dl=$('#muniList');
+  dl.innerHTML=MUNIS.map(m=>`<option value="${m.n}">`).join('');
+}
+function buildProducts(){
+  const wrap=$('#products');
+  wrap.innerHTML=Object.keys(PRODUCTS).map(key=>{
+    const p=PRODUCTS[key];
+    return `<div class="prod" data-prod="${key}">
+      <div class="prod-h" data-toggle="${key}">
+        <div class="sw"></div>
+        <div class="nm">${p.name}<small>${p.tag}</small></div>
+      </div>
+      <div class="prod-body" id="body-${key}"></div>
+    </div>`;
+  }).join('');
+  // attach toggles
+  $$('[data-toggle]').forEach(el=>el.addEventListener('click',e=>{
+    const k=el.dataset.toggle; state.enabled[k]=!state.enabled[k];
+    el.closest('.prod').classList.toggle('on',state.enabled[k]);
+    renderProductBody(k); renderAll();
+  }));
+}
+function renderProductBody(k){
+  const el=$('#body-'+k); if(!el)return;
+  if(k==='integral'){
+    const c=calcIntegral();
+    el.innerHTML=`
+      <div class="slider-wrap"><label>% de alunos a converter para integral <b>${state.integral.pct}%</b></label>
+        <input type="range" min="5" max="100" value="${state.integral.pct}" data-i="pct"></div>
+      <div class="slider-wrap"><label>Repasse i10 / município <b>${state.integral.split}/${100-state.integral.split}</b></label>
+        <input type="range" min="50" max="80" value="${state.integral.split}" data-i="split"></div>
+      <div class="kpi-mini">Alunos convertidos: <b>${num(c.students)}</b><br>
+        Receita FUNDEB nova/ano: <b>${brl(c.addFundeb)}</b><br>
+        Repasse i10/ano: <b>${brl(c.i10)}</b> · Município fica com <b>${brl(c.muni)}</b></div>`;
+    el.querySelectorAll('input[data-i]').forEach(inp=>inp.addEventListener('input',e=>{
+      state.integral[e.target.dataset.i]=+e.target.value; renderProductBody('integral'); renderAll();
+    }));
+  }
+  else if(k==='fundeb'){
+    const t=calcFundeb();
+    el.innerHTML=`<div class="kpi-mini">Porte: <b>${t.label}</b><br>Investimento do Programa i10 de Aceleração: <b>${t.price?brl(t.price):'definir população'}</b>
+      ${state.muniRow?`<br>Ganho potencial estimado: <b>${brl(state.muniRow.pt)}</b>`:''}</div>
+      <p class="hint">O valor é definido automaticamente pela população informada no bloco Município.</p>`;
+  }
+  else if(k==='bilingue'){
+    const b=state.bilingue, c=calcBilingue();
+    el.innerHTML=`
+      <div class="row2">
+        <label class="fld">Alunos<input class="inp" type="number" data-b="students" value="${b.students}"></label>
+        <label class="fld">Anos<input class="inp" type="number" data-b="years" value="${b.years}"></label>
+      </div>
+      <div class="row2">
+        <label class="fld">Alumni/mês<input class="inp" type="number" data-b="alumniMonthly" value="${b.alumniMonthly}"></label>
+        <label class="fld">Tablets (un.)<input class="inp" type="number" data-b="tablets" value="${b.tablets}"></label>
+      </div>
+      <div class="kpi-mini">Investimento total (${b.years} anos): <b>${brl(c.total)}</b><br>
+        Por aluno/ano: <b>${brl(c.perStudentYear)}</b></div>`;
+    el.querySelectorAll('input[data-b]').forEach(inp=>inp.addEventListener('input',e=>{
+      state.bilingue[e.target.dataset.b]=+e.target.value||0; renderProductBody('bilingue'); renderAll();
+    }));
+  }
+  else if(k==='radar'){
+    el.innerHTML=`<label class="fld">Plano
+      <select class="inp" data-r="plan">
+        <option value="essencial"${state.radar.plan==='essencial'?' selected':''}>Essencial — R$ 499/mês</option>
+        <option value="profissional"${state.radar.plan==='profissional'?' selected':''}>Profissional — R$ 1.999/mês</option>
+        <option value="personalizado"${state.radar.plan==='personalizado'?' selected':''}>Personalizado — sob consulta</option>
+      </select></label>`;
+    el.querySelector('select').addEventListener('change',e=>{state.radar.plan=e.target.value;renderAll();});
+  }
+}
+function updateTier(){
+  const t=fundebTier(state.pop);
+  $('#tierBadge').innerHTML = state.pop? `<span class="tier-badge">FUNDEB: ${t.label} · ${t.price?brl(t.price):'—'}</span>`:'';
+}
+function showMuniData(){
+  const r=state.muniRow; const box=$('#muniData');
+  if(!r){box.style.display='none';return;}
+  box.style.display='block';
+  box.innerHTML=`<b>${num(r.ai+r.af)}</b> alunos no EF (${num(r.ai)} iniciais · ${num(r.af)} finais)<br>
+    Receita FUNDEB atual: <b>${brl(r.tr)}</b><br>
+    Ganho potencial integral: <b>${brl(r.pt)}</b> (+${r.pp}%)`;
+}
+
+/* ====================== BIND SIDEBAR INPUTS ====================== */
+function bindInputs(){
+  $('#muniSearch').addEventListener('input',e=>{
+    state.muni=e.target.value;
+    const row=MUNI_BY_NAME[e.target.value.toLowerCase()];
+    state.muniRow=row||null;
+    if(row){
+      // auto-fill population from IBGE (Censo 2022) and recompute the FUNDEB tier
+      const p=POP[row.n] ?? POP[e.target.value];
+      if(p){ state.pop=p; $('#pop').value=p; updateTier(); }
+    }
+    showMuniData(); refreshProposalMeta();
+    if(state.enabled.integral)renderProductBody('integral');
+    if(state.enabled.fundeb)renderProductBody('fundeb');
+    renderAll();
+  });
+  $('#pop').addEventListener('input',e=>{state.pop=+e.target.value||null;updateTier();if(state.enabled.fundeb)renderProductBody('fundeb');renderAll();});
+  $('#uf').addEventListener('input',e=>{state.uf=e.target.value;renderAll();});
+  $('#empresa').addEventListener('input',e=>{state.empresa=e.target.value;refreshProposalMeta();renderAll();});
+  $('#assunto').addEventListener('input',e=>{state.assunto=e.target.value;refreshProposalMeta();renderAll();});
+  $('#propNum').addEventListener('input',e=>{state.propNum=e.target.value;});
+  $('#propVer').addEventListener('input',e=>{state.propVer=+e.target.value||1;});
+  $('#gestor').addEventListener('input',e=>{state.gestor=e.target.value;renderAll();});
+  $('#secretaria').addEventListener('input',e=>{state.secretaria=e.target.value;renderAll();});
+  $('#dataProp').addEventListener('input',e=>{state.data=e.target.value;renderAll();});
+  $('#repName').addEventListener('input',e=>{state.rep.name=e.target.value;renderAll();});
+  $('#repEmail').addEventListener('input',e=>{state.rep.email=e.target.value;renderAll();});
+  $('#repPhone').addEventListener('input',e=>{state.rep.phone=e.target.value;renderAll();});
+  $('#dataProp').value=state.data; $('#assunto').value=state.assunto;
+}
+
+/* ====================== INVESTMENT SUMMARY ====================== */
+function buildInvestment(){
+  const rows=[]; let oneTime=0, monthly=0, yearly=0;
+  if(state.enabled.fundeb){const t=calcFundeb();if(t.price){rows.push(['Programa i10 de Aceleração FUNDEB',t.label,'Pagamento único',t.price]);oneTime+=t.price;}}
+  if(state.enabled.bilingue){const c=calcBilingue();rows.push(['Município Bilíngue',`${state.bilingue.years} anos · ${num(state.bilingue.students)} alunos`,'Plurianual',c.total]);oneTime+=c.total;}
+  if(state.enabled.radar){const c=calcRadar();if(c.monthly){rows.push(['Radar Fiscal 360',c.plan.name,`${brl(c.monthly)}/mês`,c.annual]);yearly+=c.annual;monthly+=c.monthly;}else rows.push(['Radar Fiscal 360','Personalizado','Sob consulta',null]);}
+  return {rows,oneTime,monthly,yearly};
+}
+
+/* ====================== PROPOSAL RENDER ====================== */
+function renderProposal(){
+  const v=$('#proposalView');
+  const anyProd=Object.values(state.enabled).some(Boolean);
+  if(!state.muni && !anyProd){
+    v.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="#0A2463" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+      <h3>Comece sua proposta</h3><p>Busque o município à esquerda e ative os produtos. A proposta é montada automaticamente, com a identidade do Instituto i10.</p></div>`;
+    return;
+  }
+  const inv=buildInvestment(); const ci=calcIntegral();
+  let n=0;
+  const prodSection=(key)=>{
+    if(!state.enabled[key])return'';
+    n++; const p=PRODUCTS[key];
+    let body='';
+    if(key==='integral'){
+      body=`<div class="kgrid">
+        <div class="kcard"><div class="v grad">${num(ci.students)}</div><div class="l">alunos em jornada integral</div></div>
+        <div class="kcard"><div class="v grad">${brl(ci.addFundeb)}</div><div class="l">receita FUNDEB nova / ano</div></div>
+        <div class="kcard"><div class="v grad">${brl(ci.muni)}</div><div class="l">fica com o município / ano</div></div>
+      </div>
+      <div class="callout green"><div class="q">"O município não tem custo — paga apenas com o recurso novo que passa a acessar. Ganha receita, os alunos ganham educação de qualidade e as famílias ganham segurança."</div></div>`;
+    } else if(key==='fundeb'){
+      const t=calcFundeb();
+      body=`<div class="kgrid">
+        <div class="kcard"><div class="v grad">${t.price?brl(t.price):'—'}</div><div class="l">investimento (${t.label})</div></div>
+        ${state.muniRow?`<div class="kcard"><div class="v grad">${brl(state.muniRow.pt)}</div><div class="l">ganho potencial mapeado</div></div>`:''}
+      </div>`;
+    } else if(key==='bilingue'){
+      const c=calcBilingue();
+      body=`<div class="kgrid">
+        <div class="kcard"><div class="v grad">${num(state.bilingue.students)}</div><div class="l">alunos atendidos</div></div>
+        <div class="kcard"><div class="v grad">${brl(c.total)}</div><div class="l">investimento em ${state.bilingue.years} anos</div></div>
+        <div class="kcard"><div class="v grad">${brl(c.perStudentYear)}</div><div class="l">por aluno / ano</div></div>
+      </div>`;
+    } else if(key==='radar'){
+      const c=calcRadar();
+      body=`<div class="kgrid">
+        ${Object.values(RADAR_PLANS).map(pl=>`<div class="kcard" style="${pl.name===c.plan.name?'border-color:var(--cyan);box-shadow:0 0 0 2px var(--cyan)':''}"><div class="v grad">${pl.price?brl(pl.price):'sob consulta'}</div><div class="l">${pl.name}${pl.price?' / mês':''}</div></div>`).join('')}
+      </div>`;
+    }
+    return `<div class="prodblock">
+      <div class="prodblock-h"><div><div class="num">Produto ${n}</div><h3>${p.name}</h3></div><span class="pill">${p.pill}</span></div>
+      <div class="prodblock-body">
+        <p>${p.desc}</p>
+        <ul class="feat2">${p.bullets.map(b=>`<li>${b}</li>`).join('')}</ul>
+        ${body}
+      </div>
+    </div>`;
+  };
+
+  const muniTitle = targetName() || 'seu município';
+  v.innerHTML=`<div class="doc" id="docRoot">
+    <!-- COVER -->
+    <div class="cover">
+      <div class="glow2"></div>
+      <svg class="logo" viewBox="0 0 320 100"><circle cx="20" cy="50" r="6" fill="#00B4D8"/><circle cx="55" cy="22" r="6" fill="#00E5A0"/><circle cx="90" cy="58" r="6" fill="#00B4D8"/><circle cx="125" cy="34" r="6" fill="#00B4D8"/><circle cx="160" cy="68" r="6" fill="#00E5A0"/><line x1="20" y1="50" x2="55" y2="22" stroke="#48CAE4" stroke-width="2.5"/><line x1="55" y1="22" x2="90" y2="58" stroke="#48CAE4" stroke-width="2.5"/><line x1="90" y1="58" x2="125" y2="34" stroke="#48CAE4" stroke-width="2.5"/><line x1="125" y1="34" x2="160" y2="68" stroke="#48CAE4" stroke-width="2.5"/><text x="185" y="52" font-family="Inter" font-weight="800" font-size="44" fill="#fff">i</text><text x="204" y="52" font-family="Inter" font-weight="800" font-size="44" fill="#00E5A0">10</text><text x="185" y="72" font-family="Inter" font-size="14" fill="rgba(255,255,255,.55)">Instituto</text></svg>
+      <div class="eyebrow">${state.assunto||'Proposta de Parceria'} · ${state.uf}</div>
+      <h1>${muniTitle}</h1>
+      <div class="sub">Soluções integradas de educação, gestão e inteligência fiscal para transformar a educação pública municipal.</div>
+      <div class="meta">
+        ${state.gestor?`<div><span>Aos cuidados de</span><b>${state.gestor}</b></div>`:''}
+        <div><span>${state.secretaria?state.secretaria:'Secretaria de Educação'}</span><b>${muniTitle} · ${state.uf}</b></div>
+        <div><span>Proposta</span><b>${state.propNum||'—'}${state.propVer>1?` · v${state.propVer}`:''}</b></div>
+        <div><span>Data</span><b>${fmtDate(state.data)||'—'}</b></div>
+      </div>
+      <div class="tagline">INOVAÇÃO · INTELIGÊNCIA · IMPACTO</div>
+    </div>
+
+    <!-- CARTA -->
+    <div class="doc-page">
+      <div class="sec-tag">Apresentação</div>
+      <h2>Uma parceria para a educação de ${muniTitle}</h2>
+      <div class="accent-bar"></div>
+      <p>O Instituto i10 é uma instituição de pesquisa e inovação dedicada a transformar a educação pública brasileira por meio de tecnologia, dados e metodologias validadas. Combinamos rigor científico com soluções práticas que geram impacto mensurável para gestores, professores, estudantes e famílias.</p>
+      <p>Esta proposta reúne ${countEnabled()} ${countEnabled()===1?'solução desenhada':'soluções desenhadas'} para o contexto de <b>${muniTitle}</b>, com foco em ampliar recursos, melhorar a qualidade do ensino e dar à administração municipal mais segurança nas decisões.</p>
+      ${diagnosisBlock()}
+    </div>
+
+    ${anyProd?`<div class="doc-page">
+      <div class="sec-tag">Soluções propostas</div>
+      <h2>O que vamos entregar</h2>
+      <div class="accent-bar"></div>
+      ${prodSection('integral')}${prodSection('fundeb')}${prodSection('bilingue')}${prodSection('radar')}
+    </div>`:''}
+
+    ${investmentBlock(inv,ci)}
+
+    <!-- TIMELINE -->
+    <div class="doc-page">
+      <div class="sec-tag">Próximos passos</div>
+      <h2>Como começamos</h2>
+      <div class="accent-bar"></div>
+      <div class="steps">
+        <div class="step"><div class="n"></div><div><b>Reunião de alinhamento</b><p>Apresentação detalhada ao gabinete e à Secretaria de Educação, com simulação dos números para ${muniTitle}.</p></div></div>
+        <div class="step"><div class="n"></div><div><b>Diagnóstico e validação jurídica</b><p>Levantamento de dados da rede e definição do instrumento de parceria adequado.</p></div></div>
+        <div class="step"><div class="n"></div><div><b>Plano de implantação</b><p>Cronograma, equipe e metas definidas em conjunto, respeitando o calendário do Censo Escolar.</p></div></div>
+        <div class="step"><div class="n"></div><div><b>Início da operação</b><p>Execução acompanhada por indicadores e prestação de contas transparente.</p></div></div>
+      </div>
+    </div>
+
+    <!-- SOBRE -->
+    <div class="doc-page about">
+      <div class="sec-tag" style="color:var(--green)">Sobre o Instituto i10</div>
+      <h2>Inovação a serviço da educação pública</h2>
+      <p style="color:#cfe0ff">O nome i10 é uma referência ao <i>i10-index</i> do Google Scholar — a inteligência multiplicada pelo padrão de excelência. Atuamos na articulação entre os setores público, acadêmico e privado para transformar a educação em escala.</p>
+      <div class="vals">
+        <div class="val"><b>E</b><span>Excelência</span></div>
+        <div class="val"><b>I</b><span>Inovação</span></div>
+        <div class="val"><b>M</b><span>Impacto</span></div>
+        <div class="val"><b>C</b><span>Colaboração</span></div>
+      </div>
+      <div class="sign">
+        <div style="color:#9fb6e0;font-size:13px">Atenciosamente,<br><b style="color:#fff;font-size:16px">${state.rep.name||'Equipe Instituto i10'}</b><br>Instituto i10</div>
+        <div class="contact-card">
+          <b>Vamos conversar?</b>
+          ${state.rep.email?state.rep.email+'<br>':'contato@institutoi10.com.br<br>'}
+          ${state.rep.phone||''}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function countEnabled(){return Object.values(state.enabled).filter(Boolean).length;}
+function diagnosisBlock(){
+  const r=state.muniRow;
+  if(!r && !state.pop) return '';
+  let cards='';
+  if(state.pop) cards+=`<div class="kcard"><div class="v">${num(state.pop)}</div><div class="l">habitantes</div></div>`;
+  if(r){
+    cards+=`<div class="kcard"><div class="v">${num(r.ai+r.af)}</div><div class="l">alunos no Ensino Fundamental</div></div>`;
+    cards+=`<div class="kcard"><div class="v grad">${brl(r.pt)}</div><div class="l">ganho potencial FUNDEB (integral)</div></div>`;
+  }
+  return `<div class="callout"><div class="q">Diagnóstico inicial de ${state.muni||'seu município'}</div></div><div class="kgrid">${cards}</div>`;
+}
+function investmentBlock(inv,ci){
+  const hasIntegral=state.enabled.integral;
+  if(!inv.rows.length && !hasIntegral) return '';
+  let foot='';
+  if(inv.oneTime>0) foot+=`<tr><td colspan="3">Investimento pontual / plurianual</td><td>${brl(inv.oneTime)}</td></tr>`;
+  if(inv.yearly>0) foot+=`<tr><td colspan="3">Recorrente (12 meses)</td><td>${brl(inv.yearly)}</td></tr>`;
+  return `<div class="doc-page">
+    <div class="sec-tag">Investimento</div>
+    <h2>Resumo financeiro</h2>
+    <div class="accent-bar"></div>
+    ${hasIntegral?`<div class="callout green"><div class="q"><b>Projeto Integral i10 — sem custo para o município.</b> A remuneração do i10 vem do repasse de ${state.integral.split}% sobre a <b>receita FUNDEB nova</b> de ${brl(ci.addFundeb)}/ano gerada pela conversão. O município retém ${brl(ci.muni)}/ano de recurso que hoje não é captado.</div></div>`:''}
+    ${inv.rows.length?`<table class="t"><thead><tr><th>Solução</th><th>Configuração</th><th>Modelo</th><th>Valor</th></tr></thead>
+      <tbody>${inv.rows.map(r=>`<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]!=null?brl(r[3]):'sob consulta'}</td></tr>`).join('')}</tbody>
+      ${foot?`<tfoot>${foot}</tfoot>`:''}</table>`:''}
+    <p class="hint" style="color:var(--g500)">Valores de referência sujeitos a ajuste conforme escopo final, porte da rede e instrumento de parceria. O Projeto Integral é remunerado por repasse sobre receita nova e não representa despesa adicional ao orçamento municipal.</p>
+  </div>`;
+}
+
+/* ====================== DECK RENDER ====================== */
+let curSlide=0;
+function buildSlides(){
+  const slides=[]; const ci=calcIntegral(); const inv=buildInvestment();
+  const muniTitle=targetName()||'seu município';
+  const logoLight=`<svg class="logo-s" viewBox="0 0 320 100"><circle cx="20" cy="50" r="6" fill="#00B4D8"/><circle cx="55" cy="22" r="6" fill="#00E5A0"/><circle cx="90" cy="58" r="6" fill="#00B4D8"/><circle cx="125" cy="34" r="6" fill="#00B4D8"/><circle cx="160" cy="68" r="6" fill="#00E5A0"/><line x1="20" y1="50" x2="55" y2="22" stroke="#48CAE4" stroke-width="2.5"/><line x1="55" y1="22" x2="90" y2="58" stroke="#48CAE4" stroke-width="2.5"/><line x1="90" y1="58" x2="125" y2="34" stroke="#48CAE4" stroke-width="2.5"/><line x1="125" y1="34" x2="160" y2="68" stroke="#48CAE4" stroke-width="2.5"/><text x="185" y="52" font-family="Inter" font-weight="800" font-size="44" fill="#fff">i</text><text x="204" y="52" font-family="Inter" font-weight="800" font-size="44" fill="#00E5A0">10</text><text x="185" y="72" font-family="Inter" font-size="14" fill="rgba(255,255,255,.55)">Instituto</text></svg>`;
+  const logoDark=logoLight.replace('fill="#fff">i','fill="#0A2463">i').replace('stroke="#48CAE4"','stroke="#00B4D8"').replace(/rgba\(255,255,255,.55\)/,'#64748B');
+
+  // 1 — cover
+  slides.push(`<div class="slide dark show"><div class="slide-inner">${logoLight}
+    <div class="kicker">${state.assunto||'Proposta de Parceria'} · ${state.uf}${state.propNum?` · ${state.propNum}`:''}${state.propVer>1?` · v${state.propVer}`:''}</div>
+    <h1 class="big">${muniTitle}</h1>
+    <div class="sub" style="margin-top:14px">Educação, gestão e inteligência fiscal para transformar a educação pública municipal.</div>
+    <div style="margin-top:auto;font-size:13px;letter-spacing:2px;color:#48CAE4;font-weight:600">INOVAÇÃO · INTELIGÊNCIA · IMPACTO</div></div></div>`);
+
+  // 2 — diagnosis
+  if(state.muniRow||state.pop){
+    const r=state.muniRow;
+    slides.push(`<div class="slide"><div class="slide-inner"><div class="kicker">Diagnóstico</div>
+      <h2>${muniTitle} hoje</h2>
+      <div class="s-kgrid" style="grid-template-columns:repeat(${(state.pop?1:0)+(r?2:0)||1},1fr)">
+        ${state.pop?`<div class="kc"><div class="v">${num(state.pop)}</div><div class="l">habitantes</div></div>`:''}
+        ${r?`<div class="kc"><div class="v">${num(r.ai+r.af)}</div><div class="l">alunos no Ensino Fundamental</div></div>
+        <div class="kc"><div class="v">${brl(r.pt)}</div><div class="l">ganho potencial FUNDEB não captado</div></div>`:''}
+      </div>
+      ${r?`<p style="margin-top:24px;font-size:19px;color:var(--g600)">Há recursos que <b>já existem no FUNDEB</b> e hoje não estão sendo acessados por ${muniTitle}.</p>`:''}
+    </div></div>`);
+  }
+
+  // per-product slides
+  let n=0;
+  if(state.enabled.integral){n++;slides.push(`<div class="slide"><div class="slide-inner"><div class="kicker">Solução ${n} · Sem custo ao município</div>
+    <h2>Projeto Integral i10</h2>
+    <div class="s-kgrid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="kc"><div class="v">${num(ci.students)}</div><div class="l">alunos em jornada integral</div></div>
+      <div class="kc"><div class="v">${brl(ci.addFundeb)}</div><div class="l">receita FUNDEB nova / ano</div></div>
+      <div class="kc"><div class="v">${brl(ci.muni)}</div><div class="l">fica com o município / ano</div></div>
+    </div>
+    <p style="margin-top:22px;font-size:18px;color:var(--g600)">Contraturno com inglês, espanhol, programação, matemática, IA e esportes — ativando o multiplicador <b>1,50x</b> do FUNDEB.</p></div></div>`);}
+  if(state.enabled.fundeb){n++;const t=calcFundeb();slides.push(`<div class="slide"><div class="slide-inner"><div class="kicker">Solução ${n}</div>
+    <h2>Programa i10 de Aceleração FUNDEB</h2>
+    <ul class="s-list">${PRODUCTS.fundeb.bullets.map(b=>`<li>${b}</li>`).join('')}</ul>
+    <div class="s-kgrid" style="grid-template-columns:repeat(2,1fr);margin-top:18px"><div class="kc"><div class="v">${t.price?brl(t.price):'—'}</div><div class="l">investimento · ${t.label}</div></div>${state.muniRow?`<div class="kc"><div class="v">${brl(state.muniRow.pt)}</div><div class="l">ganho potencial mapeado</div></div>`:''}</div></div></div>`);}
+  if(state.enabled.bilingue){n++;const c=calcBilingue();slides.push(`<div class="slide"><div class="slide-inner"><div class="kicker">Solução ${n}</div>
+    <h2>Município Bilíngue</h2>
+    <ul class="s-list">${PRODUCTS.bilingue.bullets.slice(0,4).map(b=>`<li>${b}</li>`).join('')}</ul>
+    <div class="s-kgrid" style="grid-template-columns:repeat(3,1fr);margin-top:18px"><div class="kc"><div class="v">${num(state.bilingue.students)}</div><div class="l">alunos</div></div><div class="kc"><div class="v">${brl(c.total)}</div><div class="l">${state.bilingue.years} anos</div></div><div class="kc"><div class="v">${brl(c.perStudentYear)}</div><div class="l">por aluno/ano</div></div></div></div></div>`);}
+  if(state.enabled.radar){n++;const c=calcRadar();slides.push(`<div class="slide"><div class="slide-inner"><div class="kicker">Solução ${n} · SaaS</div>
+    <h2>Radar Fiscal 360</h2>
+    <div class="s-kgrid" style="grid-template-columns:repeat(3,1fr)">${Object.values(RADAR_PLANS).map(pl=>`<div class="kc" style="${pl.name===c.plan.name?'border-color:var(--cyan);box-shadow:0 0 0 2px var(--cyan)':''}"><div class="v">${pl.price?brl(pl.price):'sob consulta'}</div><div class="l">${pl.name}${pl.price?' / mês':''}</div></div>`).join('')}</div>
+    <p style="margin-top:22px;font-size:18px;color:var(--g600)">Monitoramento inteligente de indicadores fiscais, limites da LRF e execução orçamentária — para decisões seguras.</p></div></div>`);}
+
+  // investment slide
+  if(inv.rows.length||state.enabled.integral){
+    let foot='';if(inv.oneTime>0)foot+=`<tr><td colspan="3">Pontual / plurianual</td><td>${brl(inv.oneTime)}</td></tr>`;if(inv.yearly>0)foot+=`<tr><td colspan="3">Recorrente (12 meses)</td><td>${brl(inv.yearly)}</td></tr>`;
+    slides.push(`<div class="slide"><div class="slide-inner"><div class="kicker">Investimento</div><h2>Resumo financeiro</h2>
+      ${state.enabled.integral?`<p style="font-size:17px;color:var(--g600);margin-bottom:8px"><b>Projeto Integral: sem custo.</b> Remunerado por repasse sobre a receita FUNDEB nova gerada.</p>`:''}
+      ${inv.rows.length?`<table class="t"><thead><tr><th>Solução</th><th>Config.</th><th>Modelo</th><th>Valor</th></tr></thead><tbody>${inv.rows.map(r=>`<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]!=null?brl(r[3]):'sob consulta'}</td></tr>`).join('')}</tbody>${foot?`<tfoot>${foot}</tfoot>`:''}</table>`:''}
+    </div></div>`);
+  }
+
+  // closing
+  slides.push(`<div class="slide dark"><div class="slide-inner">${logoLight}
+    <div class="kicker">Vamos começar</div>
+    <h2 class="big" style="font-size:46px">Transformar a educação de ${muniTitle}</h2>
+    <div style="margin-top:auto">
+      <div style="font-size:18px;color:#cfe0ff">${state.rep.name||'Equipe Instituto i10'}</div>
+      <div style="font-size:16px;color:#48CAE4;font-weight:600">${state.rep.email||'contato@institutoi10.com.br'} ${state.rep.phone?' · '+state.rep.phone:''}</div>
+    </div></div></div>`);
+
+  return slides;
+}
+function renderDeck(){
+  const v=$('#deckView');
+  const anyProd=Object.values(state.enabled).some(Boolean);
+  if(!state.muni && !anyProd){
+    v.innerHTML=`<div class="empty"><h3>Apresentação</h3><p>Configure o município e os produtos para gerar os slides da apresentação.</p></div>`;
+    return;
+  }
+  const slides=buildSlides();
+  if(curSlide>=slides.length)curSlide=0;
+  v.innerHTML=`<div class="deck-nav no-print">
+      <button id="prevS">‹</button>
+      <span class="count">${curSlide+1} / ${slides.length}</span>
+      <button id="nextS">›</button>
+    </div>
+    <div id="slidesWrap">${slides.map((s,i)=>s.replace('class="slide','class="slide'+(i===curSlide?' show':'')).replace(' show show',' show')+'').join('')}</div>`;
+  // fix show class properly
+  const wrap=$('#slidesWrap');
+  [...wrap.children].forEach((el,i)=>{el.classList.toggle('show',i===curSlide); el.insertAdjacentHTML('beforeend',`<div class="pagenum">${i+1}</div>`);});
+  $('#prevS').onclick=()=>{curSlide=(curSlide-1+slides.length)%slides.length;renderDeck();};
+  $('#nextS').onclick=()=>{curSlide=(curSlide+1)%slides.length;renderDeck();};
+}
+
+/* ====================== VIEW SWITCH / PRINT ====================== */
+let view='proposal';
+function renderAll(){ renderProposal(); renderDeck(); }
+$$('.tab').forEach(t=>t.addEventListener('click',()=>{
+  view=t.dataset.view;
+  $$('.tab').forEach(x=>x.classList.toggle('active',x===t));
+  $('#proposalView').style.display = view==='proposal'?'block':'none';
+  $('#deckView').style.display = view==='deck'?'block':'none';
+}));
+function buildDocTitle(){
+  // read the (possibly user-edited) Nº / versão fields
+  const numero=($('#propNum').value||state.propNum||'').trim();
+  const versao=+($('#propVer').value||state.propVer||1);
+  const target=targetName()||'Cliente';
+  const assunto=(state.assunto||'Proposta').trim();
+  // becomes both the PDF Title metadata and the default save filename
+  let t=`${assunto} — ${target}`;
+  if(numero) t+=` — ${numero}`;
+  t+=` — v${versao}`;
+  return {title:t, numero, versao};
+}
+
+/* ---- toast ---- */
+function toast(msg,kind){
+  let el=$('#toast'); if(!el){el=document.createElement('div');el.id='toast';document.body.appendChild(el);}
+  el.textContent=msg; el.className='show '+(kind||'');
+  clearTimeout(el._t); el._t=setTimeout(()=>el.className='',3200);
+}
+
+/* ---- persist a generated proposal to Neon via the serverless API ---- */
+function buildSavePayload(){
+  const {title,numero,versao}=buildDocTitle();
+  const inv=buildInvestment();
+  const products=Object.keys(state.enabled).filter(k=>state.enabled[k]);
+  return {
+    numero, versao, title,
+    assunto:state.assunto, target:targetName(),
+    tipo: state.empresa.trim()? 'empresa':'municipio',
+    municipio:state.muni, uf:state.uf, populacao:state.pop||null,
+    gestor:state.gestor, secretaria:state.secretaria,
+    products,
+    total_onetime:inv.oneTime||0, total_yearly:inv.yearly||0,
+    rep_name:state.rep.name, rep_email:state.rep.email, rep_phone:state.rep.phone,
+    payload:{ // everything needed to re-open the exact proposal
+      muni:state.muni, empresa:state.empresa, pop:state.pop, uf:state.uf,
+      gestor:state.gestor, secretaria:state.secretaria, data:state.data,
+      assunto:state.assunto, propNum:numero, propVer:versao,
+      rep:state.rep, enabled:state.enabled,
+      integral:state.integral, bilingue:state.bilingue, radar:state.radar
+    }
+  };
+}
+async function saveProposal(){
+  try{
+    const r=await fetch('/api/proposals',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(buildSavePayload())});
+    const j=await r.json().catch(()=>({}));
+    if(r.ok && j.ok) toast('Proposta salva no banco (#'+j.id+')','ok');
+    else toast('Proposta gerada — não foi salva: '+(j.error||r.status),'warn');
+  }catch(e){ toast('Proposta gerada — banco indisponível','warn'); }
+}
+
+/* ---- re-open a saved proposal (payload stashed by the admin page) ---- */
+function applyState(p){
+  if(!p) return;
+  Object.assign(state,{
+    muni:p.muni||'', empresa:p.empresa||'', pop:p.pop||null, uf:p.uf||'SP',
+    gestor:p.gestor||'', secretaria:p.secretaria||state.secretaria, data:p.data||state.data,
+    assunto:p.assunto||state.assunto, propNum:p.propNum||'', propVer:p.propVer||1,
+    rep:Object.assign({name:'',email:'',phone:''},p.rep||{}),
+    enabled:Object.assign({integral:false,fundeb:false,bilingue:false,radar:false},p.enabled||{}),
+    integral:Object.assign({},state.integral,p.integral||{}),
+    bilingue:Object.assign({},state.bilingue,p.bilingue||{}),
+    radar:Object.assign({},state.radar,p.radar||{})
+  });
+  state.muniRow = MUNI_BY_NAME[(state.muni||'').toLowerCase()]||null;
+  // reflect into the form fields
+  const set=(id,v)=>{const e=$('#'+id); if(e)e.value=v??'';};
+  set('muniSearch',state.muni); set('empresa',state.empresa); set('pop',state.pop);
+  set('uf',state.uf); set('gestor',state.gestor); set('secretaria',state.secretaria);
+  set('dataProp',state.data); set('assunto',state.assunto); set('propNum',state.propNum);
+  set('propVer',state.propVer); set('repName',state.rep.name); set('repEmail',state.rep.email);
+  set('repPhone',state.rep.phone);
+  updateTier(); showMuniData();
+  Object.keys(state.enabled).forEach(k=>{
+    const card=document.querySelector(`.prod[data-prod="${k}"]`);
+    if(card){ card.classList.toggle('on',state.enabled[k]); if(state.enabled[k]) renderProductBody(k); }
+  });
+  renderAll();
+}
+function checkReopen(){
+  try{
+    const raw=localStorage.getItem('i10_reopen');
+    if(!raw) return;
+    localStorage.removeItem('i10_reopen');
+    applyState(JSON.parse(raw));
+    toast('Proposta carregada para edição','ok');
+  }catch(e){}
+}
+
+const BASE_TITLE=document.title;
+const previewEl=$('#preview');
+let pvSaved=false;
+
+// open the real on-screen preview that mirrors the printable PDF.
+// save=true → grava no Neon + incrementa versão (Gerar PDF); save=false → só pré-visualiza
+function openPreview(save){
+  if(!targetName()){ alert('Informe o município ou a empresa antes de continuar.'); return; }
+  const {title,numero,versao}=buildDocTitle();
+  if(save){
+    commitMeta(numero,versao);        // persist number/version for next time
+    saveProposal();                   // auto-save the generated proposal to Neon
+  }
+  pvSaved=!!save;
+  document.title=title;               // sets PDF title + suggested filename
+
+  const isDeck=view==='deck';
+  const src=isDeck?$('#deckView'):$('#proposalView');
+  const paper=$('#pvPaper');
+  const clone=src.cloneNode(true);
+  clone.querySelectorAll('.deck-nav,.no-print').forEach(n=>n.remove()); // drop interactive chrome
+  clone.querySelectorAll('[id]').forEach(n=>n.removeAttribute('id'));   // avoid duplicate ids
+  paper.innerHTML=clone.innerHTML;
+  paper.classList.toggle('deck',isDeck);
+
+  document.body.classList.add('previewing');
+  document.body.classList.toggle('preview-deck',isDeck);
+  previewEl.classList.add('show');
+  previewEl.setAttribute('aria-hidden','false');
+  previewEl.querySelector('.pv-scroll').scrollTop=0;
+}
+function closePreview(){
+  previewEl.classList.remove('show');
+  previewEl.setAttribute('aria-hidden','true');
+  document.body.classList.remove('previewing','preview-deck');
+  $('#pvPaper').innerHTML='';
+  document.title=BASE_TITLE;
+  if(pvSaved){ refreshProposalMeta(); renderAll(); }
+  pvSaved=false;
+}
+$('#btnPreview').addEventListener('click',()=>openPreview(false));
+$('#btnPrint').addEventListener('click',()=>openPreview(true));
+$('#pvPrint').addEventListener('click',()=>window.print());
+$('#pvClose').addEventListener('click',closePreview);
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&previewEl.classList.contains('show'))closePreview(); });
+$('#btnReset').addEventListener('click',()=>{ if(confirm('Limpar toda a configuração?')) location.reload(); });
+document.addEventListener('keydown',e=>{ if(view!=='deck')return; if(e.key==='ArrowRight')$('#nextS')?.click(); if(e.key==='ArrowLeft')$('#prevS')?.click(); });
+
+/* ====================== INIT ====================== */
+/* mobile nav: toggle Configurar / Resultado */
+const mobnav=$('#mobnav');
+function setMView(v){ document.body.dataset.mview=v; mobnav&&mobnav.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.mview===v)); if(v==='result')$('#stage').scrollTop=0; }
+mobnav&&mobnav.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>setMView(b.dataset.mview)));
+setMView('cfg');
+
+buildMuniList(); buildProducts(); bindInputs(); refreshProposalMeta(); renderAll(); checkReopen();
+
+/* ---- Integração CRM i10: prefill via hash + opportunity_id no save ---- */
+try{
+  var _m=(location.hash.match(/prefill=([^&]+)/)||[])[1];
+  if(_m){
+    var _q=JSON.parse(decodeURIComponent(_m));
+    window.__OPP_ID=_q.opportunity_id||null;
+    applyState({
+      muni:_q.municipio||'', uf:_q.uf||'SP', gestor:_q.gestor||'',
+      rep:{name:_q.rep||'',email:'',phone:''},
+      enabled:{}
+    });
+  }
+}catch(e){}
+var __bsp=buildSavePayload;
+buildSavePayload=function(){var p=__bsp(); p.opportunity_id=window.__OPP_ID||null; return p;};
+</script>
+</body>
+</html>

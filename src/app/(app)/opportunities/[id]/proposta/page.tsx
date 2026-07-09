@@ -49,6 +49,13 @@ export default async function PropostaBuilderPage({
         pronta para imprimir/salvar em PDF.
       </p>
 
+      <Link
+        href={`/opportunities/${op.id}/proposta/studio`}
+        className="mt-3 inline-flex items-center gap-2 rounded-md bg-i10-700 px-4 py-2 text-sm font-bold text-white hover:bg-i10-800"
+      >
+        ✨ Abrir no Planejador completo (formato oficial) →
+      </Link>
+
       {/* Dados do card (somente leitura) */}
       <div className="mt-5 grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm sm:grid-cols-4">
         <div>
