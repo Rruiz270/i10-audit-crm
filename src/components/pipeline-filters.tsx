@@ -1,7 +1,13 @@
 'use client';
 
 import * as React from 'react';
-import { KanbanBoard, type KanbanCard, type DynamicStage } from '@/components/kanban-board';
+import {
+  KanbanBoard,
+  type KanbanCard,
+  type DynamicStage,
+  type TeamUser,
+  type Viewer,
+} from '@/components/kanban-board';
 import { Switch } from '@/components/ui/switch';
 import { Select } from '@/components/ui/input';
 import { isRotten } from '@/lib/forecast';
@@ -15,9 +21,13 @@ import { isRotten } from '@/lib/forecast';
 export function PipelineFilters({
   cards,
   stages,
+  team,
+  viewer,
 }: {
   cards: KanbanCard[];
   stages?: DynamicStage[];
+  team?: TeamUser[];
+  viewer?: Viewer;
 }) {
   const [owner, setOwner] = React.useState('');
   const [onlyRotten, setOnlyRotten] = React.useState(false);
@@ -65,7 +75,7 @@ export function PipelineFilters({
           Só paradas
         </label>
       </div>
-      <KanbanBoard cards={filtered} stages={stages} />
+      <KanbanBoard cards={filtered} stages={stages} team={team} viewer={viewer} />
     </div>
   );
 }

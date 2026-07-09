@@ -1,4 +1,4 @@
-import { opportunitiesByStage } from '@/lib/actions/opportunities';
+import { opportunitiesByStage, listUsersForAssignment } from '@/lib/actions/opportunities';
 import { listTasksForOpportunity } from '@/lib/actions/tasks';
 import { listStages } from '@/lib/actions/stages';
 import { getMyPreferences } from '@/lib/actions/me';
@@ -33,7 +33,10 @@ export default async function PipelinePage({
         ? false
         : prefs.defaultPipelineFilter === 'mine';
 
-  const rows = await opportunitiesByStage(mine ? { ownerId: user.id } : undefined);
+  const [rows, team] = await Promise.all([
+    opportunitiesByStage(mine ? { ownerId: user.id } : undefined),
+    listUsersForAssignment(),
+  ]);
 
   // Para cards "ganhou" já transferidos, busca sinais do BNCC em lote.
   const handedOff = rows.filter((r) => r.handedOffConsultoriaId && r.stage === 'ganhou');
@@ -106,7 +109,12 @@ export default async function PipelinePage({
         </div>
       </header>
 
-      <PipelineFilters cards={cardsWithExtras} stages={stages} />
+      <PipelineFilters
+        cards={cardsWithExtras}
+        stages={stages}
+        team={team}
+        viewer={{ id: user.id, role: user.role }}
+      />
 
       <div className="mt-8 text-xs text-slate-400">
         Estágios terminais: {STAGES.filter((s) => s.isTerminal).map((s) => s.label).join(' · ')} ·

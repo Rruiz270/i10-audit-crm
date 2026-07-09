@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { ContactForm } from '@/components/contact-form';
 import { ActivityForm } from '@/components/activity-form';
 import { StageControl } from '@/components/stage-control';
+import { OwnerControl } from '@/components/owner-control';
+import { requireUser } from '@/lib/session';
 import { OpportunityEditForm } from '@/components/opportunity-edit-form';
 import { HandoffButton } from '@/components/handoff-button';
 import { MeetingForm } from '@/components/meeting-form';
@@ -149,6 +151,7 @@ export default async function OpportunityDetailPage({
 
   const op = await getOpportunity(opId);
   if (!op) notFound();
+  const viewer = await requireUser();
 
   const [municipalities, opTasks, teamUsers, consultoria, taxonomy] = await Promise.all([
     allMunicipalities(),
@@ -342,6 +345,15 @@ export default async function OpportunityDetailPage({
                 {op.municipalityName ?? 'Sem município'}
               </h1>
               <StageBadge stage={op.stage as StageKey} />
+              {op.activeNo != null && (
+                <span
+                  className="rounded-md px-2 py-0.5 text-xs font-bold text-white"
+                  style={{ background: 'var(--i10-cyan-dark, #0e7490)' }}
+                  title="Nº sequencial de lead ativo"
+                >
+                  Lead #{String(op.activeNo).padStart(3, '0')}
+                </span>
+              )}
               <span className="text-xs text-slate-400">#{op.id}</span>
             </div>
             <p className="text-sm text-slate-500 mt-1">
@@ -517,12 +529,29 @@ export default async function OpportunityDetailPage({
 
           <Card>
             <CardTitle className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Dono do lead
+            </CardTitle>
+            <div className="mt-3">
+              <OwnerControl
+                opportunityId={op.id}
+                currentOwnerId={op.ownerId ?? null}
+                currentOwnerName={op.ownerName ?? null}
+                stage={op.stage as string}
+                users={teamUsers}
+                viewerId={viewer.id}
+                viewerRole={viewer.role}
+              />
+            </div>
+          </Card>
+
+          <Card>
+            <CardTitle className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Tags de interesse
             </CardTitle>
             <div className="mt-3">
               <TagEditor
                 opportunityId={op.id}
-                initialTags={(op.tags as string[] | null) ?? []}
+                initialTags={((op.tags as string[] | null) ?? []).filter((t) => !/^import-/i.test(t))}
                 taxonomy={taxonomy.map((t) => ({ label: t.label, category: t.category, color: t.color }))}
               />
             </div>

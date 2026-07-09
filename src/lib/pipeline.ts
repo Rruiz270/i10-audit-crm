@@ -52,8 +52,8 @@ export const STAGES: StageDefinition[] = [
   },
   {
     key: 'contato_inicial',
-    label: 'Contato Inicial',
-    description: 'Primeiro contato telefônico ou vídeo com Prefeito/Secretário.',
+    label: 'Oportunidades',
+    description: 'Lead com dono — vira oportunidade ativa (nº sequencial) e entra no trabalho.',
     order: 2,
     color: 'blue-500',
     wipLimit: null,

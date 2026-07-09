@@ -143,10 +143,9 @@ export async function GET(req: Request) {
     SELECT sq.name AS seq, sm.current_step AS step, (sm.exited_at IS NOT NULL) AS exited, count(*)::int AS n
     FROM marketing.sequence_members sm
     JOIN marketing.sequences sq ON sq.id = sm.sequence_id
-    WHERE sq.project_id = ${projectId} AND sq.name LIKE 'Trilha %'
+    WHERE sq.project_id = ${projectId} AND sq.name NOT ILIKE 'PREVIEW%'
     GROUP BY sq.name, sm.current_step, exited
   `) as Array<{ seq: string; step: number; exited: boolean; n: number }>;
-  const track = (letter: string) => stepDist.filter((r) => r.seq.startsWith(`Trilha ${letter}`));
   // recebeu o e-mail i = qualquer membro (ativo ou que saiu) com step > i
   const sentAt = (rows2: Array<{ step: number; n: number }>, i: number) =>
     rows2.filter((r) => r.step > i).reduce((s, r) => s + r.n, 0);
@@ -155,16 +154,28 @@ export async function GET(req: Request) {
     rows2.filter((r) => r.step === i && !r.exited).reduce((s, r) => s + r.n, 0);
   const stateOf = (sent: number, waiting: number) =>
     sent > 0 && waiting === 0 ? "done" : sent > 0 || waiting > 0 ? "active" : "pending";
-  const B = track("B"), A = track("A");
+  // Duas topologias de campanha convivem:
+  //  · Sorocaba: uma "Trilha B" única (step0=E1, steps1-4=B1-B4).
+  //  · Marília: E1 numa seq própria ("BASE · E1") + B1-B4 noutra ("BASE · B1-B4", steps0-3).
+  // Casamos por NOME (ignorando as PREVIEW e a antiga "Trilha B" congelada da Marília).
+  const A = stepDist.filter((r) => /^Trilha A/i.test(r.seq));
+  const trB = stepDist.filter((r) => /^Trilha B/i.test(r.seq));
+  const e1Seq = stepDist.filter((r) => /E1/i.test(r.seq));
+  const b14Seq = stepDist.filter((r) => /B1-?B4/i.test(r.seq));
+  const e1src = e1Seq.length ? e1Seq : trB; // E1 dedicado (Marília) ou step0 da Trilha B (Sorocaba)
+  const bUsesBase = b14Seq.length > 0;
+  const bsrc = bUsesBase ? b14Seq : trB; // B1-B4 dedicado (steps 0-3) ou Trilha B (steps 1-4)
+  const bOff = bUsesBase ? 0 : 1;
   // ordem de exibição igual ao HTML: E1, A1, A2, A3, A4, B1, B2, B3, B4
-  const node = (key: string, rows2: typeof B, i: number) => {
+  const node = (key: string, rows2: typeof A, i: number) => {
     const sent = sentAt(rows2, i), waiting = waitingAt(rows2, i);
     return { key, sent, state: stateOf(sent, waiting) };
   };
   const timeline = [
-    node("e1", B, 0),
+    node("e1", e1src, 0),
     node("a1", A, 0), node("a2", A, 1), node("a3", A, 2), node("a4", A, 3),
-    node("b1", B, 1), node("b2", B, 2), node("b3", B, 3), node("b4", B, 4),
+    node("b1", bsrc, bOff + 0), node("b2", bsrc, bOff + 1),
+    node("b3", bsrc, bOff + 2), node("b4", bsrc, bOff + 3),
   ];
 
   return Response.json(

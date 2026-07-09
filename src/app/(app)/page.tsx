@@ -15,6 +15,7 @@ import {
   getMyStats,
 } from '@/lib/actions/me';
 import { requireUser } from '@/lib/session';
+import { visibilityCondition } from '@/lib/visibility';
 import { weightedValue, isRotten } from '@/lib/forecast';
 import type { StageKey } from '@/lib/pipeline';
 
@@ -25,16 +26,19 @@ export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
   const user = await requireUser();
+  const visibility = visibilityCondition(user);
 
   const [negCount] = await db
     .select({ n: count() })
     .from(opportunities)
-    .where(eq(opportunities.stage, 'negociacao'));
+    .where(and(eq(opportunities.stage, 'negociacao'), visibility));
 
   const [pendingHandoff] = await db
     .select({ n: count() })
     .from(opportunities)
-    .where(and(eq(opportunities.stage, 'ganhou'), isNull(opportunities.handedOffConsultoriaId)));
+    .where(
+      and(eq(opportunities.stage, 'ganhou'), isNull(opportunities.handedOffConsultoriaId), visibility),
+    );
 
   const [newLeads] = await db
     .select({ n: count() })
@@ -50,6 +54,7 @@ export default async function DashboardPage() {
     })
     .from(opportunities)
     .leftJoin(fundebMunicipalities, eq(opportunities.municipalityId, fundebMunicipalities.id))
+    .where(visibility)
     .orderBy(desc(opportunities.createdAt))
     .limit(8);
 
@@ -72,7 +77,8 @@ export default async function DashboardPage() {
     .leftJoin(
       fundebMunicipalities,
       eq(opportunities.municipalityId, fundebMunicipalities.id),
-    );
+    )
+    .where(visibility);
 
   const activeOnly = activeOps.filter((o) =>
     ACTIVE_STAGES.some((s) => s.key === o.stage),
