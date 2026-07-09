@@ -11,7 +11,7 @@ export type WhatsAppConfig = {
   fromNumber: string | null;
   /** true se um número de produção (não o sandbox compartilhado do Twilio) */
   isProduction: boolean;
-  /** Limite padrão de conversas iniciadas/dia até a verificação do negócio sair */
+  /** Tier de conversas iniciadas/24h — fonte da verdade: WhatsApp Manager → Messaging limits */
   dailyLimitNote: string;
 };
 
@@ -25,7 +25,8 @@ export function getWhatsAppConfig(): WhatsAppConfig {
     provider: process.env.MARKETING_WHATSAPP_PROVIDER ?? 'twilio',
     fromNumber: from,
     isProduction: Boolean(from) && from !== SANDBOX_FROM,
-    dailyLimitNote: '250 conversas iniciadas/dia até a verificação do negócio na Meta',
+    dailyLimitNote:
+      '2.000 conversas iniciadas/24h (tier atual — conferir em WhatsApp Manager → Messaging limits)',
   };
 }
 
