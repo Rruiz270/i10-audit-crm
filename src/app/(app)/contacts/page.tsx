@@ -253,53 +253,62 @@ export default async function ContactsPage({
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-2.5 text-slate-300">
+                          <div className="flex items-center justify-end gap-1.5">
                             {wa && c.waState !== 'bad' ? (
                               c.conversationId ? (
                                 <Link
                                   href={`/marketing/conversas?c=${c.conversationId}`}
-                                  className="text-emerald-600 hover:text-emerald-700"
+                                  className="relative inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 transition hover:scale-110"
                                   title="Abrir conversa no inbox"
                                 >
-                                  <Icon name="msg" size={16} />
+                                  <Icon name="msg" size={14} />
+                                  <span className={`absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full ring-2 ring-white ${WA_DOT[c.waState]}`} />
                                 </Link>
                               ) : (
                                 <form action={startConversationWithContact} className="inline-flex">
                                   <input type="hidden" name="contactId" value={c.id} />
                                   <button
                                     type="submit"
-                                    className="text-emerald-600 hover:text-emerald-700"
+                                    className="relative inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 transition hover:scale-110"
                                     title="Iniciar conversa no inbox (template)"
                                   >
-                                    <Icon name="msg" size={16} />
+                                    <Icon name="msg" size={14} />
+                                    <span className={`absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full ring-2 ring-white ${WA_DOT[c.waState]}`} />
                                   </button>
                                 </form>
                               )
                             ) : (
-                              <span title={WA_TITLE[c.waState]}>
-                                <Icon name="msg" size={16} />
+                              <span
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-slate-50 text-slate-300 opacity-60"
+                                title={WA_TITLE[c.waState]}
+                              >
+                                <Icon name="msg" size={14} />
                               </span>
                             )}
                             {c.email ? (
-                              <a href={`mailto:${c.email}`} className="text-sky-600 hover:text-sky-700" title={c.email}>
-                                <Icon name="mail" size={16} />
+                              <a
+                                href={`mailto:${c.email}`}
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-blue-700 transition hover:scale-110"
+                                title={c.email}
+                              >
+                                <Icon name="mail" size={14} />
                               </a>
                             ) : (
-                              <span title="Sem e-mail">
-                                <Icon name="mail" size={16} />
+                              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-slate-50 text-slate-300 opacity-60" title="Sem e-mail">
+                                <Icon name="mail" size={14} />
                               </span>
                             )}
                             {c.phone || c.whatsapp ? (
                               <a
                                 href={`tel:${wa}`}
-                                className="text-slate-600 hover:text-slate-800"
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-violet-50 text-violet-700 transition hover:scale-110"
                                 title={c.phone ?? c.whatsapp ?? ''}
                               >
-                                <Icon name="phone" size={16} />
+                                <Icon name="phone" size={14} />
                               </a>
                             ) : (
-                              <span title="Sem telefone">
-                                <Icon name="phone" size={16} />
+                              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-slate-50 text-slate-300 opacity-60" title="Sem telefone">
+                                <Icon name="phone" size={14} />
                               </span>
                             )}
                           </div>

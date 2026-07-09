@@ -106,13 +106,68 @@ export default async function PipelinePage({
     }
   }
 
-  const cardsWithExtras = rows.map((r) => ({
-    ...r,
-    bnccSignals:
-      signalsMap[`${r.handedOffConsultoriaId ?? ''}:${r.municipalityId ?? ''}`] ?? null,
-    taskSummary: taskSummaries[r.id],
-    primaryContact: primaryByOpp[r.id] ?? null,
-  }));
+  // Última interação (campanha lida/entregue, resposta no inbox) por contato
+  // principal — mesmo dado da Ficha 360, resumido no rodapé do card.
+  const LAST_LABEL: Record<string, string> = {
+    read: 'leu mensagem',
+    delivered: 'recebeu WA',
+    replied: 'respondeu',
+    failed: 'falha de envio',
+    open: 'abriu e-mail',
+    click: 'clicou no e-mail',
+    download: 'baixou material',
+  };
+  const lastIntByMk: Record<number, { label: string; at: string }> = {};
+  const mkIds = [
+    ...new Set(
+      Object.values(primaryByOpp)
+        .map((c) => c.marketingContactId)
+        .filter((v): v is number => v != null),
+    ),
+  ];
+  if (mkIds.length) {
+    const mkList = sql.raw(mkIds.join(','));
+    const [evRes, cvRes] = await Promise.all([
+      db.execute(
+        sql`SELECT DISTINCT ON (contact_id) contact_id, type, occurred_at
+            FROM marketing.events WHERE contact_id IN (${mkList})
+            ORDER BY contact_id, occurred_at DESC`,
+      ),
+      db.execute(
+        sql`SELECT contact_id, last_inbound_at FROM marketing.conversations
+            WHERE contact_id IN (${mkList}) AND last_inbound_at IS NOT NULL`,
+      ),
+    ]);
+    const rowsOf = (r: unknown) =>
+      (((r as { rows?: unknown[] }).rows ?? []) as Record<string, unknown>[]);
+    for (const e of rowsOf(evRes)) {
+      lastIntByMk[Number(e.contact_id)] = {
+        label: LAST_LABEL[String(e.type)] ?? String(e.type),
+        at: String(e.occurred_at),
+      };
+    }
+    for (const c of rowsOf(cvRes)) {
+      const mkId = Number(c.contact_id);
+      const at = String(c.last_inbound_at);
+      const cur = lastIntByMk[mkId];
+      if (!cur || new Date(at) > new Date(cur.at)) {
+        lastIntByMk[mkId] = { label: 'respondeu no WhatsApp', at };
+      }
+    }
+  }
+
+  const cardsWithExtras = rows.map((r) => {
+    const pc = primaryByOpp[r.id] ?? null;
+    return {
+      ...r,
+      bnccSignals:
+        signalsMap[`${r.handedOffConsultoriaId ?? ''}:${r.municipalityId ?? ''}`] ?? null,
+      taskSummary: taskSummaries[r.id],
+      primaryContact: pc,
+      lastInteraction:
+        pc?.marketingContactId != null ? (lastIntByMk[pc.marketingContactId] ?? null) : null,
+    };
+  });
 
   return (
     <div className="p-6">

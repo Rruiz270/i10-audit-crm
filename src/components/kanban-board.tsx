@@ -68,7 +68,18 @@ export type KanbanCard = {
     whatsapp: string | null;
     marketingContactId: number | null;
   } | null;
+  lastInteraction?: { label: string; at: string } | null;
 };
+
+// Tempo relativo grosseiro (h/d) — igual ao mockup ("respondeu há 5h").
+function agoShort(iso: string): string {
+  const h = Math.floor((Date.now() - new Date(iso).getTime()) / 3_600_000);
+  if (h < 1) return 'agora';
+  if (h < 24) return `há ${h}h`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `há ${d}d`;
+  return `há ${Math.floor(d / 30)}m`;
+}
 
 export function KanbanBoard({
   cards,
@@ -556,6 +567,20 @@ function DraggableCard({
               </span>
             )}
           </span>
+        </div>
+      )}
+
+      {/* Zona 2.8 — última interação do contato (dado da Ficha 360) */}
+      {card.primaryContact && (
+        <div className="mt-1 flex items-center gap-1.5 text-[11px]" suppressHydrationWarning>
+          {card.lastInteraction ? (
+            <span className="text-slate-400">
+              <span className="text-emerald-600">●</span> {card.lastInteraction.label}{' '}
+              {agoShort(card.lastInteraction.at)}
+            </span>
+          ) : (
+            <span className="font-semibold text-rose-500">● nunca contactado</span>
+          )}
         </div>
       )}
 

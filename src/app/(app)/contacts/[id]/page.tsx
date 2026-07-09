@@ -103,25 +103,47 @@ export default async function ContactFichaPage({
           </div>
         </div>
 
-        {/* Ações rápidas */}
-        <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
-          {conversationId ? (
-            <Link
-              href={`/marketing/conversas?c=${conversationId}`}
-              className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-600"
-            >
-              💬 Abrir conversa {windowOpen ? '(janela 24h aberta)' : ''}
-            </Link>
-          ) : wa ? (
-            <form action={startConversationWithContact}>
-              <input type="hidden" name="contactId" value={contact.id} />
-              <button
-                type="submit"
-                className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-600"
-              >
-                💬 Iniciar conversa (template)
-              </button>
-            </form>
+        {/* Ações rápidas — barra no estilo Ficha 360 do mockup */}
+        <div className="mt-4 -mx-6 -mb-6 flex flex-wrap items-center gap-2 rounded-b-xl border-t border-slate-100 bg-gradient-to-b from-white to-slate-50 px-6 py-3">
+          {wa ? (
+            <details className="group relative">
+              <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md bg-emerald-500 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-600 [&::-webkit-details-marker]:hidden">
+                💬 WhatsApp <span className="text-xs opacity-80">▾</span>
+              </summary>
+              <div className="absolute left-0 top-[calc(100%+6px)] z-20 min-w-[290px] rounded-xl border border-slate-200 bg-white py-1 text-left shadow-xl">
+                {conversationId ? (
+                  <>
+                    <div className="px-4 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                      Conversa aberta
+                    </div>
+                    <Link
+                      href={`/marketing/conversas?c=${conversationId}`}
+                      className="block px-4 py-2 text-sm hover:bg-slate-50"
+                    >
+                      <span className="block font-semibold text-slate-900">Abrir no inbox</span>
+                      <span className="text-xs text-slate-500">
+                        {windowOpen ? 'janela de 24h aberta — resposta livre' : 'fora da janela — envio via template'}
+                      </span>
+                    </Link>
+                    <div className="my-1 border-t border-slate-100" />
+                  </>
+                ) : null}
+                <div className="px-4 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                  {conversationId ? 'Ou recomeçar' : 'Iniciar conversa'}
+                </div>
+                <form action={startConversationWithContact}>
+                  <input type="hidden" name="contactId" value={contact.id} />
+                  <button type="submit" className="block w-full px-4 py-2 text-left text-sm hover:bg-slate-50">
+                    <span className="block font-semibold text-slate-900">
+                      {conversationId ? 'Ir para a conversa' : 'Iniciar com template aprovado'}
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      abre o inbox com o seletor de templates da Meta
+                    </span>
+                  </button>
+                </form>
+              </div>
+            </details>
           ) : (
             <span className="rounded-md bg-slate-100 px-4 py-2 text-sm text-slate-400">💬 sem WhatsApp</span>
           )}

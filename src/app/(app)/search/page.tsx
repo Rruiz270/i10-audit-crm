@@ -144,8 +144,17 @@ export default async function GlobalSearchPage({
               )}
               {contactRows.map((c) => {
                 const wa = (c.whatsapp ?? c.phone ?? '').replace(/[^+\d]/g, '');
+                const initials = (c.name ?? '?')
+                  .split(/\s+/)
+                  .map((p) => p[0])
+                  .slice(0, 2)
+                  .join('')
+                  .toUpperCase();
                 return (
                   <div key={c.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-emerald-400 text-xs font-extrabold text-slate-900">
+                      {initials}
+                    </span>
                     <Link href={`/contacts/${c.id}`} className="min-w-0 flex-1">
                       <div className="truncate text-sm font-semibold text-slate-900 hover:text-i10-700">
                         {c.name ?? '(sem nome)'}
