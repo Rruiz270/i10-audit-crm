@@ -186,6 +186,9 @@ export const proposals = crmSchema.table('proposals', {
   // 'rascunho' | 'enviada' | 'aceita' | 'recusada'
   status: text('status').notNull().default('rascunho'),
   total: real('total'),
+  // Itens da proposta: [{ product, value (R$/mês), description? }]
+  items: jsonb('items').default([]),
+  validDays: integer('valid_days').default(30),
   externalUrl: text('external_url'),
   notes: text('notes'),
   createdBy: text('created_by').references(() => users.id),

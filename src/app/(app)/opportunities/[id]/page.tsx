@@ -401,6 +401,13 @@ export default async function OpportunityDetailPage({
                     {pr.createdAt ? new Date(pr.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '—'}
                   </td>
                   <td className="px-3 py-2">
+                    <div className="flex items-center gap-2">
+                    <Link
+                      href={`/proposta/${pr.id}`}
+                      className="rounded bg-cyan-50 px-2 py-1 text-[11px] font-bold text-cyan-700 hover:bg-cyan-100"
+                    >
+                      Ver / PDF
+                    </Link>
                     <form action={setProposalStatus} className="flex items-center gap-1.5">
                       <input type="hidden" name="id" value={pr.id} />
                       <select name="status" defaultValue={pr.status} className="rounded border border-slate-200 px-1.5 py-1 text-[11px]">
@@ -413,6 +420,7 @@ export default async function OpportunityDetailPage({
                         ok
                       </button>
                     </form>
+                    </div>
                   </td>
                 </tr>
               ))}

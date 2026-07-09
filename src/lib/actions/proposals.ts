@@ -2,6 +2,7 @@
 
 import { desc, eq, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { proposals, opportunities } from '@/lib/schema';
 import { requireUser } from '@/lib/session';
@@ -24,9 +25,18 @@ export async function createProposal(formData: FormData): Promise<void> {
   const user = await requireUser();
   const opportunityId = Number(formData.get('opportunityId'));
   const products = formData.getAll('products').map(String).filter(Boolean);
-  const total = Number(formData.get('total')) || null;
   const notes = String(formData.get('notes') ?? '').trim() || null;
+  const validDays = Math.max(1, Number(formData.get('validDays')) || 30);
+  const goPrint = String(formData.get('goPrint') ?? '') === '1';
   if (!opportunityId) throw new Error('opportunityId obrigatório');
+
+  // Itens com valor por produto (gerador nativo): value:<produto> no form.
+  const items = products.map((prod) => ({
+    product: prod,
+    value: Number(formData.get(`value:${prod}`)) || 0,
+  }));
+  const computedTotal = items.reduce((s, i) => s + i.value, 0);
+  const total = Number(formData.get('total')) || (computedTotal > 0 ? computedTotal : null);
 
   // Nº sequencial global P-0001, P-0002…; nova proposta da mesma opp = v+1
   const [seq] = await db
@@ -46,6 +56,8 @@ export async function createProposal(formData: FormData): Promise<void> {
       version: (ver?.v ?? 0) + 1,
       products,
       total,
+      items,
+      validDays,
       notes,
       createdBy: user.id,
     })
@@ -59,6 +71,7 @@ export async function createProposal(formData: FormData): Promise<void> {
     metadata: { proposalId: created.id, products, total },
   });
   revalidatePath(`/opportunities/${opportunityId}`);
+  if (goPrint) redirect(`/proposta/${created.id}`);
 }
 
 export async function setProposalStatus(formData: FormData): Promise<void> {
@@ -94,4 +107,11 @@ export async function setProposalStatus(formData: FormData): Promise<void> {
       .where(eq(opportunities.id, p.opportunityId));
   }
   revalidatePath(`/opportunities/${p.opportunityId}`);
+}
+
+
+export async function getProposalFull(id: number) {
+  await requireUser();
+  const [p] = await db.select().from(proposals).where(eq(proposals.id, id)).limit(1);
+  return p ?? null;
 }
