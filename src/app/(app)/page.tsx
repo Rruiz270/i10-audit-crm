@@ -101,6 +101,28 @@ export default async function DashboardPage() {
   });
   const maxW = Math.max(1, ...funnel.map((f) => f.weighted));
 
+  // Pipeline por produto (mockup): valor nominal das opps ativas agrupado
+  // pelo produto (products[0] ou tag de produto como fallback).
+  const PRODUCT_LIST = [
+    'Acelerador FUNDEB',
+    'Município Bilíngue',
+    'Ensino Integral',
+    'Escola Online',
+    'Radar Fiscal 360',
+  ];
+  const byProduct = PRODUCT_LIST.map((prod) => {
+    const total = activeOnly
+      .filter((o) => {
+        const extra = o as { products?: string[] | null; tags?: string[] | null };
+        const prods = extra.products ?? [];
+        const tags = (extra.tags ?? []).map((t) => t.toLowerCase());
+        return prods.includes(prod) || tags.includes(prod.toLowerCase());
+      })
+      .reduce((sum, o) => sum + (o.estimatedValue ?? 0), 0);
+    return { prod, total };
+  }).sort((a, b) => b.total - a.total);
+  const maxProd = Math.max(1, ...byProduct.map((b) => b.total));
+
   const myTasks = await listMyOpenTasks(user.id);
   const overdueTeam = await listOverdueTasks();
   const nowMs = new Date().getTime();

@@ -1,6 +1,10 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getOpportunity, listUsersForAssignment } from '@/lib/actions/opportunities';
+import { listProposals, createProposal, setProposalStatus } from '@/lib/actions/proposals';
+import { startConversationWithContact } from '@/lib/actions/marketing/inbox-contacts';
+import { WonButton } from '@/components/won-button';
+import { PRODUCTS } from '@/lib/products';
 import { listTasksForOpportunity } from '@/lib/actions/tasks';
 import { getConsultoriaFor } from '@/lib/actions/handoff';
 import { getConsultoriaSignals, signalsToBadges } from '@/lib/bncc-signals';
@@ -150,6 +154,7 @@ export default async function OpportunityDetailPage({
   if (!Number.isFinite(opId)) notFound();
 
   const op = await getOpportunity(opId);
+  const opProposals = op ? await listProposals(opId) : [];
   if (!op) notFound();
   const viewer = await requireUser();
 
@@ -330,6 +335,120 @@ export default async function OpportunityDetailPage({
     </section>
   );
 
+  const PROP_STATUS: Record<string, string> = {
+    rascunho: 'bg-slate-100 text-slate-500',
+    enviada: 'bg-cyan-50 text-cyan-700',
+    aceita: 'bg-emerald-50 text-emerald-700',
+    recusada: 'bg-rose-50 text-rose-600',
+  };
+  const tabPropostas = (
+    <section>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Link
+          href={`/opportunities/${op.id}/proposta`}
+          className="rounded-md bg-i10-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-i10-800"
+        >
+          ＋ Nova proposta (estúdio, prefill do card)
+        </Link>
+        <span className="text-[11px] text-slate-400">
+          O estúdio abre DENTRO do CRM já configurado — depois registre a versão abaixo.
+        </span>
+      </div>
+
+      {opProposals.length === 0 ? (
+        <p className="mb-4 rounded-lg bg-slate-50 px-4 py-6 text-center text-sm text-slate-400">
+          Nenhuma proposta registrada ainda.
+        </p>
+      ) : (
+        <div className="mb-5 overflow-x-auto rounded-lg border border-slate-200">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                <th className="px-3 py-2">Nº / versão</th>
+                <th className="px-3 py-2">Produtos</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2 text-right">Total</th>
+                <th className="px-3 py-2">Data</th>
+                <th className="px-3 py-2" />
+              </tr>
+            </thead>
+            <tbody>
+              {opProposals.map((pr) => (
+                <tr key={pr.id} className="border-b border-slate-100 last:border-0">
+                  <td className="px-3 py-2 font-semibold" style={{ color: 'var(--i10-navy)' }}>
+                    {pr.number} · v{pr.version}
+                  </td>
+                  <td className="px-3 py-2">
+                    <span className="flex flex-wrap gap-1">
+                      {(pr.products ?? []).map((prod) => (
+                        <span key={prod} className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
+                          {prod}
+                        </span>
+                      ))}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2">
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${PROP_STATUS[pr.status] ?? PROP_STATUS.rascunho}`}>
+                      {pr.status}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-xs">
+                    {pr.total != null
+                      ? pr.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+                      : '—'}
+                  </td>
+                  <td className="px-3 py-2 text-xs text-slate-500">
+                    {pr.createdAt ? new Date(pr.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '—'}
+                  </td>
+                  <td className="px-3 py-2">
+                    <form action={setProposalStatus} className="flex items-center gap-1.5">
+                      <input type="hidden" name="id" value={pr.id} />
+                      <select name="status" defaultValue={pr.status} className="rounded border border-slate-200 px-1.5 py-1 text-[11px]">
+                        <option value="rascunho">rascunho</option>
+                        <option value="enviada">enviada</option>
+                        <option value="aceita">aceita</option>
+                        <option value="recusada">recusada</option>
+                      </select>
+                      <button type="submit" className="rounded bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-200">
+                        ok
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <details className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <summary className="cursor-pointer text-xs font-bold text-slate-600">
+          Registrar proposta manualmente (nº/versão automáticos)
+        </summary>
+        <form action={createProposal} className="mt-3 space-y-3">
+          <input type="hidden" name="opportunityId" value={op.id} />
+          <div className="flex flex-wrap gap-2">
+            {PRODUCTS.map((prod) => (
+              <label key={prod} className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs">
+                <input type="checkbox" name="products" value={prod} className="accent-emerald-600" /> {prod}
+              </label>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input name="total" type="number" step="0.01" placeholder="Total (R$)" className="w-36 rounded-md border border-slate-300 px-2.5 py-1.5 text-sm" />
+            <input name="notes" placeholder="Observação (opcional)" className="min-w-52 flex-1 rounded-md border border-slate-300 px-2.5 py-1.5 text-sm" />
+            <button type="submit" className="rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-600">
+              Registrar
+            </button>
+          </div>
+          <p className="text-[11px] text-slate-400">
+            Aceita com total preenchido pré-preenche o valor do Ganho. Enviada conta como critério do estágio Negociação.
+          </p>
+        </form>
+      </details>
+    </section>
+  );
+
   const openTasks = opTasks.filter((t) => !t.completedAt).length;
 
   return (
@@ -368,22 +487,20 @@ export default async function OpportunityDetailPage({
             )}
           </div>
           <div className="flex gap-2">
-            <a
-              href={`https://www.institutoi10.com.br/proposals#prefill=${encodeURIComponent(
-                JSON.stringify({
-                  municipio: op.municipalityName ?? '',
-                  opportunity_id: op.id,
-                  gestor: op.contacts.find((c) => c.isPrimary)?.name ?? '',
-                  rep: op.ownerName ?? '',
-                }),
-              )}`}
-              target="_blank"
-              rel="noreferrer"
+            <Link
+              href={`/opportunities/${op.id}/proposta`}
               className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:border-cyan-400"
-              title="Abre o i10 Proposal Planner já configurado para este município"
+              title="Estúdio de proposta dentro do CRM, já configurado para este município"
             >
               📄 Nova proposta
-            </a>
+            </Link>
+            {op.stage !== 'ganhou' && op.stage !== 'perdido' && (
+              <WonButton
+                opportunityId={op.id}
+                municipality={op.municipalityName ?? `Oportunidade #${op.id}`}
+                currentProducts={op.products}
+              />
+            )}
             {op.stage === 'ganhou' && !op.handedOffConsultoriaId && (
               <HandoffButton
                 opportunityId={op.id}
@@ -406,6 +523,56 @@ export default async function OpportunityDetailPage({
           </div>
         </div>
       </header>
+
+      {/* Ações rápidas do contato principal (mockup) */}
+      {(() => {
+        const pc = op.contacts.find((c) => c.isPrimary) ?? op.contacts[0];
+        if (!pc) return null;
+        const mkId = (pc as { marketingContactId?: number | null }).marketingContactId ?? null;
+        const tel = (pc.whatsapp ?? pc.phone ?? '').replace(/[^+\d]/g, '');
+        return (
+          <div className="mb-6 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-3">
+            {mkId && tel ? (
+              <form action={startConversationWithContact}>
+                <input type="hidden" name="contactId" value={mkId} />
+                <button
+                  type="submit"
+                  className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-600"
+                >
+                  💬 WhatsApp
+                </button>
+              </form>
+            ) : (
+              <span className="rounded-md bg-slate-100 px-4 py-2 text-sm text-slate-400">💬 sem WhatsApp</span>
+            )}
+            {pc.email && (
+              <a
+                href={`mailto:${pc.email}`}
+                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-cyan-400"
+              >
+                ✉️ E-mail
+              </a>
+            )}
+            {tel && (
+              <a
+                href={`tel:${tel.startsWith('+') ? tel : `+55${tel.replace(/^55/, '')}`}`}
+                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-cyan-400"
+              >
+                📞 Ligar
+              </a>
+            )}
+            <span className="text-sm text-slate-500">
+              Contato principal: <b className="text-slate-700">{pc.name}</b>
+              {pc.role ? ` — ${pc.role}` : ''}
+              {mkId && (
+                <Link href={`/contacts/${mkId}`} className="ml-2 font-bold text-cyan-700 underline">
+                  → Ficha 360
+                </Link>
+              )}
+            </span>
+          </div>
+        );
+      })()}
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
@@ -523,6 +690,7 @@ export default async function OpportunityDetailPage({
             <OpportunityTabs
               tabs={[
                 { key: 'historico', label: 'Histórico', icon: 'activity', count: op.activities.length, panel: tabHistorico },
+                { key: 'propostas', label: 'Propostas', icon: 'file', count: opProposals.length, panel: tabPropostas },
                 { key: 'tarefas', label: 'Tarefas', icon: 'check-square', count: openTasks, panel: tabTarefas },
                 { key: 'contatos', label: 'Contatos', icon: 'users', count: op.contacts.length, panel: tabContatos },
                 { key: 'reunioes', label: 'Reuniões', icon: 'calendar', count: op.meetings.length, panel: tabReunioes },

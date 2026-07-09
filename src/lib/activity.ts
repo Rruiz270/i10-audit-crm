@@ -3,6 +3,7 @@ import { db } from './db';
 import { activities, opportunities } from './schema';
 
 export type ActivityKind =
+  | 'proposal'
   | 'note'
   | 'call'
   | 'email'

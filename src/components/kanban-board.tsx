@@ -220,7 +220,7 @@ export function KanbanBoard({
             <p className="mt-1 text-xs text-slate-500">
               Quais produtos fecharam? <b>Obrigatório</b> — cada produto dispara o pós-venda certo.
             </p>
-            <div className="mt-4 space-y-2">
+            <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
               {PRODUCTS.map((p) => {
                 const on = wonSel.includes(p);
                 return (
@@ -248,6 +248,28 @@ export function KanbanBoard({
                 );
               })}
             </div>
+            <div className="mt-4 border-t border-dashed border-slate-200 pt-3">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                O que acontece ao confirmar
+              </div>
+              <div className="mt-2 space-y-1.5">
+                {wonSel.length === 0 ? (
+                  <p className="text-xs text-rose-600">
+                    Selecione ao menos um produto — sem produto o ganho não confirma.
+                  </p>
+                ) : (
+                  wonSel.map((p) => (
+                    <div key={p} className="flex gap-2.5 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-i10-700 text-white">⚡</span>
+                      <span>
+                        <b>{p}:</b> {PRODUCT_POSVENDA[p as Product]}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
             <div className="mt-5 flex justify-end gap-2">
               <button
                 onClick={() => setWonFor(null)}

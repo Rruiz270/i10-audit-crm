@@ -172,6 +172,27 @@ export const contacts = crmSchema.table('contacts', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
+// Propostas DENTRO do CRM — registro canônico por oportunidade (nº/versão,
+// produtos, status, total). O PDF pode ser gerado no planner (aba embutida),
+// mas o dado vive aqui.
+export const proposals = crmSchema.table('proposals', {
+  id: serial('id').primaryKey(),
+  opportunityId: integer('opportunity_id')
+    .notNull()
+    .references(() => opportunities.id, { onDelete: 'cascade' }),
+  number: text('number').notNull(),
+  version: integer('version').notNull().default(1),
+  products: text('products').array().default([]),
+  // 'rascunho' | 'enviada' | 'aceita' | 'recusada'
+  status: text('status').notNull().default('rascunho'),
+  total: real('total'),
+  externalUrl: text('external_url'),
+  notes: text('notes'),
+  createdBy: text('created_by').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
 export const activities = crmSchema.table('activities', {
   id: serial('id').primaryKey(),
   opportunityId: integer('opportunity_id')
