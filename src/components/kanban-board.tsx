@@ -207,7 +207,7 @@ export function KanbanBoard({
   }
 
   return (
-    <div>
+    <div className="flex h-full min-h-0 flex-col">
       {openCard != null && (
         <OppModal
           oppId={openCard}
@@ -305,7 +305,7 @@ export function KanbanBoard({
         </div>
       )}
 
-      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+      <div className="mb-3 flex shrink-0 flex-wrap items-center gap-1.5">
         <span className="mr-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
           Produto
         </span>
@@ -338,7 +338,7 @@ export function KanbanBoard({
       )}
 
       <DndContext id="pipeline-dnd" sensors={sensors} onDragEnd={onDragEnd}>
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="flex min-h-0 flex-1 items-stretch gap-4 overflow-x-auto pb-2">
           {renderStages.map((s) => (
             <Column
               key={s.key}
@@ -381,7 +381,7 @@ function Column({
   return (
     <div
       ref={setNodeRef}
-      className={`shrink-0 w-72 bg-white border rounded-xl transition-colors ${
+      className={`flex max-h-full w-72 shrink-0 flex-col rounded-xl border bg-white transition-colors ${
         isOver ? 'border-i10-400 ring-2 ring-i10-200' : 'border-slate-200'
       }`}
     >
@@ -417,7 +417,7 @@ function Column({
           )}
         </div>
       </div>
-      <div className="p-2 min-h-[400px] space-y-2">
+      <div className="min-h-[200px] flex-1 space-y-2 overflow-y-auto p-2">
         {cards.map((c) => (
           <DraggableCard
             key={c.id}

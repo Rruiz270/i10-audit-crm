@@ -46,10 +46,16 @@ export type ContactRow = {
 };
 
 const INTERACTED = sql`(EXISTS (SELECT 1 FROM marketing.events ev WHERE ev.contact_id = ${mk.id})
-  OR EXISTS (SELECT 1 FROM marketing.conversations cv WHERE cv.contact_id = ${mk.id} AND cv.last_inbound_at IS NOT NULL))`;
+  OR EXISTS (SELECT 1 FROM marketing.conversations cv WHERE cv.contact_id = ${mk.id} AND cv.last_inbound_at IS NOT NULL)
+  OR EXISTS (SELECT 1 FROM crm.contacts cc JOIN crm.activities a ON a.opportunity_id = cc.opportunity_id
+             WHERE cc.marketing_contact_id = ${mk.id}
+               AND a.type IN ('call','email','whatsapp','note','proposal','proposal_sent','diagnostic_sent')))`;
 const IN_OPP = sql`EXISTS (SELECT 1 FROM crm.contacts cc WHERE cc.marketing_contact_id = ${mk.id})`;
 const NEVER = sql`(NOT EXISTS (SELECT 1 FROM marketing.sends s WHERE s.contact_id = ${mk.id})
-  AND NOT EXISTS (SELECT 1 FROM marketing.conversations cv WHERE cv.contact_id = ${mk.id}))`;
+  AND NOT EXISTS (SELECT 1 FROM marketing.conversations cv WHERE cv.contact_id = ${mk.id})
+  AND NOT EXISTS (SELECT 1 FROM crm.contacts cc JOIN crm.activities a ON a.opportunity_id = cc.opportunity_id
+                  WHERE cc.marketing_contact_id = ${mk.id}
+                    AND a.type IN ('call','email','whatsapp','note','proposal','proposal_sent','diagnostic_sent')))`;
 
 function buildConds(f: ContactFilters, exclude?: keyof ContactFilters): SQL[] {
   const conds: SQL[] = [];
@@ -116,6 +122,11 @@ export async function getContactsHubData(f: ContactFilters) {
       SELECT contact_id FROM marketing.events WHERE contact_id IS NOT NULL
       UNION
       SELECT contact_id FROM marketing.conversations WHERE contact_id IS NOT NULL AND last_inbound_at IS NOT NULL
+      UNION
+      SELECT cc.marketing_contact_id FROM crm.contacts cc
+        JOIN crm.activities a ON a.opportunity_id = cc.opportunity_id
+        WHERE cc.marketing_contact_id IS NOT NULL
+          AND a.type IN ('call','email','whatsapp','note','proposal','proposal_sent','diagnostic_sent')
     ) t`,
   );
   const inOppPromise = db
@@ -180,10 +191,13 @@ export async function getContactsHubData(f: ContactFilters) {
   let opps: Array<{ mid: number; n: number; won: boolean }> = [];
   let waOkIds = new Set<number>();
   let suppKeys = new Set<string>();
+  const crmActByContact = new Map<number, { label: string; at: Date }>();
+  const crmActByMuni = new Map<string, { label: string; at: Date }>();
 
   if (ids.length) {
     const idList = sql.raw(ids.join(','));
-    const [evRes, cvRes, oppRes, waRes, suppRes] = await Promise.all([
+    const muniList = [...new Set(baseRows.map((r) => (r.municipio ?? '').toLowerCase()).filter(Boolean))];
+    const [evRes, cvRes, oppRes, waRes, suppRes, actRes, muniActRes] = await Promise.all([
       db.execute(
         sql`SELECT DISTINCT ON (contact_id) contact_id, type, occurred_at
             FROM marketing.events WHERE contact_id IN (${idList})
@@ -204,6 +218,28 @@ export async function getContactsHubData(f: ContactFilters) {
             WHERE contact_id IN (${idList}) AND type IN ('delivered','read','replied')`,
       ),
       db.execute(sql`SELECT identifier FROM marketing.suppressions WHERE channel = 'whatsapp'`),
+      // Atividades CRM da pessoa (via ponte): ligação, whatsapp manual, nota…
+      db.execute(
+        sql`SELECT DISTINCT ON (cc.marketing_contact_id) cc.marketing_contact_id AS mid,
+               a.type, a.subject, a.occurred_at
+            FROM crm.contacts cc JOIN crm.activities a ON a.opportunity_id = cc.opportunity_id
+            WHERE cc.marketing_contact_id IN (${idList})
+              AND a.type IN ('call','email','whatsapp','note','proposal','proposal_sent','diagnostic_sent')
+            ORDER BY cc.marketing_contact_id, a.occurred_at DESC`,
+      ),
+      // Fallback: atividade na opp do MESMO MUNICÍPIO (contatos institucionais
+      // sem ponte pessoal — ex.: "Prefeitura de X" — herdam a interação da opp)
+      muniList.length
+        ? db.execute(
+            sql`SELECT DISTINCT ON (lower(m.nome)) lower(m.nome) AS muni, a.type, a.occurred_at
+                FROM crm.opportunities o
+                JOIN fundeb.municipalities m ON m.id = o.municipality_id
+                JOIN crm.activities a ON a.opportunity_id = o.id
+                WHERE lower(m.nome) IN (${sql.raw(muniList.map((m) => `'${m.replace(/'/g, "''")}'`).join(','))})
+                  AND a.type IN ('call','email','whatsapp','note','proposal','proposal_sent','diagnostic_sent')
+                ORDER BY lower(m.nome), a.occurred_at DESC`,
+          )
+        : Promise.resolve({ rows: [] }),
     ]);
     const rowsOf = (r: unknown) => (r as { rows?: unknown[] }).rows ?? (r as unknown[]);
     lastEvents = (rowsOf(evRes) as Record<string, unknown>[]).map((r) => ({
@@ -229,6 +265,27 @@ export async function getContactsHubData(f: ContactFilters) {
       const k = phoneMatchKey(String(r.identifier));
       if (k) suppKeys.add(k);
     }
+    const ACT_LABEL: Record<string, string> = {
+      call: 'Ligação registrada',
+      email: 'E-mail registrado',
+      whatsapp: 'WhatsApp registrado',
+      note: 'Anotação na oportunidade',
+      proposal: 'Proposta',
+      proposal_sent: 'Proposta enviada',
+      diagnostic_sent: 'Diagnóstico enviado',
+    };
+    for (const r of rowsOf(actRes) as Record<string, unknown>[]) {
+      crmActByContact.set(Number(r.mid), {
+        label: ACT_LABEL[String(r.type)] ?? String(r.type),
+        at: new Date(String(r.occurred_at)),
+      });
+    }
+    for (const r of rowsOf(muniActRes) as Record<string, unknown>[]) {
+      crmActByMuni.set(String(r.muni), {
+        label: `${ACT_LABEL[String(r.type)] ?? String(r.type)} (opp do município)`,
+        at: new Date(String(r.occurred_at)),
+      });
+    }
   }
 
   const evByContact = new Map(lastEvents.map((e) => [e.contactId, e]));
@@ -247,6 +304,11 @@ export async function getContactsHubData(f: ContactFilters) {
     if (ev) lastInteraction = { kind: ev.type, label: EVENT_LABEL[ev.type] ?? ev.type, at: ev.at };
     if (cv?.lastInboundAt && (!lastInteraction || cv.lastInboundAt > lastInteraction.at)) {
       lastInteraction = { kind: 'replied', label: 'Respondeu no WhatsApp', at: cv.lastInboundAt };
+    }
+    // Atividade CRM da pessoa (ponte) e, na falta, da opp do mesmo município
+    const crmAct = crmActByContact.get(r.id) ?? crmActByMuni.get((r.municipio ?? '').toLowerCase());
+    if (crmAct && (!lastInteraction || crmAct.at > lastInteraction.at)) {
+      lastInteraction = { kind: 'crm', label: crmAct.label, at: crmAct.at };
     }
 
     const hasPhone = Boolean(r.whatsapp ?? r.phone);

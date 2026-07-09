@@ -18,7 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </div>
       {/* Mobile navigation (top bar + drawer) */}
       <MobileNav userName={session.user.name} userRole={role} />
-      <main className="flex-1 bg-slate-50 pt-14 md:pt-0">{children}</main>
+      <main className="min-w-0 flex-1 bg-slate-50 pt-14 md:pt-0">{children}</main>
       <VoiceAssistant />
     </div>
   );

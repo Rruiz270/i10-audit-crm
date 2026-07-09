@@ -156,22 +156,57 @@ export default async function PipelinePage({
     }
   }
 
+  // Atividades registradas na própria opp também contam como interação
+  // (ligação, whatsapp manual, nota, proposta) — sem depender da ponte.
+  const ACT_LABEL2: Record<string, string> = {
+    call: 'ligação registrada',
+    email: 'e-mail registrado',
+    whatsapp: 'WhatsApp registrado',
+    note: 'anotação',
+    proposal: 'proposta',
+    proposal_sent: 'proposta enviada',
+    diagnostic_sent: 'diagnóstico enviado',
+  };
+  const lastActByOpp: Record<number, { label: string; at: string }> = {};
+  if (rows.length) {
+    const oppList = sql.raw(rows.map((r) => r.id).join(','));
+    const actRes = await db.execute(
+      sql`SELECT DISTINCT ON (opportunity_id) opportunity_id, type, occurred_at
+          FROM crm.activities WHERE opportunity_id IN (${oppList})
+            AND type IN ('call','email','whatsapp','note','proposal','proposal_sent','diagnostic_sent')
+          ORDER BY opportunity_id, occurred_at DESC`,
+    );
+    for (const a of (((actRes as unknown as { rows?: Record<string, unknown>[] }).rows ?? []) as Record<string, unknown>[])) {
+      lastActByOpp[Number(a.opportunity_id)] = {
+        label: ACT_LABEL2[String(a.type)] ?? String(a.type),
+        at: String(a.occurred_at),
+      };
+    }
+  }
+
   const cardsWithExtras = rows.map((r) => {
     const pc = primaryByOpp[r.id] ?? null;
+    const mkInt = pc?.marketingContactId != null ? (lastIntByMk[pc.marketingContactId] ?? null) : null;
+    const actInt = lastActByOpp[r.id] ?? null;
+    const lastInteraction =
+      mkInt && actInt
+        ? new Date(mkInt.at) > new Date(actInt.at)
+          ? mkInt
+          : actInt
+        : (mkInt ?? actInt);
     return {
       ...r,
       bnccSignals:
         signalsMap[`${r.handedOffConsultoriaId ?? ''}:${r.municipalityId ?? ''}`] ?? null,
       taskSummary: taskSummaries[r.id],
       primaryContact: pc,
-      lastInteraction:
-        pc?.marketingContactId != null ? (lastIntByMk[pc.marketingContactId] ?? null) : null,
+      lastInteraction,
     };
   });
 
   return (
-    <div className="p-6">
-      <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+    <div className="flex h-screen flex-col overflow-hidden p-6 pb-2">
+      <header className="mb-4 flex shrink-0 items-start justify-between gap-4 flex-wrap">
         <div>
           <div className="i10-eyebrow mb-1">Pipeline · Arraste para mover</div>
           <h1 className="text-2xl font-extrabold" style={{ color: 'var(--i10-navy)' }}>

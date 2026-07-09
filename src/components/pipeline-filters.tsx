@@ -55,8 +55,8 @@ export function PipelineFilters({
   );
 
   return (
-    <div>
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="mb-3 flex shrink-0 flex-wrap items-center gap-3">
         <Select
           value={owner}
           onChange={(e) => setOwner(e.target.value)}
@@ -75,7 +75,9 @@ export function PipelineFilters({
           Só paradas
         </label>
       </div>
-      <KanbanBoard cards={filtered} stages={stages} team={team} viewer={viewer} />
+      <div className="min-h-0 flex-1">
+        <KanbanBoard cards={filtered} stages={stages} team={team} viewer={viewer} />
+      </div>
     </div>
   );
 }
