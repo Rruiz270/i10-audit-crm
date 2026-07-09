@@ -368,6 +368,22 @@ export default async function OpportunityDetailPage({
             )}
           </div>
           <div className="flex gap-2">
+            <a
+              href={`https://www.institutoi10.com.br/proposals#prefill=${encodeURIComponent(
+                JSON.stringify({
+                  municipio: op.municipalityName ?? '',
+                  opportunity_id: op.id,
+                  gestor: op.contacts.find((c) => c.isPrimary)?.name ?? '',
+                  rep: op.ownerName ?? '',
+                }),
+              )}`}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:border-cyan-400"
+              title="Abre o i10 Proposal Planner já configurado para este município"
+            >
+              📄 Nova proposta
+            </a>
             {op.stage === 'ganhou' && !op.handedOffConsultoriaId && (
               <HandoffButton
                 opportunityId={op.id}
