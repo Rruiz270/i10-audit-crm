@@ -16,6 +16,7 @@ import { KANBAN_STAGES, type StageKey } from '@/lib/pipeline';
 import { changeStage, claimOpportunity, reassignOpportunity } from '@/lib/actions/opportunities';
 import { startConversationWithContact } from '@/lib/actions/marketing/inbox-contacts';
 import { PRODUCTS, PRODUCT_POSVENDA, type Product } from '@/lib/products';
+import { OppModal } from '@/components/opp-modal';
 import { isAdmin } from '@/lib/roles';
 import { isRotten, daysUntilRot, weightedValue } from '@/lib/forecast';
 import type { BnccSignals } from '@/lib/bncc-signals';
@@ -120,6 +121,7 @@ export function KanbanBoard({
   // Popup de Ganho: arrastar para "ganhou" abre a seleção de produto(s) —
   // obrigatório; é o que ramifica o pós-venda e o funil por produto.
   const [wonFor, setWonFor] = React.useState<KanbanCard | null>(null);
+  const [openCard, setOpenCard] = React.useState<number | null>(null);
   const [wonSel, setWonSel] = React.useState<string[]>([]);
   const [prodFilter, setProdFilter] = React.useState<string>('all');
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
@@ -206,6 +208,20 @@ export function KanbanBoard({
 
   return (
     <div>
+      {openCard != null && (
+        <OppModal
+          oppId={openCard}
+          onClose={() => setOpenCard(null)}
+          onWon={(d) => {
+            const card = cards.find((c) => c.id === d.id);
+            setOpenCard(null);
+            if (card) {
+              setWonFor(card);
+              setWonSel(d.products ?? []);
+            }
+          }}
+        />
+      )}
       {wonFor && (
         <div
           className="fixed inset-0 z-50 flex items-start justify-center overflow-auto bg-slate-900/55 p-6"
@@ -331,6 +347,7 @@ export function KanbanBoard({
               busyId={busyId}
               team={team}
               viewer={viewer}
+              onOpen={setOpenCard}
             />
           ))}
         </div>
@@ -345,12 +362,14 @@ function Column({
   busyId,
   team,
   viewer,
+  onOpen,
 }: {
   stageDef: DynamicStage;
   cards: KanbanCard[];
   busyId: number | null;
   team?: TeamUser[];
   viewer?: Viewer;
+  onOpen?: (id: number) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stageDef.key });
   const def = stageDef;
@@ -400,7 +419,14 @@ function Column({
       </div>
       <div className="p-2 min-h-[400px] space-y-2">
         {cards.map((c) => (
-          <DraggableCard key={c.id} card={c} busy={busyId === c.id} team={team} viewer={viewer} />
+          <DraggableCard
+            key={c.id}
+            card={c}
+            busy={busyId === c.id}
+            team={team}
+            viewer={viewer}
+            onOpen={onOpen}
+          />
         ))}
         {cards.length === 0 && (
           <div className="text-xs text-slate-400 italic text-center py-10">arraste aqui</div>
@@ -415,11 +441,13 @@ function DraggableCard({
   busy,
   team,
   viewer,
+  onOpen,
 }: {
   card: KanbanCard;
   busy: boolean;
   team?: TeamUser[];
   viewer?: Viewer;
+  onOpen?: (id: number) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: card.id,
@@ -477,6 +505,10 @@ function DraggableCard({
       title={hoverSummary || undefined}
       {...attributes}
       {...listeners}
+      onClick={() => {
+        // Clique (sem drag) abre o card-modal, como no mockup.
+        if (!isDragging && onOpen) onOpen(card.id);
+      }}
       className={`rounded-lg border bg-white p-3 shadow-sm cursor-grab active:cursor-grabbing ${
         rotten ? 'border-rose-300 ring-1 ring-rose-100' : isDragging ? 'border-i10-400 shadow-md' : 'border-slate-200'
       } ${busy ? 'opacity-50' : ''}`}

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { and, count, desc, eq, isNull } from 'drizzle-orm';
+import { and, count, desc, eq, isNull, sql } from 'drizzle-orm';
 import { ACTIVE_STAGES } from '@/lib/pipeline';
 import { db } from '@/lib/db';
 import { opportunities, leadSubmissions, activities, fundebMunicipalities } from '@/lib/schema';
@@ -123,6 +123,24 @@ export default async function DashboardPage() {
   }).sort((a, b) => b.total - a.total);
   const maxProd = Math.max(1, ...byProduct.map((b) => b.total));
 
+  // Nunca contactados (mockup): opps ativas cujo contato principal não tem
+  // nenhuma interação registrada (campanhas/inbox via ponte).
+  const neverRes = await db.execute(
+    sql`SELECT count(*)::int AS n FROM crm.opportunities o
+        WHERE o.stage IN ('contato_inicial','diagnostico_enviado','follow_up','reuniao_auditoria','negociacao')
+          AND NOT EXISTS (
+            SELECT 1 FROM crm.contacts cc
+            JOIN marketing.events ev ON ev.contact_id = cc.marketing_contact_id
+            WHERE cc.opportunity_id = o.id)
+          AND NOT EXISTS (
+            SELECT 1 FROM crm.contacts cc2
+            JOIN marketing.conversations cv ON cv.contact_id = cc2.marketing_contact_id
+            WHERE cc2.opportunity_id = o.id AND cv.last_inbound_at IS NOT NULL)`,
+  );
+  const neverContacted = Number(
+    (((neverRes as unknown as { rows?: Array<{ n: number }> }).rows ?? [])[0]?.n ?? 0),
+  );
+
   const myTasks = await listMyOpenTasks(user.id);
   const overdueTeam = await listOverdueTasks();
   const nowMs = new Date().getTime();
@@ -210,12 +228,12 @@ export default async function DashboardPage() {
           badge={(newLeads?.n ?? 0) > 0 ? { text: 'novo', tone: 'amber' } : undefined}
         />
         <KpiTile
-          href="/opportunities"
-          icon="clock"
+          href="/pipeline"
+          icon="alert"
           tone="rose"
-          value={rottenList.length}
-          label="oportunidades paradas"
-          badge={rottenList.length > 0 ? { text: 'ação', tone: 'rose' } : undefined}
+          value={neverContacted}
+          label="nunca contactados"
+          badge={{ text: 'novo', tone: 'mint' }}
         />
       </section>
 

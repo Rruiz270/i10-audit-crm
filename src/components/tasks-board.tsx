@@ -74,6 +74,11 @@ function TaskRow({
       <div className="min-w-0 flex-1">
         <div className={`text-sm ${done ? 'text-slate-400 line-through' : 'font-medium text-slate-900'}`}>
           {t.title}
+          {/^Kickoff (implantação|consultoria)/i.test(t.title) && (
+            <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wide text-emerald-700">
+              gerada pelo ganho
+            </span>
+          )}
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
           <Link href={`/opportunities/${t.opportunityId}`} className="text-i10-700 hover:underline">
