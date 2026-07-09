@@ -14,6 +14,7 @@ import {
 } from '@dnd-kit/core';
 import { KANBAN_STAGES, type StageKey } from '@/lib/pipeline';
 import { changeStage, claimOpportunity, reassignOpportunity } from '@/lib/actions/opportunities';
+import { startConversationWithContact } from '@/lib/actions/marketing/inbox-contacts';
 import { isAdmin } from '@/lib/roles';
 import { isRotten, daysUntilRot, weightedValue } from '@/lib/forecast';
 import type { BnccSignals } from '@/lib/bncc-signals';
@@ -57,6 +58,14 @@ export type KanbanCard = {
   handedOffConsultoriaId?: number | null;
   bnccSignals?: BnccSignals | null;
   taskSummary?: { open: number; overdue: number; nextDue: string | null };
+  primaryContact?: {
+    name: string;
+    role: string | null;
+    email: string | null;
+    phone: string | null;
+    whatsapp: string | null;
+    marketingContactId: number | null;
+  } | null;
 };
 
 export function KanbanBoard({
@@ -359,6 +368,76 @@ function DraggableCard({
 
       {/* Zona 2.5 — dono: dropdown (admin/gestor) ou "pegar" (consultor no pool) */}
       {viewer && <CardOwner card={card} team={team ?? []} viewer={viewer} />}
+
+      {/* Zona 2.7 — contato principal + ações rápidas 💬 ✉️ 📞 */}
+      {card.primaryContact && (
+        <div
+          className="mt-2 flex items-center gap-1.5 border-t border-dashed border-slate-100 pt-2 text-xs text-slate-500"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {card.primaryContact.marketingContactId ? (
+            <Link
+              href={`/contacts/${card.primaryContact.marketingContactId}`}
+              className="min-w-0 truncate font-medium text-slate-700 hover:text-i10-700 hover:underline"
+              title="Abrir Ficha 360 do contato"
+            >
+              {card.primaryContact.name}
+            </Link>
+          ) : (
+            <span className="min-w-0 truncate font-medium text-slate-700">{card.primaryContact.name}</span>
+          )}
+          <span className="ml-auto flex shrink-0 items-center gap-1.5">
+            {card.primaryContact.marketingContactId &&
+            (card.primaryContact.whatsapp || card.primaryContact.phone) ? (
+              <form action={startConversationWithContact} className="inline-flex">
+                <input
+                  type="hidden"
+                  name="contactId"
+                  value={card.primaryContact.marketingContactId}
+                />
+                <button
+                  type="submit"
+                  className="text-emerald-600 hover:text-emerald-700"
+                  title="WhatsApp — abrir/iniciar conversa"
+                >
+                  <Icon name="msg" size={14} />
+                </button>
+              </form>
+            ) : (
+              <span className="text-slate-300" title="Sem WhatsApp">
+                <Icon name="msg" size={14} />
+              </span>
+            )}
+            {card.primaryContact.email ? (
+              <a
+                href={`mailto:${card.primaryContact.email}`}
+                className="text-sky-600 hover:text-sky-700"
+                title={card.primaryContact.email}
+              >
+                <Icon name="mail" size={14} />
+              </a>
+            ) : (
+              <span className="text-slate-300" title="Sem e-mail">
+                <Icon name="mail" size={14} />
+              </span>
+            )}
+            {card.primaryContact.phone || card.primaryContact.whatsapp ? (
+              <a
+                href={`tel:${(card.primaryContact.whatsapp ?? card.primaryContact.phone ?? '').replace(/[^+\d]/g, '')}`}
+                className="text-slate-500 hover:text-slate-700"
+                title="Ligar"
+              >
+                <Icon name="phone" size={14} />
+              </a>
+            ) : (
+              <span className="text-slate-300" title="Sem telefone">
+                <Icon name="phone" size={14} />
+              </span>
+            )}
+          </span>
+        </div>
+      )}
 
       {/* Zona 3 — UM chip de status + sinais BNCC + tags (overflow em popover) */}
       {(statusChip || bnccBadges.length > 0 || tags.length > 0) && (

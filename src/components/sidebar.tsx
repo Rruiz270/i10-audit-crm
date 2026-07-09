@@ -80,6 +80,15 @@ export function Sidebar({ userName, userRole }: { userName?: string | null; user
         <div className="mt-3 h-0.5 rounded-full i10-gradient-accent" />
       </div>
 
+      {/* Busca global — pessoa achada = pessoa acionável (Ficha 360) */}
+      <form action="/search" method="get" className="px-3 pt-3">
+        <input
+          name="q"
+          placeholder="🔎 Buscar contato, município…"
+          className="w-full rounded-md border border-white/15 bg-white/10 px-3 py-1.5 text-xs text-white placeholder-white/40 focus:border-cyan-300 focus:outline-none"
+        />
+      </form>
+
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         <GroupLabel>Funil</GroupLabel>
         {FUNIL_NAV.map((item) => (

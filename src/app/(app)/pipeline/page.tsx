@@ -7,6 +7,8 @@ import { PipelineFilters } from '@/components/pipeline-filters';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { getConsultoriaSignalsBatch } from '@/lib/bncc-signals';
 import { STAGES } from '@/lib/pipeline';
+import { sql } from 'drizzle-orm';
+import { db } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,11 +72,46 @@ export default async function PipelinePage({
     }),
   );
 
+  // Contato principal por oportunidade (1 query batelada) — habilita as
+  // ações rápidas 💬 ✉️ 📞 direto no card do funil.
+  const primaryByOpp: Record<
+    number,
+    {
+      name: string;
+      role: string | null;
+      email: string | null;
+      phone: string | null;
+      whatsapp: string | null;
+      marketingContactId: number | null;
+    }
+  > = {};
+  if (rows.length) {
+    const idList = sql.raw(rows.map((r) => r.id).join(','));
+    const res = await db.execute(
+      sql`SELECT DISTINCT ON (opportunity_id) opportunity_id, name, role, email, phone, whatsapp, marketing_contact_id
+          FROM crm.contacts WHERE opportunity_id IN (${idList})
+          ORDER BY opportunity_id, is_primary DESC, id ASC`,
+    );
+    const list = ((res as unknown as { rows?: Record<string, unknown>[] }).rows ??
+      []) as Record<string, unknown>[];
+    for (const c of list) {
+      primaryByOpp[Number(c.opportunity_id)] = {
+        name: String(c.name ?? ''),
+        role: (c.role as string | null) ?? null,
+        email: (c.email as string | null) ?? null,
+        phone: (c.phone as string | null) ?? null,
+        whatsapp: (c.whatsapp as string | null) ?? null,
+        marketingContactId: c.marketing_contact_id != null ? Number(c.marketing_contact_id) : null,
+      };
+    }
+  }
+
   const cardsWithExtras = rows.map((r) => ({
     ...r,
     bnccSignals:
       signalsMap[`${r.handedOffConsultoriaId ?? ''}:${r.municipalityId ?? ''}`] ?? null,
     taskSummary: taskSummaries[r.id],
+    primaryContact: primaryByOpp[r.id] ?? null,
   }));
 
   return (
