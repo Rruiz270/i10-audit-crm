@@ -101,6 +101,9 @@ export const opportunities = crmSchema.table('opportunities', {
   handedOffAt: timestamp('handed_off_at'),
   notes: text('notes'),
   tags: text('tags').array().default([]),
+  // Produto(s) fechados no Ganho — fonte de verdade p/ funil por produto e
+  // ramificação do pós-venda (ver src/lib/products.ts).
+  products: text('products').array().default([]),
   lostReasonCode: text('lost_reason_code'),
   lastActivityAt: timestamp('last_activity_at').defaultNow(),
   createdAt: timestamp('created_at').defaultNow(),

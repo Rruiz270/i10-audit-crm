@@ -13,6 +13,7 @@ import {
   users,
   fundebMunicipalities,
   leadSubmissions,
+  tasks,
 } from '@/lib/schema';
 import { requireUser } from '@/lib/session';
 import { canAdvance } from '@/lib/qualification';
@@ -26,6 +27,7 @@ import {
 } from '@/lib/lost-reasons';
 import { autoTagOpportunity } from '@/lib/actions/tags';
 import { visibilityCondition, canSeeOpportunity } from '@/lib/visibility';
+import { PRODUCTS, PRODUCT_POSVENDA, type Product } from '@/lib/products';
 
 const createSchema = z.object({
   municipalityId: z.coerce.number().int().positive().optional(),
@@ -293,6 +295,7 @@ export async function changeStage(input: {
   toStage: StageKey;
   lostReason?: string;
   lostReasonCode?: string;
+  products?: string[];
 }) {
   const user = await requireUser();
   const { opportunityId, toStage, lostReason, lostReasonCode } = input;
@@ -343,13 +346,32 @@ export async function changeStage(input: {
     }
   }
 
+  // Ganhou exige produto(s) — é o que ramifica o pós-venda e alimenta o
+  // funil por produto. Sem produto o ganho não confirma (needsProducts → o
+  // kanban abre o popup de seleção).
+  const productsIn = (input.products ?? []).filter((v) =>
+    (PRODUCTS as readonly string[]).includes(v),
+  );
+  const existingProducts = ((op.products ?? []) as string[]).filter(Boolean);
+  if (toStage === 'ganhou' && productsIn.length === 0 && existingProducts.length === 0) {
+    return {
+      ok: false as const,
+      error: 'Informe qual(is) produto(s) fecharam para registrar o ganho.',
+      missing: ['products'],
+      needsProducts: true as const,
+    };
+  }
+
   const now = new Date();
   const patch: Record<string, unknown> = {
     stage: toStage,
     stageUpdatedAt: now,
     updatedAt: now,
   };
-  if (toStage === 'ganhou') patch.wonAt = now;
+  if (toStage === 'ganhou') {
+    patch.wonAt = now;
+    if (productsIn.length) patch.products = productsIn;
+  }
   if (toStage === 'perdido') {
     patch.lostAt = now;
     patch.lostReasonCode = lostReasonCode;
@@ -367,6 +389,26 @@ export async function changeStage(input: {
     metadata: { from: op.stage, to: toStage, lostReasonCode: lostReasonCode ?? null },
   });
 
+  // Pós-venda por produto: FUNDEB mantém o handoff manual → consultoria;
+  // os demais ganham tarefa de kickoff atribuída ao dono da opp.
+  if (toStage === 'ganhou') {
+    const finalProducts = productsIn.length ? productsIn : existingProducts;
+    const nonFundeb = finalProducts.filter((pr) => pr !== 'Acelerador FUNDEB');
+    if (nonFundeb.length) {
+      const due = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+      await db.insert(tasks).values(
+        nonFundeb.map((pr) => ({
+          opportunityId,
+          title: `Kickoff implantação — ${pr}`,
+          description: `Gerada automaticamente pelo Ganho (${PRODUCT_POSVENDA[pr as Product] ?? ''})`,
+          dueAt: due,
+          assignedTo: op.ownerId ?? user.id,
+          createdBy: user.id,
+        })),
+      );
+    }
+  }
+
   revalidatePath(`/opportunities/${opportunityId}`);
   revalidatePath('/opportunities');
   revalidatePath('/pipeline');
@@ -378,7 +420,8 @@ export async function changeStageAction(formData: FormData) {
   const toStage = String(formData.get('toStage')) as StageKey;
   const lostReason = formData.get('lostReason')?.toString();
   const lostReasonCode = formData.get('lostReasonCode')?.toString();
-  const res = await changeStage({ opportunityId, toStage, lostReason, lostReasonCode });
+  const products = formData.getAll('products').map(String).filter(Boolean);
+  const res = await changeStage({ opportunityId, toStage, lostReason, lostReasonCode, products });
   return res;
 }
 
@@ -604,6 +647,7 @@ export async function opportunitiesByStage(filter?: { ownerId?: string }) {
       stageUpdatedAt: opportunities.stageUpdatedAt,
       lastActivityAt: opportunities.lastActivityAt,
       tags: opportunities.tags,
+      products: opportunities.products,
       notes: opportunities.notes,
       activeNo: opportunities.activeNo,
       municipalityId: opportunities.municipalityId,

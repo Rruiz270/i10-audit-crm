@@ -15,6 +15,7 @@ import {
 import { KANBAN_STAGES, type StageKey } from '@/lib/pipeline';
 import { changeStage, claimOpportunity, reassignOpportunity } from '@/lib/actions/opportunities';
 import { startConversationWithContact } from '@/lib/actions/marketing/inbox-contacts';
+import { PRODUCTS, PRODUCT_POSVENDA, type Product } from '@/lib/products';
 import { isAdmin } from '@/lib/roles';
 import { isRotten, daysUntilRot, weightedValue } from '@/lib/forecast';
 import type { BnccSignals } from '@/lib/bncc-signals';
@@ -53,6 +54,7 @@ export type KanbanCard = {
   stageUpdatedAt: Date | null;
   lastActivityAt: Date | null;
   tags: string[] | null;
+  products?: string[] | null;
   notes?: string | null;
   activeNo?: number | null;
   handedOffConsultoriaId?: number | null;
@@ -104,12 +106,24 @@ export function KanbanBoard({
   const [err, setErr] = React.useState<string | null>(null);
   const [missing, setMissing] = React.useState<string[]>([]);
   const [busyId, setBusyId] = React.useState<number | null>(null);
+  // Popup de Ganho: arrastar para "ganhou" abre a seleção de produto(s) —
+  // obrigatório; é o que ramifica o pós-venda e o funil por produto.
+  const [wonFor, setWonFor] = React.useState<KanbanCard | null>(null);
+  const [wonSel, setWonSel] = React.useState<string[]>([]);
+  const [prodFilter, setProdFilter] = React.useState<string>('all');
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
-  const withLocalStage = cards.map((c) => ({
-    ...c,
-    stage: (local[c.id] ?? c.stage) as StageKey,
-  }));
+  const withLocalStage = cards
+    .filter(
+      (c) =>
+        prodFilter === 'all' ||
+        (c.products ?? []).includes(prodFilter) ||
+        (c.tags ?? []).some((t) => t.toLowerCase() === prodFilter.toLowerCase()),
+    )
+    .map((c) => ({
+      ...c,
+      stage: (local[c.id] ?? c.stage) as StageKey,
+    }));
 
   const byStage = React.useMemo(() => {
     const map: Record<string, typeof withLocalStage> = {};
@@ -133,6 +147,11 @@ export function KanbanBoard({
       setErr('Use o painel lateral da oportunidade para registrar perda (precisa de motivo).');
       return;
     }
+    if (toStage === 'ganhou' && !(card.products ?? []).length) {
+      setWonFor(card);
+      setWonSel([]);
+      return;
+    }
 
     // Optimistic
     setLocal((prev) => ({ ...prev, [cardId]: toStage }));
@@ -153,8 +172,109 @@ export function KanbanBoard({
     }
   }
 
+  async function confirmWon() {
+    if (!wonFor || wonSel.length === 0) return;
+    const cardId = wonFor.id;
+    setWonFor(null);
+    setLocal((prev) => ({ ...prev, [cardId]: 'ganhou' }));
+    setBusyId(cardId);
+    const res = await changeStage({ opportunityId: cardId, toStage: 'ganhou', products: wonSel });
+    setBusyId(null);
+    if (!res.ok) {
+      setLocal((prev) => {
+        const next = { ...prev };
+        delete next[cardId];
+        return next;
+      });
+      setErr(res.error ?? 'Falha ao registrar o ganho');
+      setMissing(res.missing ?? []);
+    } else {
+      router.refresh();
+    }
+  }
+
   return (
     <div>
+      {wonFor && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-auto bg-slate-900/55 p-6"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setWonFor(null);
+          }}
+        >
+          <div className="mt-10 w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <h2 className="text-lg font-extrabold" style={{ color: 'var(--i10-navy)' }}>
+              🎉 {wonFor.municipalityName ?? `Oportunidade #${wonFor.id}`} — Ganhou!
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Quais produtos fecharam? <b>Obrigatório</b> — cada produto dispara o pós-venda certo.
+            </p>
+            <div className="mt-4 space-y-2">
+              {PRODUCTS.map((p) => {
+                const on = wonSel.includes(p);
+                return (
+                  <label
+                    key={p}
+                    className={`flex cursor-pointer items-start gap-3 rounded-xl border-2 p-3 text-sm transition ${
+                      on ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 hover:border-cyan-300'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() =>
+                        setWonSel((prev) => (on ? prev.filter((x) => x !== p) : [...prev, p]))
+                      }
+                      className="mt-0.5 accent-emerald-600"
+                    />
+                    <span>
+                      <span className="font-semibold text-slate-900">{p}</span>
+                      <span className="block text-xs text-slate-500">
+                        {PRODUCT_POSVENDA[p as Product]}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setWonFor(null)}
+                className="rounded-md bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmWon}
+                disabled={wonSel.length === 0}
+                className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Confirmar ganho ✓
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+        <span className="mr-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          Produto
+        </span>
+        {['all', ...PRODUCTS].map((p) => (
+          <button
+            key={p}
+            onClick={() => setProdFilter(p)}
+            className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+              prodFilter === p
+                ? 'border-i10-700 bg-i10-700 text-white'
+                : 'border-slate-200 bg-white text-slate-600 hover:border-cyan-400'
+            }`}
+          >
+            {p === 'all' ? 'Todos' : p}
+          </button>
+        ))}
+      </div>
+
       {err && (
         <div className="mb-4 rounded-md bg-rose-50 border border-rose-200 p-3 text-xs text-rose-800">
           <div className="font-medium">{err}</div>
