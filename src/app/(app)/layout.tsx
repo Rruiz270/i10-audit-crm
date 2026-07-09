@@ -12,8 +12,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen">
-      {/* Sidebar desktop */}
-      <div className="hidden md:block">
+      {/* Sidebar desktop — sticky: continua visível ao rolar páginas longas */}
+      <div className="hidden md:block sticky top-0 h-screen overflow-y-auto">
         <Sidebar userName={session.user.name} userRole={role} />
       </div>
       {/* Mobile navigation (top bar + drawer) */}

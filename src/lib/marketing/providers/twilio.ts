@@ -15,6 +15,16 @@ import type { WhatsAppProvider, WhatsAppSendInput, WhatsAppSendResult } from './
 //
 // Tag do Twilio (passado em statusCallback) volta no webhook pra correlação.
 
+// E.164 brasileiro: strip de máscara/espacos; 10-11 dígitos = nacional → +55;
+// 12-13 começando com 55 = já tem país; com '+' respeita o que veio.
+function normalizeBrE164(raw: string): string {
+  if (raw.startsWith('+')) return '+' + raw.slice(1).replace(/\D/g, '');
+  const d = raw.replace(/\D/g, '');
+  if (d.length === 10 || d.length === 11) return `+55${d}`;
+  if ((d.length === 12 || d.length === 13) && d.startsWith('55')) return `+${d}`;
+  return `+${d}`;
+}
+
 export class TwilioWhatsAppProvider implements WhatsAppProvider {
   readonly name = 'twilio';
 
@@ -54,10 +64,12 @@ export class TwilioWhatsAppProvider implements WhatsAppProvider {
 
     const client = new Twilio(this.config.accountSid, this.config.authToken);
 
-    // Normalizar 'to' — se vier "+5511..." ou "5511...", prefixar "whatsapp:"
+    // Normalizar 'to' para E.164 BR. Números nacionais sem código de país
+    // ("(13) 99786-3585", "13997863585") ganham +55 — sem isso os dígitos crus
+    // viravam "+1399..." (EUA) e o envio falhava para toda a base APM/CSV.
     const toNumber = input.toNumber.startsWith('whatsapp:')
       ? input.toNumber
-      : `whatsapp:${input.toNumber.startsWith('+') ? input.toNumber : '+' + input.toNumber.replace(/\D/g, '')}`;
+      : `whatsapp:${normalizeBrE164(input.toNumber)}`;
 
     const messageOpts: Record<string, unknown> = {
       from: this.config.from,

@@ -1,6 +1,6 @@
 'use server';
 
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
@@ -540,15 +540,28 @@ async function setOwner(input: {
     patch.stageUpdatedAt = new Date();
   }
   // Ao virar oportunidade ativa (ganhou dono), recebe o próximo nº sequencial.
+  // O nº é calculado por subquery DENTRO do próprio UPDATE — atômico. O padrão
+  // anterior (SELECT MAX+1 e depois UPDATE) tinha corrida: dois claims
+  // simultâneos liam o mesmo MAX e criavam nº duplicado ("lead duplicado").
   let assignedNo = op.activeNo ?? null;
-  if (ownerId && op.activeNo == null) {
-    const [{ max }] = await db
-      .select({ max: sql<number>`COALESCE(MAX(${opportunities.activeNo}), 0)` })
-      .from(opportunities);
-    assignedNo = Number(max) + 1;
-    patch.activeNo = assignedNo;
+  const needsNo = Boolean(ownerId) && op.activeNo == null;
+  if (needsNo) {
+    patch.activeNo = sql`(SELECT COALESCE(MAX(o2.active_no), 0) + 1 FROM crm.opportunities o2)`;
   }
-  await db.update(opportunities).set(patch).where(eq(opportunities.id, id));
+  // Claim só completa se o lead ainda estiver sem dono — se duas pessoas
+  // clicarem "assumir" juntas, a segunda recebe erro em vez de sobrescrever.
+  const guard = claimed
+    ? and(eq(opportunities.id, id), isNull(opportunities.ownerId))
+    : eq(opportunities.id, id);
+  const updated = await db
+    .update(opportunities)
+    .set(patch)
+    .where(guard)
+    .returning({ activeNo: opportunities.activeNo });
+  if (!updated.length) {
+    return { ok: false as const, error: 'Este lead acabou de ser assumido por outra pessoa.' };
+  }
+  if (needsNo) assignedNo = updated[0].activeNo ?? null;
 
   await logActivity({
     opportunityId: id,
