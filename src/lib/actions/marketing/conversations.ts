@@ -1,6 +1,6 @@
 'use server';
 
-import { eq, desc, and, or, inArray, isNull, type SQL } from 'drizzle-orm';
+import { eq, desc, and, or, inArray, isNull, sql, type SQL } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/db';
 import {
@@ -11,6 +11,7 @@ import {
   projects,
   campaigns,
   templates,
+  contacts,
 } from '@/lib/schema-marketing';
 import { opportunities, users, pipelineStages, fundebMunicipalities } from '@/lib/schema';
 import { requireUser, type SessionUser } from '@/lib/session';
@@ -738,4 +739,332 @@ export async function restoreMessage(
     .where(eq(messages.id, messageId));
   revalidatePath('/marketing/conversas');
   return { ok: true as const };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// F4 — App de Atendimento (/atende) — inbox mobile multiusuário
+// ═══════════════════════════════════════════════════════════════════════════
+// Mesmo backend do inbox desktop (/marketing/conversas), mas com loaders
+// agregados prontos para a UI mobile (lista "meus" + "fila") e para o console
+// do supervisor, além da ação de TRANSFERIR atendimento (reatribui assignedTo
+// para outro usuário — o claim existente só assume para si mesmo).
+
+const OPEN_STATUSES = ['open', 'pending'] as const;
+
+export type AtendeItem = {
+  id: number;
+  contactName: string | null;
+  waPhone: string;
+  muni: string | null;
+  uf: string | null;
+  projectId: number | null;
+  projectName: string | null;
+  status: string;
+  assignedTo: string | null;
+  unread: boolean;
+  windowExpiresAt: string | null;
+  lastMessageAt: string | null;
+  preview: string | null;
+  previewOutbound: boolean;
+};
+
+export type AtendeInbox = {
+  me: { id: string; name: string | null; role: string; isSupervisor: boolean };
+  mine: AtendeItem[];
+  queue: AtendeItem[];
+  projectName: string | null;
+};
+
+// Carrega o inbox do atendente: conversas visíveis (F3) separadas em
+// "meus atendimentos" (assignedTo = eu, abertas) e "fila" (sem dono, abertas).
+// Enriquece com município (contato de marketing), projeto e preview da última
+// mensagem — tudo em ≤3 queries (sem N+1).
+export async function getAtendeInbox(): Promise<AtendeInbox> {
+  const user = await requireUser();
+  const supervisor = isAdmin(user.role);
+  const vis = await visibilityWhere(user);
+
+  const rows = await db
+    .select({
+      id: conversations.id,
+      contactName: conversations.contactName,
+      waPhone: conversations.waPhone,
+      muni: contacts.municipio,
+      uf: contacts.uf,
+      projectId: conversations.projectId,
+      projectName: projects.name,
+      status: conversations.status,
+      assignedTo: conversations.assignedTo,
+      unread: conversations.unread,
+      windowExpiresAt: conversations.windowExpiresAt,
+      lastMessageAt: conversations.lastMessageAt,
+    })
+    .from(conversations)
+    .leftJoin(contacts, eq(conversations.contactId, contacts.id))
+    .leftJoin(projects, eq(conversations.projectId, projects.id))
+    .where(vis)
+    .orderBy(desc(conversations.lastMessageAt))
+    .limit(200);
+
+  // Preview da última mensagem por conversa (1 query, agrupado em memória).
+  const ids = rows.map((r) => r.id);
+  const previewByConv = new Map<number, { body: string | null; outbound: boolean }>();
+  if (ids.length) {
+    const msgs = await db
+      .select({
+        conversationId: messages.conversationId,
+        body: messages.body,
+        direction: messages.direction,
+        createdAt: messages.createdAt,
+      })
+      .from(messages)
+      .where(and(inArray(messages.conversationId, ids), isNull(messages.deletedAt)))
+      .orderBy(messages.createdAt);
+    for (const m of msgs) {
+      // ordenado asc → o último set vence (última mensagem da conversa)
+      previewByConv.set(m.conversationId, {
+        body: m.body,
+        outbound: m.direction === 'outbound',
+      });
+    }
+  }
+
+  const toItem = (r: (typeof rows)[number]): AtendeItem => {
+    const p = previewByConv.get(r.id);
+    return {
+      id: r.id,
+      contactName: r.contactName,
+      waPhone: r.waPhone,
+      muni: r.muni ?? null,
+      uf: r.uf ?? null,
+      projectId: r.projectId,
+      projectName: r.projectName ?? null,
+      status: r.status,
+      assignedTo: r.assignedTo,
+      unread: r.unread,
+      windowExpiresAt: r.windowExpiresAt ? new Date(r.windowExpiresAt).toISOString() : null,
+      lastMessageAt: r.lastMessageAt ? new Date(r.lastMessageAt).toISOString() : null,
+      preview: p?.body ?? null,
+      previewOutbound: p?.outbound ?? false,
+    };
+  };
+
+  const open = rows.filter((r) => (OPEN_STATUSES as readonly string[]).includes(r.status));
+  const mine = open.filter((r) => r.assignedTo === user.id).map(toItem);
+  const queue = open.filter((r) => r.assignedTo == null).map(toItem);
+
+  // Nome do projeto "principal" do usuário (para o cabeçalho do app).
+  let projectName: string | null = null;
+  if (!supervisor) {
+    const pid = await getUserProjectIds(user.id);
+    if (pid.length) {
+      const [p] = await db
+        .select({ name: projects.name })
+        .from(projects)
+        .where(eq(projects.id, pid[0]))
+        .limit(1);
+      projectName = p?.name ?? null;
+    }
+  }
+
+  return {
+    me: { id: user.id, name: user.name, role: user.role, isSupervisor: supervisor },
+    mine,
+    queue,
+    projectName,
+  };
+}
+
+export type AssignableAgent = { id: string; name: string; role: string; open: number };
+
+// Lista usuários que podem receber uma transferência (aprovados), já com a
+// contagem de conversas abertas de cada um. Usado no sheet "Transferir".
+export async function listAssignableAgents(): Promise<AssignableAgent[]> {
+  await requireUser();
+  const rows = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      displayName: users.displayName,
+      role: users.role,
+      open: sql<number>`count(${conversations.id}) filter (where ${conversations.status} in ('open','pending'))`,
+    })
+    .from(users)
+    .leftJoin(conversations, eq(conversations.assignedTo, users.id))
+    .where(eq(users.approvalStatus, 'approved'))
+    .groupBy(users.id, users.name, users.displayName, users.role)
+    .orderBy(users.name);
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.displayName || r.name || r.id,
+    role: r.role,
+    open: Number(r.open ?? 0),
+  }));
+}
+
+// Transfere o atendimento para OUTRO usuário (reatribui assignedTo). O claim
+// existente só assume para si; aqui o dono/supervisor passa a bola. Guarda de
+// visibilidade: quem transfere precisa ver a conversa; o destino precisa existir.
+export async function transferConversation(
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await requireUser();
+  const conversationId = Number(formData.get('conversationId'));
+  const toUserId = String(formData.get('toUserId') ?? '').trim();
+  if (!conversationId || !toUserId) throw new Error('conversationId e toUserId obrigatórios');
+
+  await loadVisibleConversation(user, conversationId);
+
+  const [target] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.id, toUserId), eq(users.approvalStatus, 'approved')))
+    .limit(1);
+  if (!target) return { ok: false as const, error: 'Usuário destino inválido.' };
+
+  await db
+    .update(conversations)
+    .set({ assignedTo: toUserId, status: 'open' })
+    .where(eq(conversations.id, conversationId));
+
+  revalidatePath('/atende');
+  revalidatePath('/marketing/conversas');
+  return { ok: true as const };
+}
+
+// Devolve a conversa para a fila (remove o dono). Só quem enxerga pode.
+export async function returnConversationToQueue(
+  formData: FormData,
+): Promise<{ ok: true }> {
+  const user = await requireUser();
+  const conversationId = Number(formData.get('conversationId'));
+  await loadVisibleConversation(user, conversationId);
+  await db
+    .update(conversations)
+    .set({ assignedTo: null })
+    .where(eq(conversations.id, conversationId));
+  revalidatePath('/atende');
+  revalidatePath('/marketing/conversas');
+  return { ok: true as const };
+}
+
+export type SupervisorAgent = {
+  id: string;
+  name: string;
+  role: string;
+  open: number;
+  unread: number;
+};
+
+export type SupervisorRow = {
+  id: number;
+  contactName: string | null;
+  muni: string | null;
+  uf: string | null;
+  projectName: string | null;
+  ownerId: string | null;
+  ownerName: string | null;
+  status: string;
+  windowExpiresAt: string | null;
+  lastMessageAt: string | null;
+};
+
+export type SupervisorData = {
+  kpis: { open: number; queue: number; outsideWindow: number; resolvedToday: number };
+  agents: SupervisorAgent[];
+  rows: SupervisorRow[];
+};
+
+// Console do supervisor — visão de TUDO (sem filtro de dono). admin/gestor.
+export async function getSupervisorData(): Promise<SupervisorData> {
+  const user = await requireUser();
+  if (!isAdmin(user.role)) throw new Error('FORBIDDEN');
+
+  const rows = await db
+    .select({
+      id: conversations.id,
+      contactName: conversations.contactName,
+      muni: contacts.municipio,
+      uf: contacts.uf,
+      projectName: projects.name,
+      ownerId: conversations.assignedTo,
+      ownerName: users.name,
+      ownerDisplay: users.displayName,
+      status: conversations.status,
+      windowExpiresAt: conversations.windowExpiresAt,
+      lastMessageAt: conversations.lastMessageAt,
+      unread: conversations.unread,
+    })
+    .from(conversations)
+    .leftJoin(contacts, eq(conversations.contactId, contacts.id))
+    .leftJoin(projects, eq(conversations.projectId, projects.id))
+    .leftJoin(users, eq(conversations.assignedTo, users.id))
+    .orderBy(desc(conversations.lastMessageAt))
+    .limit(400);
+
+  const now = Date.now();
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  const isOpen = (s: string) => s === 'open' || s === 'pending';
+  const open = rows.filter((r) => isOpen(r.status));
+  const queue = open.filter((r) => r.ownerId == null);
+  const outsideWindow = open.filter(
+    (r) => !r.windowExpiresAt || new Date(r.windowExpiresAt).getTime() < now,
+  );
+  const resolvedToday = rows.filter(
+    (r) =>
+      r.status === 'closed' &&
+      r.lastMessageAt &&
+      new Date(r.lastMessageAt).getTime() >= startOfToday.getTime(),
+  );
+
+  // Agentes: contagem de abertas + não lidas por dono.
+  const agentMap = new Map<string, SupervisorAgent>();
+  const agentRows = await db
+    .select({ id: users.id, name: users.name, displayName: users.displayName, role: users.role })
+    .from(users)
+    .where(eq(users.approvalStatus, 'approved'))
+    .orderBy(users.name);
+  for (const a of agentRows) {
+    agentMap.set(a.id, {
+      id: a.id,
+      name: a.displayName || a.name || a.id,
+      role: a.role,
+      open: 0,
+      unread: 0,
+    });
+  }
+  for (const r of open) {
+    if (!r.ownerId) continue;
+    const a = agentMap.get(r.ownerId);
+    if (!a) continue;
+    a.open += 1;
+    if (r.unread) a.unread += 1;
+  }
+  const agents = [...agentMap.values()]
+    .filter((a) => a.open > 0 || a.role === 'consultor' || a.role === 'gestor')
+    .sort((a, b) => b.open - a.open);
+
+  return {
+    kpis: {
+      open: open.length,
+      queue: queue.length,
+      outsideWindow: outsideWindow.length,
+      resolvedToday: resolvedToday.length,
+    },
+    agents,
+    rows: rows.map((r) => ({
+      id: r.id,
+      contactName: r.contactName,
+      muni: r.muni ?? null,
+      uf: r.uf ?? null,
+      projectName: r.projectName ?? null,
+      ownerId: r.ownerId,
+      ownerName: r.ownerDisplay || r.ownerName || null,
+      status: r.status,
+      windowExpiresAt: r.windowExpiresAt ? new Date(r.windowExpiresAt).toISOString() : null,
+      lastMessageAt: r.lastMessageAt ? new Date(r.lastMessageAt).toISOString() : null,
+    })),
+  };
 }

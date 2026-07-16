@@ -124,16 +124,23 @@ export function Sidebar({ userName, userRole }: { userName?: string | null; user
                 className={DARK_LINK}
               />
             ))}
+            <NavLink href="/atende" icon="msg" label="Atendimento (app)" className={DARK_LINK} />
           </>
         )}
 
         {showAgentInbox && (
           <>
-            <GroupLabel>Marketing</GroupLabel>
+            <GroupLabel>Atendimento</GroupLabel>
+            <NavLink
+              href="/atende"
+              icon="msg"
+              label="Meu atendimento"
+              className={DARK_LINK}
+            />
             <NavLink
               href="/marketing/conversas"
               icon="msg"
-              label="Conversas"
+              label="Conversas (desktop)"
               className={DARK_LINK}
             />
           </>
