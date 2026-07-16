@@ -1,0 +1,203 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   /atende — App de Atendimento WhatsApp (mobile-first)
+   Design espelha o mockup aprovado. Classes prefixadas .atd- (sem colisão
+   com Tailwind/global). Cores/gradientes = brandbook i10 (vars globais).
+   ═══════════════════════════════════════════════════════════════════════ */
+.atd{
+  --navy:#0A2463; --deep:#061840; --cyan:#00B4D8; --mint:#00E5A0; --teal:#12C7B0;
+  --ink:#0e1a3a; --mut:#5b6a8f; --line:#e3e8f5; --card:#fff;
+  --wa-in:#ffffff; --wa-out:#dcf5e8; --wa-bg:#eae6df;
+  --grad:linear-gradient(135deg,var(--navy),var(--cyan));
+  --grad-accent:linear-gradient(90deg,var(--cyan),var(--mint));
+  --grad-dark:linear-gradient(135deg,var(--deep),var(--navy));
+  font-family:var(--font-inter),Inter,system-ui,sans-serif;
+  color:var(--ink);-webkit-font-smoothing:antialiased;
+}
+.atd *{box-sizing:border-box}
+
+/* App container: ocupa a tela toda no celular; centralizado no desktop */
+.atd-app{
+  display:flex;flex-direction:column;
+  height:100dvh;max-width:480px;margin:0 auto;
+  background:var(--wa-bg);position:relative;overflow:hidden;
+}
+@media(min-width:481px){
+  .atd-app{height:100vh;border-left:1px solid var(--line);border-right:1px solid var(--line);box-shadow:0 0 60px -20px rgba(6,24,64,.4)}
+}
+
+/* ── header ── */
+.atd-head{background:var(--grad);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px;flex:none}
+.atd-head .av{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex:none;text-transform:uppercase}
+.atd-head .who{min-width:0}
+.atd-head .who b{font-size:14.5px;font-weight:800;display:block;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.atd-head .who span{font-size:11px;color:#cfe0ff}
+.atd-head .ic{margin-left:auto;display:flex;gap:6px;align-items:center}
+.atd-head .ic a,.atd-head .ic button{color:#fff;opacity:.9;background:rgba(255,255,255,.12);border:0;border-radius:9px;padding:7px 9px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;display:flex;align-items:center;gap:5px}
+.atd-head .ic svg{width:18px;height:18px}
+
+/* ── segmented tabs ── */
+.atd-seg{display:flex;background:#fff;flex:none;border-bottom:1px solid var(--line)}
+.atd-seg button{flex:1;border:0;background:transparent;font-family:inherit;font-weight:700;font-size:12.5px;color:var(--mut);padding:12px 6px;cursor:pointer;border-bottom:2.5px solid transparent}
+.atd-seg button.on{color:var(--navy);border-color:var(--cyan)}
+.atd-seg .pill{background:var(--cyan);color:#fff;border-radius:20px;font-size:10px;padding:1px 7px;margin-left:5px;font-weight:800}
+.atd-seg button.on .pill{background:var(--navy)}
+.atd-seg button.q .pill{background:#f5a623}
+
+/* ── conversation list ── */
+.atd-list{background:#fff;overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch}
+.atd-conv{display:flex;gap:12px;padding:12px 15px;border-bottom:1px solid #f1f3fa;cursor:pointer;position:relative;text-decoration:none;color:inherit}
+.atd-conv:active{background:#eef4ff}
+.atd-conv:hover{background:#f8faff}
+.atd-cav{width:46px;height:46px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:16px;text-transform:uppercase}
+.atd-conv .mid{flex:1;min-width:0}
+.atd-conv .r1{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.atd-conv .nm{font-weight:700;font-size:14px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.atd-conv .tm{font-size:10.5px;color:var(--mut);flex:none}
+.atd-conv .muni{font-size:11px;color:var(--cyan);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.atd-conv .prev{font-size:12.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px}
+.atd-conv .r3{display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap}
+.atd-chip{font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.atd-chip.win{background:#e2fbf0;color:#087a54}
+.atd-chip.win.warn{background:#fff3e0;color:#b5730d}
+.atd-chip.win.dead{background:#fdeaea;color:#c0392b}
+.atd-chip.proj{background:#eef2ff;color:var(--navy)}
+.atd-chip.new{background:var(--mint);color:#063}
+.atd-conv .unreadN{position:absolute;right:15px;bottom:14px;background:var(--mint);color:#053d2b;font-size:11px;font-weight:800;min-width:11px;height:11px;border-radius:20px}
+.atd-queue-cta{margin:10px 15px;padding:11px;border:1.5px dashed var(--cyan);border-radius:12px;text-align:center;font-size:12px;color:var(--navy);font-weight:600;background:#f4fbff}
+.atd-empty{padding:40px 24px;text-align:center;color:var(--mut);font-size:13px}
+.atd-empty b{display:block;color:var(--ink);font-size:15px;margin-bottom:4px}
+
+/* ── bottom nav ── */
+.atd-botnav{display:flex;background:#fff;border-top:1px solid var(--line);flex:none;padding-bottom:env(safe-area-inset-bottom)}
+.atd-botnav a{flex:1;border:0;background:transparent;padding:9px 0 11px;font-family:inherit;font-size:10.5px;font-weight:600;color:var(--mut);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;text-decoration:none}
+.atd-botnav a.on{color:var(--navy)}
+.atd-botnav a svg{width:21px;height:21px}
+.atd-botnav a.on svg{color:var(--cyan)}
+
+/* ════════════ CHAT ════════════ */
+.atd-chathead{background:var(--grad);color:#fff;padding:10px 12px;display:flex;align-items:center;gap:10px;flex:none}
+.atd-chathead .back{font-size:26px;cursor:pointer;line-height:1;color:#fff;text-decoration:none;padding:0 2px}
+.atd-chathead .cav{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;flex:none;text-transform:uppercase}
+.atd-chathead .ci{min-width:0}
+.atd-chathead .ci b{font-size:14px;font-weight:800;display:block;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.atd-chathead .ci span{font-size:10.5px;color:#cfe0ff}
+.atd-chathead .ci span b{display:inline;color:var(--mint)}
+.atd-chathead .menu{margin-left:auto;font-size:24px;cursor:pointer;padding:0 6px;background:none;border:0;color:#fff}
+.atd-winbar{flex:none;font-size:11px;font-weight:600;text-align:center;padding:6px;color:#087a54;background:#e7fbf1}
+.atd-winbar.warn{color:#b5730d;background:#fff6e8}
+.atd-winbar.dead{color:#c0392b;background:#fdeaea}
+.atd-thread{flex:1;overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:8px;background:var(--wa-bg)}
+.atd-day{align-self:center;background:#ffffffcc;color:#6a7284;font-size:10.5px;font-weight:600;padding:3px 12px;border-radius:20px;margin:2px 0}
+.atd-msg{max-width:80%;padding:7px 11px 6px;border-radius:12px;font-size:13px;line-height:1.4;position:relative;box-shadow:0 1px 1px rgba(0,0,0,.06);word-wrap:break-word;overflow-wrap:anywhere}
+.atd-msg .t{font-size:9.5px;color:#8a92a5;text-align:right;margin-top:3px;display:flex;gap:4px;justify-content:flex-end;align-items:center}
+.atd-msg.in{background:var(--wa-in);align-self:flex-start;border-top-left-radius:3px}
+.atd-msg.out{background:var(--wa-out);align-self:flex-end;border-top-right-radius:3px}
+.atd-msg .rd{color:#34b7f1;font-weight:700}
+.atd-msg .rd.fail{color:#e5497a}
+.atd-msg.tpl{border-left:3px solid var(--cyan)}
+.atd-msg .tpllbl{font-size:9px;font-weight:800;letter-spacing:.05em;color:var(--cyan);text-transform:uppercase;margin-bottom:3px}
+.atd-msg.sys{align-self:center;background:#e9ecf6;color:#5b6a8f;font-size:10.5px;padding:4px 12px;border-radius:20px;box-shadow:none;font-weight:600;text-align:center}
+.atd-msg audio{margin-top:4px;max-width:220px;height:34px}
+
+/* action row */
+.atd-actrow{flex:none;display:flex;gap:7px;padding:8px 10px;background:#fff;border-top:1px solid var(--line);overflow-x:auto}
+.atd-actrow button{border:1px solid var(--line);background:#f7f9ff;color:var(--navy);font-family:inherit;font-weight:700;font-size:11.5px;padding:7px 12px;border-radius:20px;white-space:nowrap;cursor:pointer;display:flex;align-items:center;gap:6px;flex:none}
+.atd-actrow button:active{transform:scale(.96)}
+.atd-actrow button.warn{color:#b5730d;background:#fff6e8;border-color:#f4d9a8}
+.atd-actrow button.good{color:#087a54;background:#e7fbf1;border-color:#b6ecd3}
+
+/* ════════════ SHEETS (bottom modals) ════════════ */
+.atd-sheet{position:fixed;inset:0;background:rgba(6,24,64,.45);display:none;align-items:flex-end;justify-content:center;z-index:60}
+.atd-sheet.show{display:flex}
+.atd-sheet .card{background:#fff;width:100%;max-width:480px;border-radius:22px 22px 0 0;padding:16px 16px calc(20px + env(safe-area-inset-bottom));max-height:82vh;overflow-y:auto;animation:atd-up .22s ease}
+@keyframes atd-up{from{transform:translateY(30px);opacity:.4}to{transform:none;opacity:1}}
+.atd-sheet h4{font-size:15px;font-weight:800;margin-bottom:3px}
+.atd-sheet .sub{font-size:12px;color:var(--mut);margin-bottom:14px}
+.atd-agentrow{display:flex;align-items:center;gap:11px;padding:10px;border-radius:12px;cursor:pointer;border:1px solid transparent;width:100%;background:none;font-family:inherit;text-align:left}
+.atd-agentrow:hover{background:#f6f9ff;border-color:var(--line)}
+.atd-agentrow .aav{width:38px;height:38px;border-radius:50%;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:14px;position:relative;flex:none;text-transform:uppercase}
+.atd-agentrow .ai{min-width:0}
+.atd-agentrow .ai b{font-size:13.5px;font-weight:700;display:block}
+.atd-agentrow .ai span{font-size:11px;color:var(--mut)}
+.atd-agentrow .ld{margin-left:auto;font-size:11px;font-weight:700;color:var(--navy);background:#eef2ff;padding:3px 9px;border-radius:20px;flex:none}
+.atd-sheet .close{width:100%;margin-top:12px;border:0;background:#f1f3fa;color:var(--mut);font-family:inherit;font-weight:700;padding:12px;border-radius:12px;cursor:pointer;font-size:13px}
+.atd-sheet .err{font-size:12px;color:#c0392b;background:#fdeaea;border-radius:8px;padding:8px 10px;margin-bottom:10px}
+
+/* ficha */
+.atd-ficha .frow{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid #f1f3fa;font-size:12.5px}
+.atd-ficha .frow span{color:var(--mut);flex:none}
+.atd-ficha .frow b{font-weight:700;color:var(--ink);text-align:right}
+.atd-ficha .stagebar{background:var(--grad);color:#fff;border-radius:12px;padding:11px 13px;margin-bottom:12px}
+.atd-ficha .stagebar small{font-size:10px;color:#cfe0ff;text-transform:uppercase;letter-spacing:.05em}
+.atd-ficha .stagebar b{font-size:15px;display:block}
+.atd-ficha .val{color:#0a8f66!important}
+
+/* note textarea */
+.atd-note-ta{width:100%;min-height:90px;border:1px solid var(--line);border-radius:12px;padding:11px;font-family:inherit;font-size:13px;resize:vertical}
+.atd-btn-primary{width:100%;margin-top:10px;border:0;background:var(--grad-accent);color:#06223e;font-family:inherit;font-weight:800;padding:12px;border-radius:12px;cursor:pointer;font-size:13px}
+
+/* ════════════ CONSOLE SUPERVISOR ════════════ */
+.atd-console{min-height:100dvh;background:#eef1f8;padding:20px 18px 60px}
+.atd-console .wrap{max-width:1180px;margin:0 auto}
+.atd-topbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:space-between;background:var(--grad-dark);color:#fff;border-radius:18px;padding:16px 20px;margin-bottom:20px}
+.atd-topbar .brand{display:flex;align-items:center;gap:12px}
+.atd-topbar h1{font-size:17px;font-weight:800}
+.atd-topbar p{font-size:12px;color:#aebbdd;margin-top:2px}
+.atd-topbar .goapp{background:rgba(255,255,255,.14);color:#fff;border-radius:10px;padding:9px 14px;font-size:12.5px;font-weight:700;text-decoration:none;display:flex;align-items:center;gap:7px}
+.atd-badge{width:44px;height:44px;border-radius:12px;background:var(--navy);display:flex;align-items:flex-end;justify-content:center;gap:3px;padding:9px 8px}
+.atd-badge i{width:6px;border-radius:3px;display:block}
+.atd-badge i:nth-child(1){height:11px;background:var(--cyan)}
+.atd-badge i:nth-child(2){height:17px;background:var(--teal)}
+.atd-badge i:nth-child(3){height:24px;background:var(--mint)}
+
+.atd-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+@media(max-width:760px){.atd-kpis{grid-template-columns:repeat(2,1fr)}}
+.atd-kpi{background:#fff;border:1px solid var(--line);border-radius:15px;padding:15px 16px;position:relative;overflow:hidden;box-shadow:0 6px 18px -8px rgba(6,24,64,.3)}
+.atd-kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--grad-accent)}
+.atd-kpi .k{font-size:11px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.atd-kpi .v{font-size:30px;font-weight:900;letter-spacing:-1px;margin-top:4px;line-height:1}
+.atd-kpi.alert::before{background:linear-gradient(90deg,#f5a623,#e74c3c)}
+.atd-kpi.alert .v{color:#c0392b}
+
+.atd-cgrid{display:grid;grid-template-columns:1fr 320px;gap:20px;align-items:start}
+@media(max-width:920px){.atd-cgrid{grid-template-columns:1fr}}
+.atd-panel{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 6px 18px -8px rgba(6,24,64,.3);overflow:hidden}
+.atd-panel .ph{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
+.atd-panel .ph h3{font-size:14.5px;font-weight:800}
+.atd-live{font-size:10px;font-weight:800;color:#087a54;background:#e2fbf0;padding:3px 9px;border-radius:20px;display:inline-flex;align-items:center;gap:5px}
+.atd-live i{width:7px;height:7px;border-radius:50%;background:var(--mint);animation:atd-pulse 1.4s infinite}
+@keyframes atd-pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.atd-tablewrap{overflow-x:auto}
+.atd-table{width:100%;border-collapse:collapse}
+.atd-table thead th{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);font-weight:700;white-space:nowrap}
+.atd-table tbody td{padding:11px 14px;border-bottom:1px solid #f1f3fa;font-size:12.5px;vertical-align:middle}
+.atd-table tbody tr:hover{background:#f8faff}
+.atd-cli{display:flex;align-items:center;gap:9px}
+.atd-cli .mini{width:30px;height:30px;border-radius:50%;color:#fff;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none;text-transform:uppercase}
+.atd-cli b{font-weight:700;display:block;font-size:13px;white-space:nowrap}
+.atd-cli span{font-size:10.5px;color:var(--cyan);font-weight:600}
+.atd-owner{display:flex;align-items:center;gap:7px}
+.atd-owner .od{width:22px;height:22px;border-radius:50%;color:#fff;font-weight:800;font-size:10px;display:flex;align-items:center;justify-content:center;flex:none;text-transform:uppercase}
+.atd-owner.none b{color:#c0392b;font-size:11.5px}
+.atd-st{font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+.atd-st.open{background:#e2fbf0;color:#087a54}
+.atd-st.pending{background:#fff3e0;color:#b5730d}
+.atd-st.closed{background:#eef2ff;color:#5b6a8f}
+
+.atd-agside{display:flex;flex-direction:column;gap:14px}
+.atd-acard{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px 14px;box-shadow:0 6px 18px -8px rgba(6,24,64,.3)}
+.atd-acard .top{display:flex;align-items:center;gap:10px}
+.atd-acard .aa{width:36px;height:36px;border-radius:50%;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;text-transform:uppercase}
+.atd-acard .an{min-width:0}
+.atd-acard .an b{font-size:13.5px;font-weight:700;display:block}
+.atd-acard .an span{font-size:10.5px;color:var(--mut)}
+.atd-acard .stat{margin-left:auto;text-align:right}
+.atd-acard .stat b{font-size:19px;font-weight:900;color:var(--navy)}
+.atd-acard .stat span{font-size:10px;color:var(--mut);display:block}
+.atd-acard .bars{display:flex;gap:8px;margin-top:11px}
+.atd-acard .bar{flex:1;background:#f4f6fc;border-radius:9px;padding:7px 9px}
+.atd-acard .bar .n{font-size:16px;font-weight:800;color:var(--navy);line-height:1}
+.atd-acard .bar .l{font-size:9.5px;color:var(--mut);margin-top:2px}
+.atd-acard .bar.warn{background:#fdeeee}
+.atd-acard .bar.warn .n{color:#c0392b}
+.atd-console-empty{padding:36px;text-align:center;color:var(--mut);font-size:13px}
