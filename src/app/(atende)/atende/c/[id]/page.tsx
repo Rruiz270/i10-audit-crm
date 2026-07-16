@@ -8,6 +8,7 @@ import {
 } from '@/lib/actions/marketing/conversations';
 import { requireUser } from '@/lib/session';
 import { ChatClient, type ChatMsg } from '@/components/atende/chat-client';
+import { InboxAutoRefresh } from '@/components/inbox-auto-refresh';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'i10 · Conversa' };
@@ -65,7 +66,9 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
     });
 
   return (
-    <ChatClient
+    <>
+      <InboxAutoRefresh intervalMs={6000} />
+      <ChatClient
       conversationId={conv.id}
       contactName={conv.contactName}
       waPhone={conv.waPhone}
@@ -83,5 +86,6 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
       agents={agents}
       templates={templates}
     />
+    </>
   );
 }

@@ -171,6 +171,58 @@ export async function createContactQuick(formData: FormData): Promise<void> {
   redirect(`/marketing/conversas?c=${conversationId}`);
 }
 
+// Normaliza para E.164 (+55...). Aceita o que o atendente digitar (com espaços,
+// traços, com/sem DDI). Números BR sem DDI (≤11 dígitos) ganham 55 na frente.
+function toE164(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith('+')) return '+' + trimmed.slice(1).replace(/\D/g, '');
+  const digits = trimmed.replace(/\D/g, '');
+  if (!digits) return '';
+  return '+' + (digits.length <= 11 ? '55' + digits : digits);
+}
+
+// Versão do "Novo contato" para o app /atende: liberado para QUALQUER atendente
+// (não só admin), grava na base unificada (marketing.contacts → alimenta CRM/
+// Leads Hub) e já abre a conversa atribuída a quem criou. Redireciona p/ o chat.
+export async function createContactFromAtende(formData: FormData): Promise<void> {
+  const user = await requireUser();
+
+  const name = String(formData.get('name') ?? '').trim();
+  const phoneRaw = String(formData.get('phone') ?? '').trim();
+  const email = String(formData.get('email') ?? '').trim().toLowerCase() || null;
+  if (!name) throw new Error('nome obrigatório');
+  const phone = toE164(phoneRaw);
+  if (!phone || phone.replace(/\D/g, '').length < 12) {
+    throw new Error('telefone inválido — use DDD + número (ex.: 15 99999-9999)');
+  }
+
+  // Dedup por telefone/whatsapp ou email.
+  const dedupClauses = [eq(contacts.phone, phone), eq(contacts.whatsapp, phone)];
+  if (email) dedupClauses.push(eq(contacts.email, email));
+  const [existing] = await db
+    .select({ id: contacts.id, name: contacts.name })
+    .from(contacts)
+    .where(or(...dedupClauses))
+    .limit(1);
+
+  let contactId: number;
+  let contactName: string | null;
+  if (existing) {
+    contactId = existing.id;
+    contactName = existing.name ?? name;
+  } else {
+    const [inserted] = await db
+      .insert(contacts)
+      .values({ name, phone, whatsapp: phone, email, source: 'atende', status: 'active' })
+      .returning({ id: contacts.id });
+    contactId = inserted.id;
+    contactName = name;
+  }
+
+  const conversationId = await ensureConversation(phone, contactId, contactName, user.id);
+  redirect(`/atende/c/${conversationId}`);
+}
+
 export type InboxContactDetail = {
   id: number;
   name: string | null;
