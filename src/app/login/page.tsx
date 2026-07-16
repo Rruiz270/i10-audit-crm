@@ -25,11 +25,17 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ callbackUrl?: string; error?: string; notice?: string }>;
 }) {
-  const session = await auth();
-  if (session?.user) redirect('/');
-
   const { callbackUrl, error, notice } = await searchParams;
-  const safeCallback = callbackUrl ?? '/';
+  // Só aceita caminho interno relativo (evita open-redirect: "//evil" ou URL absoluta).
+  const safeCallback =
+    callbackUrl && callbackUrl.startsWith('/') && !callbackUrl.startsWith('//')
+      ? callbackUrl
+      : '/';
+
+  const session = await auth();
+  // Já logado: volta para o destino pedido (ex.: PWA abrindo em /atende) — não
+  // força a Dashboard, senão o app de atendimento sempre cai no CRM.
+  if (session?.user) redirect(safeCallback);
 
   async function doGoogleSignIn() {
     'use server';
