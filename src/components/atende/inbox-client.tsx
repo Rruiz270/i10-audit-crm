@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import type { AtendeInbox, AtendeItem } from '@/lib/actions/marketing/conversations';
+import { createContactFromAtende } from '@/lib/actions/marketing/inbox-contacts';
 import { avatarColor, initials, displayName, relTime, windowState } from './util';
 
 function ConvRow({ item }: { item: AtendeItem }) {
@@ -37,6 +38,7 @@ function ConvRow({ item }: { item: AtendeItem }) {
 
 export function InboxClient({ data }: { data: AtendeInbox }) {
   const [tab, setTab] = useState<'mine' | 'queue'>(data.mine.length === 0 && data.queue.length > 0 ? 'queue' : 'mine');
+  const [modal, setModal] = useState<null | 'new' | 'profile'>(null);
   const { me, mine, queue } = data;
 
   return (
@@ -97,20 +99,77 @@ export function InboxClient({ data }: { data: AtendeInbox }) {
         </div>
       )}
 
+      {/* FAB: novo contato */}
+      <button className="atd-fab" onClick={() => setModal('new')} aria-label="Novo contato">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M12 5v14M5 12h14" /></svg>
+      </button>
+
       <nav className="atd-botnav">
-        <a className="on" onClick={(e) => { e.preventDefault(); setTab('mine'); }} href="#">
+        <a className={tab === 'mine' ? 'on' : ''} onClick={(e) => { e.preventDefault(); setTab('mine'); }} href="#">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
           Conversas
         </a>
-        <a onClick={(e) => { e.preventDefault(); setTab('queue'); }} href="#">
+        <a className={tab === 'queue' ? 'on' : ''} onClick={(e) => { e.preventDefault(); setTab('queue'); }} href="#">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20v-6M6 20V10M18 20V4" /></svg>
           Minha fila
         </a>
-        <Link href="/me">
+        <a onClick={(e) => { e.preventDefault(); setModal('profile'); }} href="#">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
           Perfil
-        </Link>
+        </a>
       </nav>
+
+      {/* Sheet: novo contato → cria na base e abre a conversa */}
+      {modal === 'new' && (
+        <div className="atd-sheet show" onClick={() => setModal(null)}>
+          <div className="card" onClick={(e) => e.stopPropagation()}>
+            <h4>Novo contato</h4>
+            <p className="sub">Salva na base (alimenta o CRM) e já abre a conversa</p>
+            <form action={createContactFromAtende}>
+              <label className="atd-field">
+                <span>Nome</span>
+                <input name="name" required placeholder="Ex.: João Carlos (Prefeito)" autoComplete="off" />
+              </label>
+              <label className="atd-field">
+                <span>WhatsApp (com DDD)</span>
+                <input name="phone" required inputMode="tel" placeholder="15 99999-9999" autoComplete="off" />
+              </label>
+              <label className="atd-field">
+                <span>E-mail <em>(opcional)</em></span>
+                <input name="email" type="email" placeholder="contato@municipio.sp.gov.br" autoComplete="off" />
+              </label>
+              <button type="submit" className="atd-btn-primary">Salvar e abrir conversa</button>
+            </form>
+            <button className="close" onClick={() => setModal(null)}>Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      {/* Sheet: perfil */}
+      {modal === 'profile' && (
+        <div className="atd-sheet show" onClick={() => setModal(null)}>
+          <div className="card" onClick={(e) => e.stopPropagation()}>
+            <h4>Meu perfil</h4>
+            <p className="sub">Sessão do app de atendimento</p>
+            <div className="atd-profile">
+              <div className="pav" style={{ background: avatarColor(me.name ?? me.id) }}>{initials(me.name, me.id)}</div>
+              <div>
+                <b>{me.name ?? 'Atendente'}</b>
+                <span>{me.isSupervisor ? 'Supervisor (vê tudo)' : 'Consultor'}{data.projectName ? ` · ${data.projectName}` : ''}</span>
+              </div>
+            </div>
+            {me.isSupervisor && (
+              <Link href="/atende/supervisor" className="atd-profile-link">📊 Console do supervisor</Link>
+            )}
+            <div className="atd-install">
+              <b>📲 Instalar como app no celular</b>
+              <span><b>iPhone:</b> botão Compartilhar → “Adicionar à Tela de Início”.<br /><b>Android:</b> menu ⋮ → “Adicionar à tela inicial”.</span>
+            </div>
+            <Link href="/api/auth/signout" prefetch={false} className="atd-signout">Sair da conta</Link>
+            <button className="close" onClick={() => setModal(null)}>Fechar</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
