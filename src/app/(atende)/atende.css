@@ -106,6 +106,33 @@
 .atd-actrow button.warn{color:#b5730d;background:#fff6e8;border-color:#f4d9a8}
 .atd-actrow button.good{color:#087a54;background:#e7fbf1;border-color:#b6ecd3}
 
+/* ════════════ COMPOSER COMPLETO (emoji/anexo/áudio/rápidas) ════════════ */
+.atd-composer2{flex:none;background:#fff;border-top:1px solid var(--line);padding:8px 10px calc(8px + env(safe-area-inset-bottom))}
+.atd-comp-err{font-size:11.5px;color:#c0392b;background:#fdeaea;border-radius:8px;padding:6px 10px;margin-bottom:7px}
+.atd-comp-row{display:flex;align-items:flex-end;gap:6px}
+.atd-comp-row .ic{width:38px;height:38px;flex:none;border:0;background:#f1f3fa;border-radius:50%;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1}
+.atd-comp-row .ic:active{transform:scale(.92)}
+.atd-comp-row textarea{flex:1;min-width:0;resize:none;max-height:120px;background:#f1f3fa;border:0;border-radius:20px;padding:9px 14px;font-family:inherit;font-size:14px;line-height:1.35;outline:none}
+.atd-comp-row textarea:focus{box-shadow:0 0 0 2px rgba(0,180,216,.25)}
+.atd-comp-row .snd{width:42px;height:42px;flex:none;border:0;border-radius:50%;background:var(--grad);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.atd-comp-row .snd:disabled{opacity:.5}
+.atd-comp-row .snd svg{width:20px;height:20px}
+.atd-comp-row .snd.mic{background:#eef2ff;color:var(--navy)}
+
+.atd-emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;padding:6px 2px 10px;max-height:150px;overflow-y:auto}
+.atd-emoji-grid button{border:0;background:none;font-size:22px;padding:5px 0;border-radius:8px;cursor:pointer}
+.atd-emoji-grid button:active{background:#eef2ff}
+.atd-canned{max-height:220px;overflow-y:auto;padding-bottom:8px}
+.atd-canned button{display:block;width:100%;text-align:left;border:0;background:none;padding:9px 8px;border-radius:10px;cursor:pointer;border-bottom:1px solid #f1f3fa}
+.atd-canned button:active{background:#f6f9ff}
+.atd-canned button b{display:block;font-size:13px;font-weight:700;color:var(--ink)}
+.atd-canned button span{display:block;font-size:11.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.atd-canned-empty{font-size:12px;color:var(--mut);padding:14px 8px}
+.atd-rec{display:flex;align-items:center;gap:10px;padding:9px 6px;font-size:13px;font-weight:600;color:#c0392b}
+.atd-rec .dot{width:9px;height:9px;border-radius:50%;background:#e74c3c;animation:atd-pulse 1.1s infinite}
+.atd-rec .ok{margin-left:auto;border:0;background:#e74c3c;color:#fff;font-family:inherit;font-weight:700;font-size:12.5px;padding:8px 14px;border-radius:20px;cursor:pointer}
+.atd-rec .cancel{border:1px solid var(--line);background:#fff;color:var(--mut);font-family:inherit;font-weight:600;font-size:12.5px;padding:8px 12px;border-radius:20px;cursor:pointer}
+
 /* ════════════ SHEETS (bottom modals) ════════════ */
 .atd-sheet{position:fixed;inset:0;background:rgba(6,24,64,.45);display:none;align-items:flex-end;justify-content:center;z-index:60}
 .atd-sheet.show{display:flex}

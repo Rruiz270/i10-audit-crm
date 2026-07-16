@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  sendConversationReply,
   sendTemplateReply,
   closeConversation,
   claimConversation,
@@ -12,6 +11,7 @@ import {
   saveConversationContext,
 } from '@/lib/actions/marketing/conversations';
 import { avatarColor, initials, displayName, relTime, windowExpired } from './util';
+import { AtendeComposer } from './atende-composer';
 
 export type ChatMsg = {
   id: number;
@@ -48,6 +48,8 @@ export type ChatProps = {
   context: ChatContext;
   agents: { id: string; name: string; role: string; open: number }[];
   templates: { contentSid: string; name: string }[];
+  cannedResponses: { id: number; title: string; body: string }[];
+  audioEnabled: boolean;
 };
 
 function Ticks({ status }: { status: string | null }) {
@@ -61,7 +63,6 @@ function Ticks({ status }: { status: string | null }) {
 export function ChatClient(props: ChatProps) {
   const router = useRouter();
   const [sheet, setSheet] = useState<null | 'menu' | 'transfer' | 'ficha' | 'note' | 'template'>(null);
-  const [body, setBody] = useState('');
   const [noteDraft, setNoteDraft] = useState(props.notes ?? '');
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -92,14 +93,6 @@ export function ChatClient(props: ChatProps) {
         setError(e instanceof Error ? e.message : 'Falha na operação.');
       }
     });
-  }
-
-  function send() {
-    if (!body.trim() || pending) return;
-    const fd = new FormData();
-    fd.set('conversationId', String(props.conversationId));
-    fd.set('body', body);
-    run(() => sendConversationReply(fd), () => setBody(''));
   }
 
   function sendTemplate(contentSid: string) {
@@ -237,24 +230,11 @@ export function ChatClient(props: ChatProps) {
           </button>
         </div>
       ) : (
-        <div className="atd-composer" style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 9, padding: '9px 11px', background: '#fff', borderTop: '1px solid var(--line)' }}>
-          <input
-            className="atd-composer-inp"
-            style={{ flex: 1, background: '#f1f3fa', border: 0, borderRadius: 22, padding: '11px 15px', fontSize: 13.5, fontFamily: 'inherit', outline: 'none' }}
-            placeholder="Mensagem…"
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-          />
-          <button
-            onClick={send}
-            disabled={pending || !body.trim()}
-            aria-label="Enviar"
-            style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--grad)', color: '#fff', border: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', cursor: 'pointer', opacity: pending || !body.trim() ? 0.5 : 1 }}
-          >
-            <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 20, height: 20 }}><path d="M3 20l18-8L3 4v6l12 2-12 2z" /></svg>
-          </button>
-        </div>
+        <AtendeComposer
+          conversationId={props.conversationId}
+          cannedResponses={props.cannedResponses}
+          audioEnabled={props.audioEnabled}
+        />
       )}
 
       {/* ═══ SHEETS ═══ */}

@@ -3,6 +3,7 @@ import {
   getConversation,
   getConversationContext,
   getApprovedTemplates,
+  getCannedResponses,
   listAssignableAgents,
   markConversationRead,
 } from '@/lib/actions/marketing/conversations';
@@ -37,11 +38,13 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
 
   // Marca como lida (best-effort) e carrega contexto/templates/agentes.
   await markConversationRead(convId).catch(() => {});
-  const [context, templates, agents] = await Promise.all([
+  const [context, templates, agents, canned] = await Promise.all([
     getConversationContext(convId).catch(() => ({ opportunity: null, campaignName: null, projectName: null })),
     getApprovedTemplates(conv.projectId).catch(() => []),
     listAssignableAgents().catch(() => []),
+    getCannedResponses(conv.projectId).catch(() => []),
   ]);
+  const audioEnabled = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 
   const ownerName =
     conv.assignedTo && conv.assignedTo !== me.id
@@ -85,6 +88,8 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
       context={context}
       agents={agents}
       templates={templates}
+      cannedResponses={canned.map((c) => ({ id: c.id, title: c.title, body: c.body }))}
+      audioEnabled={audioEnabled}
     />
     </>
   );
