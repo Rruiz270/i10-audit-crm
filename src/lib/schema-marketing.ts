@@ -503,6 +503,26 @@ export const cannedResponses = marketingSchema.table(
   (t) => [index('mkt_canned_scope_project_idx').on(t.scope, t.projectId)],
 );
 
+// ─── push_subscriptions (F5) — Web Push do app /atende ─────────────────────
+// Cada dispositivo/instalação PWA de um usuário registra uma subscription
+// (endpoint + chaves). Ao chegar inbound, disparamos push p/ os subs do dono
+// (ou de todos, se a conversa está sem dono). Endpoint é único (upsert por ele).
+export const pushSubscriptions = marketingSchema.table(
+  'push_subscriptions',
+  {
+    id: serial('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    endpoint: text('endpoint').notNull().unique(),
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    userAgent: text('user_agent'),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (t) => [index('push_subs_user_idx').on(t.userId)],
+);
+
 export const messages = marketingSchema.table(
   'messages',
   {

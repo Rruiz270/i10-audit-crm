@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { AtendeInbox, AtendeItem } from '@/lib/actions/marketing/conversations';
 import { createContactFromAtende } from '@/lib/actions/marketing/inbox-contacts';
 import { avatarColor, initials, displayName, relTime, windowState } from './util';
+import { PushControls } from './push-controls';
 
 function ConvRow({ item }: { item: AtendeItem }) {
   const name = displayName(item.contactName, item.waPhone);
@@ -60,6 +61,8 @@ export function InboxClient({ data }: { data: AtendeInbox }) {
           )}
         </div>
       </header>
+
+      <PushControls />
 
       <div className="atd-seg">
         <button className={tab === 'mine' ? 'on' : ''} onClick={() => setTab('mine')}>

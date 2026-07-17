@@ -1,6 +1,6 @@
 // Service worker i10-audit-crm — estratégia "network first, cache fallback"
 // para assets estáticos e NADA de cache para server actions / API / auth.
-const VERSION = 'i10-crm-v1';
+const VERSION = 'i10-crm-v2';
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 
@@ -64,6 +64,28 @@ self.addEventListener('fetch', (event) => {
       ),
     );
   }
+});
+
+// Web Push: mensagem chega do servidor (mesmo com o app fechado) → mostra a
+// notificação. iOS 16.4+ entrega isso para PWAs instalados na tela inicial.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data ? event.data.text() : '' };
+  }
+  const title = data.title || 'i10 Atende';
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: data.body || 'Nova mensagem',
+      icon: '/icons/atende-icon.svg',
+      badge: '/icons/atende-icon.svg',
+      tag: data.tag || 'atende-msg',
+      data: { url: data.url || '/atende' },
+      renotify: true,
+    }),
+  );
 });
 
 // Suporte a notificações locais (push sem servidor — disparadas pelo app)

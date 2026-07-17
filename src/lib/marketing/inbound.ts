@@ -1,6 +1,7 @@
-import { eq, and, or } from 'drizzle-orm';
+import { eq, or } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { conversations, messages, contacts } from '@/lib/schema-marketing';
+import { sendPushToUsers, getAllSubscribedUserIds } from '@/lib/push';
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -72,7 +73,7 @@ export async function handleInboundWhatsApp(payload: Record<string, string>): Pr
         closedAt: null,
       },
     })
-    .returning({ id: conversations.id });
+    .returning({ id: conversations.id, assignedTo: conversations.assignedTo });
 
   if (!conv) return null;
 
@@ -83,6 +84,24 @@ export async function handleInboundWhatsApp(payload: Record<string, string>): Pr
     body,
     mediaUrls,
   });
+
+  // Push (best-effort — nunca bloqueia/derruba o webhook). Notifica o dono da
+  // conversa; se estiver sem dono (fila), avisa todos os inscritos para alguém
+  // assumir. Corpo = prévia da mensagem; toque abre direto o chat.
+  try {
+    const recipients = conv.assignedTo ? [conv.assignedTo] : await getAllSubscribedUserIds();
+    const preview = body.trim()
+      ? body.length > 120 ? body.slice(0, 117) + '…' : body
+      : mediaUrls.length > 0 ? '📎 Anexo recebido' : 'Nova mensagem';
+    await sendPushToUsers(recipients, {
+      title: profileName ?? contact?.name ?? phone,
+      body: preview,
+      url: `/atende/c/${conv.id}`,
+      tag: `conv-${conv.id}`,
+    });
+  } catch {
+    /* noop — push é acessório */
+  }
 
   return conv.id;
 }
