@@ -17,6 +17,7 @@ import {
 } from '@/lib/schema';
 import { requireUser } from '@/lib/session';
 import { canAdvance } from '@/lib/qualification';
+import { createContact } from '@/lib/actions/contacts';
 import { logActivity } from '@/lib/activity';
 import type { StageKey } from '@/lib/pipeline';
 import { STAGES_BY_KEY } from '@/lib/pipeline';
@@ -130,6 +131,23 @@ export async function createOpportunity(formData: FormData): Promise<void> {
         ? 'Formulário FUNDEB'
         : 'Manual FUNDEB';
   await autoTagOpportunity(created.id, [originLabel], { actorId: user.id });
+
+  // Prefill vindo da ficha do contato: cria o contato principal na oportunidade
+  // (com ponte para a base única). Best-effort — não derruba a criação da opp.
+  const withContact =
+    formData.get('withContact') === '1' || formData.get('withContact') === 'on';
+  const contactName = String(formData.get('contactName') ?? '').trim();
+  if (withContact && contactName) {
+    const cf = new FormData();
+    cf.set('opportunityId', String(created.id));
+    cf.set('name', contactName);
+    cf.set('role', String(formData.get('contactRole') ?? ''));
+    cf.set('email', String(formData.get('contactEmail') ?? ''));
+    cf.set('phone', String(formData.get('contactPhone') ?? ''));
+    cf.set('whatsapp', String(formData.get('contactPhone') ?? ''));
+    cf.set('isPrimary', 'on');
+    await createContact(cf).catch(() => {});
+  }
 
   revalidatePath('/opportunities');
   revalidatePath('/pipeline');

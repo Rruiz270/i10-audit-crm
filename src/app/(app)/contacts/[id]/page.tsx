@@ -69,6 +69,20 @@ export default async function ContactFichaPage({
     .join('')
     .toUpperCase();
 
+  // "＋ Oportunidade" leva os dados do lead para o formulário já preenchido
+  // (nome, contato, cargo e município — este último editável lá).
+  const newOppHref = (() => {
+    const p = new URLSearchParams({ fromContact: '1' });
+    if (contact.name) p.set('name', contact.name);
+    const ph = contact.whatsapp ?? contact.phone;
+    if (ph) p.set('whatsapp', ph);
+    if (contact.email) p.set('email', contact.email);
+    if (contact.role) p.set('role', contact.role);
+    if (contact.municipio) p.set('municipio', contact.municipio);
+    if (contact.uf) p.set('uf', contact.uf);
+    return `/opportunities/new?${p.toString()}`;
+  })();
+
   return (
     <div className="max-w-5xl px-8 py-8">
       <Link href="/contacts" className="text-xs text-slate-500 hover:text-slate-700">
@@ -165,7 +179,7 @@ export default async function ContactFichaPage({
           ) : null}
           <span className="flex-1" />
           <Link
-            href="/opportunities/new"
+            href={newOppHref}
             className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-cyan-400"
           >
             ＋ Oportunidade

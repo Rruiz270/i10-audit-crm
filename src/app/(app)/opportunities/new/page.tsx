@@ -7,8 +7,38 @@ import { Icon } from '@/components/ui/icon';
 import { AdvancedOptions } from '@/components/advanced-options';
 import { MunicipalityPicker } from '@/components/municipality-picker';
 
-export default async function NewOpportunityPage() {
+// Normaliza p/ casar município ignorando acento/caixa ("Sao Paulo" = "São Paulo").
+function norm(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
+
+export default async function NewOpportunityPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
+  const sp = await searchParams;
   const municipalities = await allMunicipalities();
+
+  // Prefill vindo da ficha do contato (＋ Oportunidade).
+  const fromContact = sp.fromContact === '1';
+  const cName = sp.name ?? '';
+  const cPhone = sp.whatsapp ?? sp.phone ?? '';
+  const cEmail = sp.email ?? '';
+  const cRole = sp.role ?? '';
+
+  // Resolve o município (nome+UF) para o id do picker — sem acento.
+  let muniId: number | null = null;
+  if (sp.municipio) {
+    const target = norm(sp.municipio);
+    const uf = (sp.uf ?? '').toUpperCase();
+    const match =
+      municipalities.find((m) => norm(m.nome) === target && (!uf || m.uf === uf)) ??
+      municipalities.find((m) => norm(m.nome) === target);
+    muniId = match?.id ?? null;
+  }
+  const defaultSource = sp.origem ?? (fromContact && cName ? `Contato: ${cName}` : '');
+
   return (
     <div className="px-8 py-8 max-w-2xl">
       <header className="mb-6">
@@ -31,14 +61,39 @@ export default async function NewOpportunityPage() {
         </div>
       </header>
 
+      {fromContact && (
+        <div className="mb-5 rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900">
+          <b>Dados do contato preenchidos.</b> Confira e ajuste se precisar — o município é editável abaixo.
+        </div>
+      )}
+
       <form action={createOpportunity} className="space-y-5 bg-white p-6 border border-slate-200 rounded-2xl">
         <Field label="Município">
-          <MunicipalityPicker name="municipalityId" municipalities={municipalities} />
-          <p className="text-xs text-slate-500 mt-1">Opcional no estágio inicial; obrigatório para avançar.</p>
+          <MunicipalityPicker name="municipalityId" municipalities={municipalities} defaultValue={muniId} />
+          <p className="text-xs text-slate-500 mt-1">
+            {fromContact && sp.municipio && !muniId
+              ? `Não achei "${sp.municipio}" na base — selecione manualmente.`
+              : 'Opcional no estágio inicial; obrigatório para avançar.'}
+          </p>
         </Field>
+
+        {fromContact && (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+            <div className="text-xs font-bold uppercase tracking-wide text-slate-500">Contato principal</div>
+            <input type="hidden" name="withContact" value="1" />
+            <Field label="Nome"><Input name="contactName" defaultValue={cName} /></Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Cargo"><Input name="contactRole" defaultValue={cRole} placeholder="Ex.: Secretário(a) de Educação" /></Field>
+              <Field label="WhatsApp / telefone"><Input name="contactPhone" defaultValue={cPhone} /></Field>
+            </div>
+            <Field label="E-mail"><Input name="contactEmail" type="email" defaultValue={cEmail} /></Field>
+          </div>
+        )}
+
         <Field label="Fonte do lead">
           <Input
             name="source"
+            defaultValue={defaultSource}
             placeholder='Ex. "formulário /intake/fundeb", "APM", "indicação"'
           />
         </Field>
