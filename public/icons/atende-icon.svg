@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <defs>
+    <linearGradient id="atdbg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#00B4D8"/>
+      <stop offset="1" stop-color="#00C48A"/>
+    </linearGradient>
+  </defs>
+  <rect width="192" height="192" rx="44" fill="url(#atdbg)"/>
+  <!-- balão de conversa branco -->
+  <path d="M44 44h104a18 18 0 0 1 18 18v42a18 18 0 0 1-18 18H86l-24 22v-22h-18a18 18 0 0 1-18-18V62a18 18 0 0 1 18-18z" fill="#ffffff"/>
+  <!-- 3 barras ascendentes i10 dentro do balão -->
+  <rect x="70" y="83" width="14" height="24" rx="7" fill="#00B4D8"/>
+  <rect x="89" y="71" width="14" height="36" rx="7" fill="#12C7B0"/>
+  <rect x="108" y="59" width="14" height="48" rx="7" fill="#00E5A0"/>
+</svg>

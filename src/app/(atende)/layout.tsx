@@ -9,6 +9,12 @@ import './atende.css';
 export const metadata: Metadata = {
   title: 'i10 · Atendimento',
   manifest: '/atende.webmanifest',
+  // Ícone VERDE próprio (balão de conversa) — distingue do CRM navy na tela
+  // inicial. iOS usa o apple-touch-icon; sobrescreve o do layout raiz.
+  icons: {
+    icon: [{ url: '/icons/atende-icon.svg', type: 'image/svg+xml' }],
+    apple: [{ url: '/icons/atende-icon.svg' }],
+  },
   appleWebApp: {
     capable: true,
     title: 'i10 Atende',
