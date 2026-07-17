@@ -1,8 +1,35 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { AuthError } from 'next-auth';
 import { signIn, auth } from '@/lib/auth';
 import { Wordmark } from '@/components/ui/wordmark';
+
+// Metadata dinâmico: quando o login é o passo intermediário para o app de
+// ATENDIMENTO (callbackUrl=/atende), a própria /login passa a anunciar o
+// manifest + ícone verde do atendimento. Assim, se o usuário deslogado
+// "Adicionar à Tela de Início" ainda na tela de login (caso comum quando abre
+// o link do /atende pela 1ª vez), o ícone salvo já é o do Atendimento
+// (start_url /atende), e não o do CRM (Dashboard). Corrige o bug em que
+// celulares novos instalavam o app errado.
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ callbackUrl?: string }>;
+}): Promise<Metadata> {
+  const { callbackUrl } = await searchParams;
+  const isAtende = typeof callbackUrl === 'string' && callbackUrl.startsWith('/atende');
+  if (!isAtende) return {};
+  return {
+    title: 'i10 · Atendimento',
+    manifest: '/atende.webmanifest',
+    icons: {
+      icon: [{ url: '/icons/atende-icon.svg', type: 'image/svg+xml' }],
+      apple: [{ url: '/icons/atende-icon.svg' }],
+    },
+    appleWebApp: { capable: true, title: 'i10 Atende', statusBarStyle: 'default' },
+  };
+}
 
 /**
  * Next.js signals a successful redirect by throwing an error with a
