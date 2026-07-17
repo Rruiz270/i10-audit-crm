@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, or, sql, type SQL } from 'drizzle-orm';
+import { and, eq, ilike, or, sql, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   contacts as mk,
@@ -61,12 +61,14 @@ function buildConds(f: ContactFilters, exclude?: keyof ContactFilters): SQL[] {
   const conds: SQL[] = [];
   if (f.q && exclude !== 'q') {
     const term = `%${f.q.trim()}%`;
+    // Busca tolerante a acento (unaccent): "Sao Paulo" acha "São Paulo".
+    // Telefone/whatsapp não precisam de unaccent.
     const c = or(
-      ilike(mk.name, term),
-      ilike(mk.email, term),
+      sql`unaccent(${mk.name}) ILIKE unaccent(${term})`,
+      sql`unaccent(${mk.email}) ILIKE unaccent(${term})`,
       ilike(mk.phone, term),
       ilike(mk.whatsapp, term),
-      ilike(mk.municipio, term),
+      sql`unaccent(${mk.municipio}) ILIKE unaccent(${term})`,
     );
     if (c) conds.push(c);
   }
@@ -156,7 +158,7 @@ export async function getContactsHubData(f: ContactFilters) {
     })
     .from(mk)
     .where(tableWhere)
-    .orderBy(desc(mk.createdAt), desc(mk.id))
+    .orderBy(sql`unaccent(${mk.name}) ASC NULLS LAST`, mk.id)
     .limit(CONTACTS_PAGE_SIZE)
     .offset(page * CONTACTS_PAGE_SIZE);
 
@@ -190,7 +192,7 @@ export async function getContactsHubData(f: ContactFilters) {
   let convs: Array<{ contactId: number; id: number; lastInboundAt: Date | null; lastMessageAt: Date | null }> = [];
   let opps: Array<{ mid: number; n: number; won: boolean }> = [];
   let waOkIds = new Set<number>();
-  let suppKeys = new Set<string>();
+  const suppKeys = new Set<string>();
   const crmActByContact = new Map<number, { label: string; at: Date }>();
   const crmActByMuni = new Map<string, { label: string; at: Date }>();
 

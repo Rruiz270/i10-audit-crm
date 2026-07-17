@@ -474,7 +474,8 @@ export async function listOpportunities(filter?: {
     .leftJoin(fundebMunicipalities, eq(opportunities.municipalityId, fundebMunicipalities.id))
     .leftJoin(users, eq(opportunities.ownerId, users.id))
     .where(conditions.length ? and(...conditions) : undefined)
-    .orderBy(desc(opportunities.createdAt));
+    // Ordem alfabética por município (sem dono da cidade → por fim, mais recente).
+    .orderBy(sql`unaccent(${fundebMunicipalities.nome}) ASC NULLS LAST`, desc(opportunities.createdAt));
 }
 
 export async function getOpportunity(id: number) {
@@ -691,6 +692,8 @@ export async function opportunitiesByStage(filter?: { ownerId?: string }) {
         filter?.ownerId ? eq(opportunities.ownerId, filter.ownerId) : undefined,
         visibility,
       ),
-    );
+    )
+    // Cada coluna do Kanban em ordem alfabética por município.
+    .orderBy(sql`unaccent(${fundebMunicipalities.nome}) ASC NULLS LAST`, opportunities.id);
   return rows;
 }
