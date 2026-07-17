@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import type { AtendeInbox, AtendeItem } from '@/lib/actions/marketing/conversations';
 import { createContactFromAtende } from '@/lib/actions/marketing/inbox-contacts';
 import { avatarColor, initials, displayName, relTime, windowState } from './util';
@@ -40,7 +41,31 @@ function ConvRow({ item }: { item: AtendeItem }) {
 export function InboxClient({ data }: { data: AtendeInbox }) {
   const [tab, setTab] = useState<'mine' | 'queue'>(data.mine.length === 0 && data.queue.length > 0 ? 'queue' : 'mine');
   const [modal, setModal] = useState<null | 'new' | 'profile'>(null);
+  const [ncErr, setNcErr] = useState<string | null>(null);
+  const [saving, startSave] = useTransition();
+  const router = useRouter();
   const { me, mine, queue } = data;
+
+  // Cria contato SEM zerar o formulário em erro: valida no servidor e mostra
+  // erro inline; só navega para o chat quando dá certo.
+  function handleNewContact(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    setNcErr(null);
+    startSave(async () => {
+      try {
+        const r = await createContactFromAtende(fd);
+        if (!r.ok) {
+          setNcErr(r.error);
+          return;
+        }
+        setModal(null);
+        router.push(`/atende/c/${r.conversationId}`);
+      } catch {
+        setNcErr('Falha ao salvar. Tente novamente.');
+      }
+    });
+  }
 
   return (
     <div className="atd-app">
@@ -128,7 +153,8 @@ export function InboxClient({ data }: { data: AtendeInbox }) {
           <div className="card" onClick={(e) => e.stopPropagation()}>
             <h4>Novo contato</h4>
             <p className="sub">Salva na base (alimenta o CRM) e já abre a conversa</p>
-            <form action={createContactFromAtende}>
+            {ncErr && <div className="err">{ncErr}</div>}
+            <form onSubmit={handleNewContact}>
               <label className="atd-field">
                 <span>Nome</span>
                 <input name="name" required placeholder="Ex.: João Carlos (Prefeito)" autoComplete="off" />
@@ -137,11 +163,40 @@ export function InboxClient({ data }: { data: AtendeInbox }) {
                 <span>WhatsApp (com DDD)</span>
                 <input name="phone" required inputMode="tel" placeholder="15 99999-9999" autoComplete="off" />
               </label>
+              <div className="atd-field-row">
+                <label className="atd-field" style={{ flex: 3 }}>
+                  <span>Município</span>
+                  <input name="municipio" placeholder="Ex.: Sorocaba" autoComplete="off" />
+                </label>
+                <label className="atd-field" style={{ flex: 1 }}>
+                  <span>UF</span>
+                  <input name="uf" placeholder="SP" maxLength={2} autoComplete="off" style={{ textTransform: 'uppercase' }} />
+                </label>
+              </div>
+              <label className="atd-field">
+                <span>Cargo</span>
+                <input name="cargo" placeholder="Ex.: Secretário(a) de Educação" autoComplete="off" />
+              </label>
+              <label className="atd-field">
+                <span>De onde veio o lead</span>
+                <select name="origem" defaultValue="">
+                  <option value="">Selecione…</option>
+                  <option>Evento / estande</option>
+                  <option>Conexão APM</option>
+                  <option>Indicação</option>
+                  <option>Ligação ativa</option>
+                  <option>WhatsApp / inbound</option>
+                  <option>Campanha</option>
+                  <option>Outro</option>
+                </select>
+              </label>
               <label className="atd-field">
                 <span>E-mail <em>(opcional)</em></span>
                 <input name="email" type="email" placeholder="contato@municipio.sp.gov.br" autoComplete="off" />
               </label>
-              <button type="submit" className="atd-btn-primary">Salvar e abrir conversa</button>
+              <button type="submit" className="atd-btn-primary" disabled={saving}>
+                {saving ? 'Salvando…' : 'Salvar e abrir conversa'}
+              </button>
             </form>
             <button className="close" onClick={() => setModal(null)}>Cancelar</button>
           </div>

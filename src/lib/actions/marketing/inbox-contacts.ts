@@ -183,44 +183,80 @@ function toE164(raw: string): string {
 
 // Versão do "Novo contato" para o app /atende: liberado para QUALQUER atendente
 // (não só admin), grava na base unificada (marketing.contacts → alimenta CRM/
-// Leads Hub) e já abre a conversa atribuída a quem criou. Redireciona p/ o chat.
-export async function createContactFromAtende(formData: FormData): Promise<void> {
+// Leads Hub) com município, cargo e origem, e já abre a conversa atribuída a
+// quem criou. Retorna {ok, conversationId} — o cliente navega. NÃO faz throw em
+// erro de validação (isso zerava o formulário no app); devolve {ok:false,error}.
+export async function createContactFromAtende(
+  formData: FormData,
+): Promise<{ ok: true; conversationId: number } | { ok: false; error: string }> {
   const user = await requireUser();
 
   const name = String(formData.get('name') ?? '').trim();
   const phoneRaw = String(formData.get('phone') ?? '').trim();
   const email = String(formData.get('email') ?? '').trim().toLowerCase() || null;
-  if (!name) throw new Error('nome obrigatório');
+  const municipio = String(formData.get('municipio') ?? '').trim() || null;
+  const uf = String(formData.get('uf') ?? '').trim().toUpperCase().slice(0, 2) || null;
+  const cargo = String(formData.get('cargo') ?? '').trim() || null;
+  const origem = String(formData.get('origem') ?? '').trim() || null;
+
+  if (!name) return { ok: false as const, error: 'Informe o nome do contato.' };
   const phone = toE164(phoneRaw);
   if (!phone || phone.replace(/\D/g, '').length < 12) {
-    throw new Error('telefone inválido — use DDD + número (ex.: 15 99999-9999)');
+    return { ok: false as const, error: 'Telefone inválido — use DDD + número (ex.: 15 99999-9999).' };
   }
 
   // Dedup por telefone/whatsapp ou email.
   const dedupClauses = [eq(contacts.phone, phone), eq(contacts.whatsapp, phone)];
   if (email) dedupClauses.push(eq(contacts.email, email));
   const [existing] = await db
-    .select({ id: contacts.id, name: contacts.name })
+    .select({ id: contacts.id, name: contacts.name, attributes: contacts.attributes })
     .from(contacts)
     .where(or(...dedupClauses))
     .limit(1);
+
+  // Origem + quem cadastrou ficam em attributes (jsonb) — rastreabilidade.
+  const baseAttrs = (existing?.attributes as Record<string, unknown> | null) ?? {};
+  const attributes: Record<string, unknown> = { ...baseAttrs, createdByAtende: user.id };
+  if (origem) attributes.origem = origem;
 
   let contactId: number;
   let contactName: string | null;
   if (existing) {
     contactId = existing.id;
     contactName = existing.name ?? name;
+    // Enriquece só os campos informados (undefined = drizzle NÃO altera).
+    await db
+      .update(contacts)
+      .set({
+        name: existing.name ?? name,
+        municipio: municipio ?? undefined,
+        uf: uf ?? undefined,
+        role: cargo ?? undefined,
+        attributes,
+      })
+      .where(eq(contacts.id, contactId));
   } else {
     const [inserted] = await db
       .insert(contacts)
-      .values({ name, phone, whatsapp: phone, email, source: 'atende', status: 'active' })
+      .values({
+        name,
+        phone,
+        whatsapp: phone,
+        email,
+        municipio,
+        uf,
+        role: cargo,
+        source: 'atende',
+        status: 'active',
+        attributes,
+      })
       .returning({ id: contacts.id });
     contactId = inserted.id;
     contactName = name;
   }
 
   const conversationId = await ensureConversation(phone, contactId, contactName, user.id);
-  redirect(`/atende/c/${conversationId}`);
+  return { ok: true as const, conversationId };
 }
 
 export type InboxContactDetail = {
