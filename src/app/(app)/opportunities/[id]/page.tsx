@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getOpportunity, listUsersForAssignment } from '@/lib/actions/opportunities';
 import { listProposals, createProposal, setProposalStatus } from '@/lib/actions/proposals';
+import { ProposalUpload } from '@/components/proposal-upload';
 import { startConversationWithContact } from '@/lib/actions/marketing/inbox-contacts';
 import { WonButton } from '@/components/won-button';
 import { PRODUCTS } from '@/lib/products';
@@ -402,12 +403,14 @@ export default async function OpportunityDetailPage({
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
-                    <Link
-                      href={`/proposta/${pr.id}`}
+                    <a
+                      href={pr.externalUrl ?? `/proposta/${pr.id}`}
+                      target={pr.externalUrl ? '_blank' : undefined}
+                      rel={pr.externalUrl ? 'noopener noreferrer' : undefined}
                       className="rounded bg-cyan-50 px-2 py-1 text-[11px] font-bold text-cyan-700 hover:bg-cyan-100"
                     >
-                      Ver / PDF
-                    </Link>
+                      {pr.externalUrl ? 'Abrir PDF' : 'Ver / PDF'}
+                    </a>
                     <form action={setProposalStatus} className="flex items-center gap-1.5">
                       <input type="hidden" name="id" value={pr.id} />
                       <select name="status" defaultValue={pr.status} className="rounded border border-slate-200 px-1.5 py-1 text-[11px]">
@@ -428,6 +431,13 @@ export default async function OpportunityDetailPage({
           </table>
         </div>
       )}
+
+      <details className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4" open={opProposals.length === 0}>
+        <summary className="cursor-pointer text-xs font-bold text-emerald-800">
+          ⬆ Subir proposta pronta (PDF) — cidades fora de SP / valor negociado
+        </summary>
+        <ProposalUpload opportunityId={op.id} />
+      </details>
 
       <details className="rounded-lg border border-slate-200 bg-slate-50 p-4">
         <summary className="cursor-pointer text-xs font-bold text-slate-600">

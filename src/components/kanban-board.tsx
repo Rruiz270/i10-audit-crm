@@ -436,6 +436,13 @@ function Column({
   );
 }
 
+// Dias desde uma data (helper puro fora do render — evita Date.now() no corpo
+// do componente, que o react-hooks/purity acusa).
+function daysSince(date: Date | string | null): number | null {
+  if (!date) return null;
+  return Math.max(0, Math.floor((Date.now() - new Date(date).getTime()) / 86_400_000));
+}
+
 function DraggableCard({
   card,
   busy,
@@ -459,6 +466,9 @@ function DraggableCard({
   const forecastOp = { stage: card.stage, lastActivityAt: card.lastActivityAt };
   const rotten = isRotten(forecastOp);
   const remaining = daysUntilRot(forecastOp);
+
+  // Tempo no estágio atual (dias desde stageUpdatedAt) — sinaliza parada no pipe.
+  const daysInStage = daysSince(card.stageUpdatedAt);
 
   // ── ONE status chip por card (prioridade: parada > vence) ──
   let statusChip: React.ReactNode = null;
@@ -666,6 +676,16 @@ function DraggableCard({
               </Popover>
             </span>
           )}
+        </div>
+      )}
+
+      {/* Zona 4 — tempo no estágio (parada no pipe). >14d fica âmbar. */}
+      {daysInStage != null && (
+        <div className="mt-2 flex items-center gap-1 border-t border-dashed border-slate-100 pt-1.5 text-[11px] text-slate-400">
+          <Icon name="clock" size={11} />
+          <span className={daysInStage >= 14 ? 'font-semibold text-amber-600' : ''}>
+            {daysInStage === 0 ? 'entrou hoje neste estágio' : `há ${daysInStage}d neste estágio`}
+          </span>
         </div>
       )}
     </div>

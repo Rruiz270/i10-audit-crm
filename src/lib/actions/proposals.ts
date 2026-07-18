@@ -74,6 +74,63 @@ export async function createProposal(formData: FormData): Promise<void> {
   if (goPrint) redirect(`/proposta/${created.id}`);
 }
 
+// Upload manual de proposta (PDF pronto) — para cidades fora de SP ou valor
+// negociado, sem passar pelo gerador. O arquivo já vem hospedado no Vercel Blob
+// (upload client-direct); aqui só registramos a proposta com externalUrl.
+export async function uploadProposal(
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await requireUser();
+  const opportunityId = Number(formData.get('opportunityId'));
+  const externalUrl = String(formData.get('externalUrl') ?? '').trim();
+  const filename = String(formData.get('filename') ?? '').trim() || 'Proposta';
+  const total = Number(formData.get('total')) || null;
+  const notes = String(formData.get('notes') ?? '').trim() || null;
+  if (!opportunityId) throw new Error('opportunityId obrigatório');
+  if (!externalUrl) return { ok: false as const, error: 'Nenhum arquivo enviado.' };
+
+  // Só aceita URL do Vercel Blob (evita link forjado).
+  try {
+    const u = new URL(externalUrl);
+    if (u.protocol !== 'https:' || !u.hostname.toLowerCase().endsWith('.blob.vercel-storage.com')) {
+      return { ok: false as const, error: 'Origem do arquivo não permitida.' };
+    }
+  } catch {
+    return { ok: false as const, error: 'URL do arquivo inválida.' };
+  }
+
+  const [seq] = await db.select({ n: sql<number>`count(*)::int` }).from(proposals);
+  const [ver] = await db
+    .select({ v: sql<number>`coalesce(max(${proposals.version}), 0)::int` })
+    .from(proposals)
+    .where(eq(proposals.opportunityId, opportunityId));
+  const number = `P-${String((seq?.n ?? 0) + 1).padStart(4, '0')}`;
+
+  const [created] = await db
+    .insert(proposals)
+    .values({
+      opportunityId,
+      number,
+      version: (ver?.v ?? 0) + 1,
+      status: 'enviada',
+      total,
+      externalUrl,
+      notes: notes ?? `Upload manual · ${filename}`,
+      createdBy: user.id,
+    })
+    .returning({ id: proposals.id, number: proposals.number });
+
+  await logActivity({
+    opportunityId,
+    type: 'proposal',
+    subject: `Proposta enviada (upload): ${created.number}`,
+    actorId: user.id,
+    metadata: { proposalId: created.id, externalUrl, total, filename },
+  });
+  revalidatePath(`/opportunities/${opportunityId}`);
+  return { ok: true as const };
+}
+
 export async function setProposalStatus(formData: FormData): Promise<void> {
   const user = await requireUser();
   const id = Number(formData.get('id'));
