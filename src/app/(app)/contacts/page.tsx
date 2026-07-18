@@ -12,6 +12,7 @@ type RawSearch = {
   q?: string;
   role?: string;
   uf?: string;
+  municipio?: string;
   source?: string;
   seg?: string;
   page?: string;
@@ -22,6 +23,7 @@ function toFilters(sp: RawSearch): ContactFilters {
     q: sp.q?.trim() || undefined,
     role: sp.role || undefined,
     uf: sp.uf || undefined,
+    municipio: sp.municipio || undefined,
     source: sp.source || undefined,
     seg: sp.seg || undefined,
     page: sp.page ? Math.max(0, Number(sp.page)) : 0,
@@ -79,9 +81,14 @@ export default async function ContactsPage({
   const hasPrev = page > 0;
   const hasNext = to < total;
 
-  const activeFilterCount = [filters.q, filters.role, filters.uf, filters.source, filters.seg].filter(
-    Boolean,
-  ).length;
+  const activeFilterCount = [
+    filters.q,
+    filters.role,
+    filters.uf,
+    filters.municipio,
+    filters.source,
+    filters.seg,
+  ].filter(Boolean).length;
 
   return (
     <div className="px-8 py-8">
@@ -172,6 +179,12 @@ export default async function ContactsPage({
             facets={facets.uf}
             active={filters.uf}
             buildHref={(value, isActive) => buildHref(sp, { uf: isActive ? '' : value })}
+          />
+          <FacetGroup
+            title="Município"
+            facets={facets.municipio}
+            active={filters.municipio}
+            buildHref={(value, isActive) => buildHref(sp, { municipio: isActive ? '' : value })}
           />
           <FacetGroup
             title="Origem"

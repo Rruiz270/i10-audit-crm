@@ -132,7 +132,7 @@ export default async function OpportunitiesPage({
           rows={rows}
           users={users}
           canBulk={canBulk}
-          isAdmin={user.role === 'admin'}
+          isAdmin={canBulk}
           tagFilter={params.tag}
           tagStyles={tagStyles}
         />

@@ -16,6 +16,7 @@ import {
   tasks,
 } from '@/lib/schema';
 import { requireUser } from '@/lib/session';
+import { isAdmin } from '@/lib/roles';
 import { canAdvance } from '@/lib/qualification';
 import { createContact } from '@/lib/actions/contacts';
 import { logActivity } from '@/lib/activity';
@@ -254,8 +255,8 @@ export async function deleteOpportunity(formData: FormData) {
   const user = await requireUser();
   const id = Number(formData.get('id'));
   if (!Number.isFinite(id)) return { ok: false as const, error: 'ID inválido' };
-  if (user.role !== 'admin') {
-    return { ok: false as const, error: 'Apenas admin pode excluir.' };
+  if (!isAdmin(user.role)) {
+    return { ok: false as const, error: 'Apenas admin/gestor podem excluir.' };
   }
   // lead_submissions referencia opp SEM cascade → desvincula antes de excluir
   // (preserva a submissão; sem isso o delete viola FK e trava).
@@ -271,8 +272,8 @@ export async function deleteOpportunity(formData: FormData) {
 
 export async function deleteOpportunityById(id: number) {
   const user = await requireUser();
-  if (user.role !== 'admin') {
-    return { ok: false as const, error: 'Apenas admin pode excluir.' };
+  if (!isAdmin(user.role)) {
+    return { ok: false as const, error: 'Apenas admin/gestor podem excluir.' };
   }
   if (!Number.isFinite(id) || id <= 0) {
     return { ok: false as const, error: 'ID inválido' };
@@ -291,8 +292,8 @@ export async function deleteOpportunityById(id: number) {
 
 export async function bulkDeleteOpportunities(ids: number[]) {
   const user = await requireUser();
-  if (user.role !== 'admin') {
-    return { ok: false as const, error: 'Apenas admin pode excluir.' };
+  if (!isAdmin(user.role)) {
+    return { ok: false as const, error: 'Apenas admin/gestor podem excluir.' };
   }
   const valid = ids.filter((n) => Number.isFinite(n) && n > 0);
   if (!valid.length) {

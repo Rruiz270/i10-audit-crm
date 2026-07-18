@@ -22,6 +22,7 @@ export type ContactFilters = {
   q?: string;
   role?: string;
   uf?: string;
+  municipio?: string;
   source?: string;
   seg?: string; // 'interacted' | 'inopp' | 'never'
   page?: number;
@@ -74,6 +75,8 @@ function buildConds(f: ContactFilters, exclude?: keyof ContactFilters): SQL[] {
   }
   if (f.role && exclude !== 'role') conds.push(eq(mk.role, f.role));
   if (f.uf && exclude !== 'uf') conds.push(eq(mk.uf, f.uf));
+  if (f.municipio && exclude !== 'municipio')
+    conds.push(sql`unaccent(${mk.municipio}) = unaccent(${f.municipio})`);
   if (f.source && exclude !== 'source') conds.push(eq(mk.source, f.source));
   if (f.seg && exclude !== 'seg') {
     if (f.seg === 'interacted') conds.push(INTERACTED);
@@ -83,7 +86,10 @@ function buildConds(f: ContactFilters, exclude?: keyof ContactFilters): SQL[] {
   return conds;
 }
 
-function facet(col: typeof mk.role | typeof mk.uf | typeof mk.source, conds: SQL[]) {
+function facet(
+  col: typeof mk.role | typeof mk.uf | typeof mk.source | typeof mk.municipio,
+  conds: SQL[],
+) {
   const where = conds.length ? and(sql`${col} IS NOT NULL`, ...conds) : sql`${col} IS NOT NULL`;
   return db
     .select({ value: col, count: sql<number>`count(*)::int` })
@@ -174,6 +180,7 @@ export async function getContactsHubData(f: ContactFilters) {
     roleF,
     ufF,
     sourceF,
+    muniF,
   ] = await Promise.all([
     kpiPromise,
     interactedPromise,
@@ -184,6 +191,7 @@ export async function getContactsHubData(f: ContactFilters) {
     facet(mk.role, buildConds(f, 'role')),
     facet(mk.uf, buildConds(f, 'uf')),
     facet(mk.source, buildConds(f, 'source')),
+    facet(mk.municipio, buildConds(f, 'municipio')),
   ]);
 
   // ── Enriquecimento da página (só os ids visíveis — 50) ──
@@ -353,6 +361,6 @@ export async function getContactsHubData(f: ContactFilters) {
     total: Number(totalRow?.n ?? 0),
     page,
     pageSize: CONTACTS_PAGE_SIZE,
-    facets: { role: clean(roleF), uf: clean(ufF), source: clean(sourceF) },
+    facets: { role: clean(roleF), uf: clean(ufF), source: clean(sourceF), municipio: clean(muniF) },
   };
 }
