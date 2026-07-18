@@ -23,6 +23,9 @@ export const fundebMunicipalities = fundebSchema.table('municipalities', {
   codigoIbge: varchar('codigo_ibge', { length: 7 }).unique(),
   uf: varchar('uf', { length: 2 }),
   regiao: text('regiao'),
+  // URLs públicas (Vercel Blob) do relatório FUNDEB — enviadas pelo /atende.
+  reportUrl: text('report_url'),
+  reportResumoUrl: text('report_resumo_url'),
 });
 
 export const fundebConsultorias = fundebSchema.table('consultorias', {

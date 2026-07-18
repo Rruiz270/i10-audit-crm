@@ -948,6 +948,121 @@ export async function returnConversationToQueue(
   return { ok: true as const };
 }
 
+// ─── Envio de Relatório FUNDEB pelo chat (/atende) ─────────────────────────
+// Resolve o município da conversa (via oportunidade ou contato) → busca a URL
+// pública do relatório (Vercel Blob, coluna fundeb.municipalities.report_url) e
+// envia como mídia. 'resumo' = capa + resumo executivo; 'completo' = 5 páginas.
+async function resolveFundebReport(
+  conv: ConversationRow,
+): Promise<{ municipio: string; full: string | null; resumo: string | null } | null> {
+  // 1) Via oportunidade vinculada (municipalityId → fundeb.municipalities).
+  if (conv.opportunityId) {
+    const [o] = await db
+      .select({ mid: opportunities.municipalityId })
+      .from(opportunities)
+      .where(eq(opportunities.id, conv.opportunityId))
+      .limit(1);
+    if (o?.mid) {
+      const [m] = await db
+        .select({
+          nome: fundebMunicipalities.nome,
+          full: fundebMunicipalities.reportUrl,
+          resumo: fundebMunicipalities.reportResumoUrl,
+        })
+        .from(fundebMunicipalities)
+        .where(eq(fundebMunicipalities.id, o.mid))
+        .limit(1);
+      if (m && (m.full || m.resumo)) return { municipio: m.nome, full: m.full, resumo: m.resumo };
+    }
+  }
+  // 2) Via município do contato (nome + UF, sem acento).
+  if (conv.contactId) {
+    const [c] = await db
+      .select({ municipio: contacts.municipio, uf: contacts.uf })
+      .from(contacts)
+      .where(eq(contacts.id, conv.contactId))
+      .limit(1);
+    if (c?.municipio) {
+      const clause = c.uf
+        ? and(
+            sql`unaccent(${fundebMunicipalities.nome}) = unaccent(${c.municipio})`,
+            eq(fundebMunicipalities.uf, c.uf),
+          )
+        : sql`unaccent(${fundebMunicipalities.nome}) = unaccent(${c.municipio})`;
+      const [m] = await db
+        .select({
+          nome: fundebMunicipalities.nome,
+          full: fundebMunicipalities.reportUrl,
+          resumo: fundebMunicipalities.reportResumoUrl,
+        })
+        .from(fundebMunicipalities)
+        .where(clause)
+        .limit(1);
+      if (m && (m.full || m.resumo)) return { municipio: m.nome, full: m.full, resumo: m.resumo };
+    }
+  }
+  return null;
+}
+
+export async function sendFundebReport(
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await requireUser();
+  const conversationId = Number(formData.get('conversationId'));
+  const variant = String(formData.get('variant') ?? 'resumo') === 'completo' ? 'completo' : 'resumo';
+  if (!conversationId) throw new Error('conversationId obrigatório');
+  const conv = await loadVisibleConversation(user, conversationId);
+
+  const expired = !conv.windowExpiresAt || new Date(conv.windowExpiresAt).getTime() < Date.now();
+  if (expired) {
+    return { ok: false as const, error: 'Janela de 24h expirada — fora dela o WhatsApp bloqueia enviar arquivo. Use um template para reabrir.' };
+  }
+  if (blockedByTestAllowlist(conv.waPhone)) {
+    return { ok: false as const, error: 'Modo de teste: número fora da allowlist.' };
+  }
+
+  const rep = await resolveFundebReport(conv);
+  if (!rep) {
+    return { ok: false as const, error: 'Não identifiquei o município desta conversa. Vincule a uma oportunidade ou preencha o município do contato.' };
+  }
+  const url = variant === 'completo' ? rep.full ?? rep.resumo : rep.resumo ?? rep.full;
+  if (!url) {
+    return { ok: false as const, error: `Relatório ainda não disponível para ${rep.municipio}.` };
+  }
+
+  const label = variant === 'completo' ? 'Relatório FUNDEB completo' : 'Resumo Executivo FUNDEB';
+  const provider = getWhatsAppProvider();
+  const result = await provider.send({
+    fromNumber: process.env.TWILIO_WHATSAPP_FROM ?? 'whatsapp:+14155238886',
+    toNumber: conv.waPhone,
+    mediaUrl: url,
+  });
+
+  await db.insert(messages).values({
+    conversationId,
+    twilioSid: result.ok ? result.providerId : null,
+    direction: 'outbound',
+    authorUserId: user.id,
+    body: `[${label}] ${rep.municipio}`,
+    mediaUrls: [{ url, contentType: 'application/pdf', filename: `${label} - ${rep.municipio}.pdf` }],
+    status: result.ok ? 'sent' : 'failed',
+  });
+  await db
+    .update(conversations)
+    .set({
+      lastMessageAt: new Date(),
+      unread: false,
+      assignedTo: conv.assignedTo ?? user.id,
+      status: conv.status === 'closed' ? 'open' : conv.status,
+    })
+    .where(eq(conversations.id, conversationId));
+
+  revalidatePath('/atende');
+  revalidatePath('/marketing/conversas');
+  if (!result.ok) return { ok: false as const, error: `Falha no envio: ${result.error}` };
+  return { ok: true as const };
+}
+
 export type SupervisorAgent = {
   id: string;
   name: string;

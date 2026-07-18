@@ -9,6 +9,7 @@ import {
   transferConversation,
   returnConversationToQueue,
   saveConversationContext,
+  sendFundebReport,
 } from '@/lib/actions/marketing/conversations';
 import { avatarColor, initials, displayName, relTime, windowExpired } from './util';
 import { AtendeComposer } from './atende-composer';
@@ -62,7 +63,7 @@ function Ticks({ status }: { status: string | null }) {
 
 export function ChatClient(props: ChatProps) {
   const router = useRouter();
-  const [sheet, setSheet] = useState<null | 'menu' | 'transfer' | 'ficha' | 'note' | 'template'>(null);
+  const [sheet, setSheet] = useState<null | 'menu' | 'transfer' | 'ficha' | 'note' | 'template' | 'report'>(null);
   const [noteDraft, setNoteDraft] = useState(props.notes ?? '');
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -104,6 +105,13 @@ export function ChatClient(props: ChatProps) {
     fd.set('var_1', props.contactName?.trim() || 'Secretário(a)');
     fd.set('var_2', props.muni?.trim() || 'seu município');
     run(() => sendTemplateReply(fd), () => setSheet(null));
+  }
+
+  function doSendReport(variant: 'resumo' | 'completo') {
+    const fd = new FormData();
+    fd.set('conversationId', String(props.conversationId));
+    fd.set('variant', variant);
+    run(() => sendFundebReport(fd), () => setSheet(null));
   }
 
   function doClaim() {
@@ -215,6 +223,7 @@ export function ChatClient(props: ChatProps) {
         <button onClick={() => setSheet('transfer')}>🔄 Transferir</button>
         <button className="good" onClick={doResolve} disabled={pending}>✓ Resolver</button>
         <button onClick={() => setSheet('ficha')}>👤 Ficha</button>
+        <button onClick={() => setSheet('report')}>📊 Relatório</button>
         <button className="warn" onClick={() => setSheet('template')}>📄 Template</button>
         <button onClick={() => { setNoteDraft(props.notes ?? ''); setSheet('note'); }}>📝 Nota</button>
       </div>
@@ -284,6 +293,21 @@ export function ChatClient(props: ChatProps) {
               </button>
             ))
           )}
+        </Sheet>
+      )}
+
+      {sheet === 'report' && (
+        <Sheet title="Enviar Relatório FUNDEB" sub={`${name}${props.muni ? ' · ' + props.muni : ''} — dados do município`} onClose={() => setSheet(null)}>
+          {error && <div className="err">{error}</div>}
+          <button className="atd-agentrow" disabled={pending} onClick={() => doSendReport('resumo')}>
+            <div className="aav" style={{ background: 'var(--grad)' }}>📄</div>
+            <div className="ai"><b>Resumo Executivo</b><span>Capa + resumo (o valor na mesa)</span></div>
+          </button>
+          <button className="atd-agentrow" disabled={pending} onClick={() => doSendReport('completo')}>
+            <div className="aav" style={{ background: 'var(--navy)' }}>📊</div>
+            <div className="ai"><b>Relatório completo</b><span>Diagnóstico completo (5 páginas)</span></div>
+          </button>
+          <p className="sub" style={{ marginTop: 10 }}>Envia direto pelo WhatsApp (só dentro da janela de 24h).</p>
         </Sheet>
       )}
 
