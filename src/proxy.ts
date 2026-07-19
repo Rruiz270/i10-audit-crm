@@ -33,7 +33,9 @@ export default auth((req) => {
     nextUrl.pathname.startsWith('/api/marketing/unsubscribe') ||
     nextUrl.pathname.startsWith('/api/marketing/d/') ||
     nextUrl.pathname.startsWith('/api/marketing/public/') ||
-    nextUrl.pathname.startsWith('/api/marketing/webhooks/twilio');
+    nextUrl.pathname.startsWith('/api/marketing/webhooks/twilio') ||
+    // Central de Agentes — endpoint de envio, protegido por secret próprio (x-agent-secret)
+    nextUrl.pathname.startsWith('/api/agents/');
 
   if (isPublicPath) return NextResponse.next();
 
