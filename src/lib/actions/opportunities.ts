@@ -81,12 +81,51 @@ export async function checkDuplicateByMunicipality(municipalityId: number) {
   return rows;
 }
 
-export async function createOpportunity(formData: FormData): Promise<void> {
+// Estado devolvido pela createOpportunity ao useActionState do form. No sucesso
+// a action redireciona (nunca retorna); no erro devolve a mensagem + o eco dos
+// campos digitados — o React 19 reseta inputs não-controlados quando a action
+// conclui, então o form usa esses valores como defaultValue para não perder nada.
+export type CreateOpportunityState = {
+  ok: false;
+  error: string;
+  values: {
+    source: string;
+    estimatedValue: string;
+    notes: string;
+    allowDuplicate: boolean;
+    contactName: string;
+    contactRole: string;
+    contactPhone: string;
+    contactEmail: string;
+  };
+} | null;
+
+function echoValues(formData: FormData): NonNullable<CreateOpportunityState>['values'] {
+  return {
+    source: String(formData.get('source') ?? ''),
+    estimatedValue: String(formData.get('estimatedValue') ?? ''),
+    notes: String(formData.get('notes') ?? ''),
+    allowDuplicate: formData.get('allowDuplicate') === 'on',
+    contactName: String(formData.get('contactName') ?? ''),
+    contactRole: String(formData.get('contactRole') ?? ''),
+    contactPhone: String(formData.get('contactPhone') ?? ''),
+    contactEmail: String(formData.get('contactEmail') ?? ''),
+  };
+}
+
+export async function createOpportunity(
+  _prevState: CreateOpportunityState,
+  formData: FormData,
+): Promise<CreateOpportunityState> {
   const user = await requireUser();
   const raw = Object.fromEntries(formData);
   const parsed = createSchema.safeParse(raw);
   if (!parsed.success) {
-    throw new Error(parsed.error.issues[0]?.message ?? 'Dados inválidos');
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? 'Dados inválidos',
+      values: echoValues(formData),
+    };
   }
   const data = parsed.data;
 
@@ -97,9 +136,11 @@ export async function createOpportunity(formData: FormData): Promise<void> {
     const dupes = await checkDuplicateByMunicipality(data.municipalityId);
     if (dupes.length > 0) {
       const ids = dupes.map((d) => `#${d.id}`).join(', ');
-      throw new Error(
-        `Já existe oportunidade ativa para este município (${ids}). Para forçar, marque "Permitir duplicada".`,
-      );
+      return {
+        ok: false,
+        error: `Já existe oportunidade ativa para este município (${ids}). Para forçar, marque "Permitir duplicada".`,
+        values: echoValues(formData),
+      };
     }
   }
 
