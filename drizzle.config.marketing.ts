@@ -32,6 +32,11 @@ export default defineConfig({
   dialect: 'postgresql',
   dbCredentials: { url },
   schemaFilter: ['marketing'],
+  // Journal separado do crm (drizzle.config.ts) — cada fluxo tem sua tabela.
+  migrations: {
+    table: '__drizzle_migrations_marketing',
+    schema: 'drizzle',
+  },
   verbose: true,
   strict: true,
 });

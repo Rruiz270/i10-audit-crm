@@ -8,11 +8,16 @@
     "start": "next start",
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
-    "db:push": "drizzle-kit push",
+    "db:generate:marketing": "drizzle-kit generate --config drizzle.config.marketing.ts",
+    "db:migrate": "drizzle-kit migrate",
+    "db:migrate:marketing": "drizzle-kit migrate --config drizzle.config.marketing.ts",
+    "db:baseline": "node scripts/db-baseline.mjs",
     "db:studio": "drizzle-kit studio",
     "db:check": "node scripts/db-check.mjs",
     "seed": "node scripts/seed.mjs",
     "seed:test-accounts": "node scripts/seed-test-accounts.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "test:usecases": "node scripts/test-usecases.mjs",
     "typecheck": "tsc --noEmit"
   },
@@ -69,6 +74,7 @@
     "eslint-config-next": "16.2.4",
     "playwright": "^1.59.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   }
 }

@@ -289,6 +289,7 @@ async function FunilPorProduto() {
       wonAt: opportunities.wonAt,
     })
     .from(opportunities);
+  // eslint-disable-next-line react-hooks/purity -- server component: janela de 30d calculada por request
   const cutoff = Date.now() - 30 * 24 * 3600_000;
   const OPEN = new Set(['novo', 'contato_inicial', 'diagnostico_enviado', 'follow_up', 'reuniao_auditoria', 'negociacao']);
   const matches = (r: (typeof rows)[number], prod: string) =>
