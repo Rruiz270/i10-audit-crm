@@ -42,6 +42,7 @@ export function InboxContactHeader() {
   useEffect(() => {
     const term = q.trim();
     if (term.length < 2) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset imediato do dropdown quando a busca fica curta; barato e intencional
       setResults([]);
       setOpen(false);
       return;

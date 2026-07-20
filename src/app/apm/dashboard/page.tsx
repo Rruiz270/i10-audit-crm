@@ -166,7 +166,7 @@ export default async function ApmDashboardPage() {
         </div>
 
         {/* E2E destaque */}
-        <a
+        <Link
           href="/admin/treinamento/e2e-paulinia"
           className="block mb-8 bg-gradient-to-br from-slate-900 to-slate-700 text-white rounded-xl p-6 hover:shadow-lg transition-shadow"
         >
@@ -184,7 +184,7 @@ export default async function ApmDashboardPage() {
               </div>
             </div>
           </div>
-        </a>
+        </Link>
 
         <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 mb-4">
           Por tamanho de município

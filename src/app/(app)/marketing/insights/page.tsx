@@ -138,6 +138,7 @@ export default async function AdminHome() {
   // broken — surface it loudly instead of letting it vanish.
   const lastDailyMs = cron.lastDailyAt ? Date.parse(cron.lastDailyAt) : null;
   const hoursSinceDaily =
+    // eslint-disable-next-line react-hooks/purity -- server component: Date.now() por request é intencional (staleness do cron)
     lastDailyMs != null ? (Date.now() - lastDailyMs) / 3_600_000 : null;
   const cronStale = hoursSinceDaily == null || hoursSinceDaily > 30;
   return (
