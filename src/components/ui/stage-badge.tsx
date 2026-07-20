@@ -2,16 +2,17 @@ import { STAGES_BY_KEY, type StageKey } from '@/lib/pipeline';
 
 /**
  * Esquema do badge aderente ao brandbook i10.
- * Estágios iniciais → cinzas / navy-pale; meio → cyan (cor secundária da marca);
- * fechamento positivo → mint; negativo → coral sistema.
+ * Estágios iniciais → cinzas / navy-pale; meio → cyan e âmbar/laranja quentes;
+ * fechamento positivo → mint (exclusivo); negativo → coral sistema.
+ * Texto sempre escuro sobre washes claros p/ WCAG AA (≥4.5:1).
  */
 const STYLE: Record<string, { bg: string; fg: string; ring: string }> = {
   'slate-500': { bg: '#F1F5F9', fg: '#1E293B', ring: '#CBD5E1' },
   'blue-500': { bg: '#d6e0f5', fg: '#0A2463', ring: '#91A8DB' },
   'indigo-500': { bg: '#CAF0F8', fg: '#0A2463', ring: '#ADE8F4' },
   'violet-500': { bg: '#ADE8F4', fg: '#0A2463', ring: '#48CAE4' },
-  'amber-500': { bg: '#E0FFF5', fg: '#00C48A', ring: '#B7F5E0' },
-  'orange-500': { bg: '#B7F5E0', fg: '#00C48A', ring: '#00E5A0' },
+  'amber-500': { bg: '#FEF3C7', fg: '#061840', ring: '#FDE68A' },
+  'orange-500': { bg: '#FFEDD5', fg: '#061840', ring: '#FED7AA' },
   'emerald-500': { bg: '#00E5A0', fg: '#061840', ring: '#00C48A' },
   'rose-500': { bg: '#FEE2E2', fg: '#B91C1C', ring: '#FECACA' },
 };
