@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { webhookLog, sends, events, campaigns, messages } from '@/lib/schema-marketing';
 import { addSuppression } from '@/lib/marketing/suppression';
 import { handleInboundWhatsApp } from '@/lib/marketing/inbound';
+import { rateLimitByIp } from '@/lib/rate-limit';
 
 // Statuses de entrega (callback). Se não for um desses e tiver Body → é inbound.
 const DELIVERY_STATUSES = ['queued', 'sending', 'sent', 'delivered', 'read', 'failed', 'undelivered'];
@@ -24,6 +25,15 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
+  // Limite alto: callbacks de status chegam em rajada durante disparos.
+  const rl = await rateLimitByIp('webhook:twilio', { limit: 600, windowMs: 60_000 });
+  if (!rl.ok) {
+    return new Response('rate limited', {
+      status: 429,
+      headers: { 'Retry-After': String(rl.retryAfterSeconds) },
+    });
+  }
+
   // Twilio manda urlencoded, não JSON
   const formData = await request.formData();
   const payload: Record<string, string> = {};

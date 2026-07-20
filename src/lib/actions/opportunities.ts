@@ -29,6 +29,7 @@ import {
 } from '@/lib/lost-reasons';
 import { autoTagOpportunity } from '@/lib/actions/tags';
 import { visibilityCondition, canSeeOpportunity } from '@/lib/visibility';
+import { getAccessibleOpportunity } from '@/lib/authz';
 import { PRODUCTS, PRODUCT_POSVENDA, type Product } from '@/lib/products';
 
 const createSchema = z.object({
@@ -158,6 +159,9 @@ export async function createOpportunity(formData: FormData): Promise<void> {
 export async function setOpportunityTags(formData: FormData) {
   const user = await requireUser();
   const id = Number(formData.get('id'));
+  if (!(await getAccessibleOpportunity(user, id))) {
+    return { ok: false as const, error: 'Oportunidade não encontrada', tags: [] as string[] };
+  }
   const tagsCsv = String(formData.get('tags') ?? '');
   const list = tagsCsv
     .split(',')
@@ -220,6 +224,9 @@ export async function updateOpportunity(formData: FormData) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? 'Dados inválidos' };
   }
   const { id, ...rest } = parsed.data;
+  if (!(await getAccessibleOpportunity(user, id))) {
+    return { ok: false as const, error: 'Oportunidade não encontrada' };
+  }
 
   const patch: Record<string, unknown> = { updatedAt: new Date() };
   if (rest.municipalityId !== undefined && rest.municipalityId !== '')
@@ -327,6 +334,10 @@ export async function changeStage(input: {
     where: eq(opportunities.id, opportunityId),
   });
   if (!op) return { ok: false as const, error: 'Oportunidade não encontrada' };
+  // Anti-IDOR: consultor só mexe nos próprios leads (ou pool 'novo' sem dono).
+  if (!canSeeOpportunity(user, { ownerId: op.ownerId, stage: op.stage })) {
+    return { ok: false as const, error: 'Oportunidade não encontrada' };
+  }
 
   const primaryContact = await db.query.contacts.findFirst({
     where: and(eq(contacts.opportunityId, opportunityId), eq(contacts.isPrimary, true)),

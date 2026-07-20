@@ -6,8 +6,8 @@ import { PreferencesForm } from '@/components/preferences-form';
 export const dynamic = 'force-dynamic';
 
 export default async function MyPreferencesPage() {
-  const session = await requireUser();
-  const prefs = await getMyPreferences(session.id);
+  await requireUser();
+  const prefs = await getMyPreferences();
 
   return (
     <div className="px-8 py-8 max-w-3xl">

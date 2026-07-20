@@ -17,6 +17,7 @@ import { autoTagOpportunity } from '@/lib/actions/tags';
 import { regionTagForUf } from '@/lib/uf';
 import { normalizeBrPhone, isBrMobile } from '@/lib/phone-utils';
 import { resolveMarketingContactId } from '@/lib/contact-bridge';
+import { rateLimitByIp } from '@/lib/rate-limit';
 
 /**
  * LP da APM — form operacional preenchido pela equipe APM ao captar
@@ -57,6 +58,15 @@ export async function submitApmCadastro(data: ApmCadastroInput) {
   // Honeypot — se o form trouxer um campo "website" preenchido, é bot.
   // (Aceitamos o campo via data.notes.toLowerCase().startsWith('__bot__') ou similar,
   //  mas o honeypot real vai via POST form; aqui assumimos client já filtrou)
+
+  // Endpoint público — limita flood de submissões por IP.
+  const rl = await rateLimitByIp('apm-cadastro', { limit: 10, windowMs: 10 * 60_000 });
+  if (!rl.ok) {
+    return {
+      ok: false as const,
+      error: 'Muitas submissões. Aguarde alguns minutos e tente novamente.',
+    };
+  }
 
   const parsed = submitSchema.safeParse(data);
   if (!parsed.success) {

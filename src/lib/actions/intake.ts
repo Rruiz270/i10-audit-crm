@@ -17,6 +17,7 @@ import { autoTagOpportunity } from '@/lib/actions/tags';
 import { regionTagForUf } from '@/lib/uf';
 import { normalizeBrPhone, isBrMobile } from '@/lib/phone-utils';
 import { resolveMarketingContactId } from '@/lib/contact-bridge';
+import { rateLimitByIp } from '@/lib/rate-limit';
 
 export type FieldDef = {
   name: string;
@@ -41,6 +42,12 @@ export async function submitIntake(formData: FormData) {
   if (honeypot) {
     // Silent success — bots don't learn anything.
     return { ok: true as const, silent: true };
+  }
+
+  // Endpoint público — limita flood de submissões por IP.
+  const rl = await rateLimitByIp('intake', { limit: 10, windowMs: 10 * 60_000 });
+  if (!rl.ok) {
+    return { ok: false as const, error: 'Muitas submissões. Aguarde alguns minutos e tente novamente.' };
   }
 
   const form = await getFormBySlug(slug);

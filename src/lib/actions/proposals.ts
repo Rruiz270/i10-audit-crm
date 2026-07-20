@@ -7,6 +7,7 @@ import { db } from '@/lib/db';
 import { proposals, opportunities } from '@/lib/schema';
 import { requireUser } from '@/lib/session';
 import { logActivity } from '@/lib/activity';
+import { getAccessibleOpportunity } from '@/lib/authz';
 
 // ─── Propostas dentro do CRM ────────────────────────────────────────────────
 // Registro canônico por oportunidade. Criar registra atividade; mudar status
@@ -29,6 +30,9 @@ export async function createProposal(formData: FormData): Promise<void> {
   const validDays = Math.max(1, Number(formData.get('validDays')) || 30);
   const goPrint = String(formData.get('goPrint') ?? '') === '1';
   if (!opportunityId) throw new Error('opportunityId obrigatório');
+  if (!(await getAccessibleOpportunity(user, opportunityId))) {
+    throw new Error('Oportunidade não encontrada');
+  }
 
   // Itens com valor por produto (gerador nativo): value:<produto> no form.
   const items = products.map((prod) => ({
@@ -87,6 +91,9 @@ export async function uploadProposal(
   const total = Number(formData.get('total')) || null;
   const notes = String(formData.get('notes') ?? '').trim() || null;
   if (!opportunityId) throw new Error('opportunityId obrigatório');
+  if (!(await getAccessibleOpportunity(user, opportunityId))) {
+    return { ok: false as const, error: 'Oportunidade não encontrada' };
+  }
   if (!externalUrl) return { ok: false as const, error: 'Nenhum arquivo enviado.' };
 
   // Só aceita URL do Vercel Blob (evita link forjado).
