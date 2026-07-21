@@ -70,7 +70,7 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
 
   return (
     <>
-      <InboxAutoRefresh intervalMs={6000} />
+      <InboxAutoRefresh intervalMs={6000} conversationId={conv.id} />
       <ChatClient
       conversationId={conv.id}
       contactName={conv.contactName}

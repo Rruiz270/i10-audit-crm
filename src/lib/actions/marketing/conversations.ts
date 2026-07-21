@@ -112,6 +112,39 @@ export async function getConversation(id: number) {
   return { conversation: conv, messages: msgs };
 }
 
+// ─── Delta leve pro auto-refresh (InboxAutoRefresh) ────────────────────────
+// Retorna só o max(last_message_at) do escopo visível do caller — ou da
+// conversa específica, se informada. O client compara com o valor anterior e
+// só dispara router.refresh() (re-fetch RSC completo) quando mudou de fato.
+// Toda mensagem (inbound via webhook e replies daqui) bumpa last_message_at,
+// então é um sinal de mudança barato: 1 query indexada vs re-render da rota.
+export async function getInboxLatest(conversationId?: number): Promise<string | null> {
+  const user = await requireUser();
+  if (conversationId != null) {
+    const [conv] = await db
+      .select({
+        lastMessageAt: conversations.lastMessageAt,
+        projectId: conversations.projectId,
+        assignedTo: conversations.assignedTo,
+      })
+      .from(conversations)
+      .where(eq(conversations.id, conversationId))
+      .limit(1);
+    if (!conv) return null;
+    // Mesma re-checagem de visibilidade do getConversation — não vaza
+    // atividade de conversa alheia por id adivinhado.
+    const projectIds = isAdmin(user.role) ? [] : await getUserProjectIds(user.id);
+    if (!canSeeConversation(user, conv, projectIds)) return null;
+    return conv.lastMessageAt ? new Date(conv.lastMessageAt).toISOString() : null;
+  }
+  const vis = await visibilityWhere(user);
+  const [row] = await db
+    .select({ latest: sql<string | Date | null>`max(${conversations.lastMessageAt})` })
+    .from(conversations)
+    .where(vis);
+  return row?.latest ? new Date(row.latest).toISOString() : null;
+}
+
 // Carrega a conversa e garante que o usuário pode vê-la. Lança em caso contrário.
 async function loadVisibleConversation(user: SessionUser, id: number): Promise<ConversationRow> {
   const [conv] = await db.select().from(conversations).where(eq(conversations.id, id)).limit(1);

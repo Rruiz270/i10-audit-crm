@@ -9,6 +9,7 @@ import {
   timestamp,
   varchar,
   primaryKey,
+  index,
 } from 'drizzle-orm/pg-core';
 
 export const crmSchema = pgSchema('crm');
@@ -111,7 +112,14 @@ export const opportunities = crmSchema.table('opportunities', {
   lastActivityAt: timestamp('last_activity_at').defaultNow(),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
-});
+},
+(t) => [
+  // FKs e stage não ganham índice automático no Postgres — pipeline/kanban
+  // filtram por essas colunas em toda navegação.
+  index('opportunities_owner_id_idx').on(t.ownerId),
+  index('opportunities_stage_idx').on(t.stage),
+  index('opportunities_municipality_id_idx').on(t.municipalityId),
+]);
 
 export const tags = crmSchema.table('tags', {
   id: serial('id').primaryKey(),
@@ -154,7 +162,8 @@ export const tasks = crmSchema.table('tasks', {
   createdBy: text('created_by').references(() => users.id),
   priority: text('priority').notNull().default('normal'),
   createdAt: timestamp('created_at').defaultNow(),
-});
+},
+(t) => [index('tasks_opportunity_id_due_at_idx').on(t.opportunityId, t.dueAt)]);
 
 export const contacts = crmSchema.table('contacts', {
   id: serial('id').primaryKey(),
@@ -173,7 +182,8 @@ export const contacts = crmSchema.table('contacts', {
   // contact-bridge) e por backfill (e-mail exato / últimos 11 dígitos).
   marketingContactId: integer('marketing_contact_id'),
   createdAt: timestamp('created_at').defaultNow(),
-});
+},
+(t) => [index('contacts_opportunity_id_idx').on(t.opportunityId)]);
 
 // Propostas DENTRO do CRM — registro canônico por oportunidade (nº/versão,
 // produtos, status, total). O PDF pode ser gerado no planner (aba embutida),
@@ -211,7 +221,8 @@ export const activities = crmSchema.table('activities', {
   actorId: text('actor_id').references(() => users.id),
   metadata: jsonb('metadata').default({}),
   createdAt: timestamp('created_at').defaultNow(),
-});
+},
+(t) => [index('activities_opportunity_id_idx').on(t.opportunityId)]);
 
 export const meetings = crmSchema.table('meetings', {
   id: serial('id').primaryKey(),
