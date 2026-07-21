@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { activities } from '@/lib/schema';
 import { requireUser } from '@/lib/session';
+import { getAccessibleOpportunity } from '@/lib/authz';
 
 const schema = z.object({
   opportunityId: z.coerce.number().int().positive(),
@@ -30,6 +31,9 @@ export async function createActivity(formData: FormData) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? 'Dados inválidos' };
   }
   const data = parsed.data;
+  if (!(await getAccessibleOpportunity(user, data.opportunityId))) {
+    return { ok: false as const, error: 'Oportunidade não encontrada' };
+  }
   await db.insert(activities).values({
     opportunityId: data.opportunityId,
     type: data.type,

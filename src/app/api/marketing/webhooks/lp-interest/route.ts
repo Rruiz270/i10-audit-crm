@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { neon } from '@neondatabase/serverless';
+import { rateLimitByIp } from '@/lib/rate-limit';
 
 // ─── /api/marketing/webhooks/lp-interest — captura de interesse SEM formulário ──
 // A LP personalizada por ?m=<ibge> chama este endpoint quando o visitante clica
@@ -27,6 +28,15 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: NextRequest) {
+  // Público (CORS *) — limita flood por IP.
+  const rl = await rateLimitByIp('webhook:lp-interest', { limit: 30, windowMs: 60_000 });
+  if (!rl.ok) {
+    return Response.json(
+      { ok: false, error: 'rate limited' },
+      { status: 429, headers: { ...CORS_HEADERS, 'Retry-After': String(rl.retryAfterSeconds) } },
+    );
+  }
+
   const sql = neon(process.env.DATABASE_URL!);
 
   let body: Record<string, unknown>;

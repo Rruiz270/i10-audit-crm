@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { webhookLog } from '@/lib/schema-marketing';
 import { enqueueJob } from '@/lib/marketing/queue';
+import { rateLimitByIp } from '@/lib/rate-limit';
 
 // ─── /api/marketing/webhooks/brevo — Brevo event webhook ──────────────────
 // Brevo POST envia 1 evento por request OU array. Aceitamos os 2 formatos.
@@ -17,6 +18,15 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
+  // Limite alto: Brevo manda rajadas legítimas em campanhas grandes.
+  const rl = await rateLimitByIp('webhook:brevo', { limit: 600, windowMs: 60_000 });
+  if (!rl.ok) {
+    return Response.json(
+      { error: 'rate limited' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } },
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();

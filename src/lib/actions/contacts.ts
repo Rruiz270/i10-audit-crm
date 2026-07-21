@@ -7,6 +7,7 @@ import { db } from '@/lib/db';
 import { contacts } from '@/lib/schema';
 import { requireUser } from '@/lib/session';
 import { logActivity } from '@/lib/activity';
+import { getAccessibleOpportunity } from '@/lib/authz';
 import { normalizeBrPhone, isBrMobile } from '@/lib/phone-utils';
 import { resolveMarketingContactId } from '@/lib/contact-bridge';
 
@@ -28,6 +29,9 @@ export async function createContact(formData: FormData) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? 'Dados inválidos' };
   }
   const data = parsed.data;
+  if (!(await getAccessibleOpportunity(user, data.opportunityId))) {
+    return { ok: false as const, error: 'Oportunidade não encontrada' };
+  }
   const makePrimary = data.isPrimary === 'on' || data.isPrimary === 'true';
 
   if (makePrimary) {
@@ -84,13 +88,19 @@ export async function setPrimaryContact(formData: FormData): Promise<void> {
   if (!Number.isFinite(contactId) || !Number.isFinite(opportunityId)) {
     throw new Error('IDs inválidos');
   }
+  if (!(await getAccessibleOpportunity(user, opportunityId))) {
+    throw new Error('Oportunidade não encontrada');
+  }
   await db
     .update(contacts)
     .set({ isPrimary: false })
     .where(
       and(eq(contacts.opportunityId, opportunityId), ne(contacts.id, contactId)),
     );
-  await db.update(contacts).set({ isPrimary: true }).where(eq(contacts.id, contactId));
+  await db
+    .update(contacts)
+    .set({ isPrimary: true })
+    .where(and(eq(contacts.id, contactId), eq(contacts.opportunityId, opportunityId)));
   await logActivity({
     opportunityId,
     type: 'note',
@@ -105,7 +115,12 @@ export async function deleteContact(formData: FormData): Promise<void> {
   const user = await requireUser();
   const contactId = Number(formData.get('contactId'));
   const opportunityId = Number(formData.get('opportunityId'));
-  await db.delete(contacts).where(eq(contacts.id, contactId));
+  if (!(await getAccessibleOpportunity(user, opportunityId))) {
+    throw new Error('Oportunidade não encontrada');
+  }
+  await db
+    .delete(contacts)
+    .where(and(eq(contacts.id, contactId), eq(contacts.opportunityId, opportunityId)));
   await logActivity({
     opportunityId,
     type: 'note',

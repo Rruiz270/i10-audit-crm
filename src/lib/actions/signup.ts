@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { users } from '@/lib/schema';
 import { isAdmin, requireUser } from '@/lib/session';
+import { rateLimitByIp } from '@/lib/rate-limit';
 import { revalidatePath } from 'next/cache';
 
 const signupSchema = z.object({
@@ -23,6 +24,11 @@ export async function signupConsultor(
 ): Promise<
   { ok: true; pending: true } | { ok: false; error: string }
 > {
+  // Endpoint público — sem isso dá pra enumerar emails / floodar a fila de aprovação.
+  const rl = await rateLimitByIp('signup', { limit: 5, windowMs: 10 * 60_000 });
+  if (!rl.ok) {
+    return { ok: false, error: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' };
+  }
   const parsed = signupSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Dados inválidos' };

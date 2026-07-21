@@ -44,8 +44,9 @@ const DEFAULT_PREFS: UserPreferences = {
  * Lê as preferências do usuário atual (auto-seeda se não existir).
  * Server-only — leia no top dos layouts/pages que precisam.
  */
-export async function getMyPreferences(userId?: string): Promise<UserPreferences> {
-  const id = userId ?? (await requireUser()).id;
+export async function getMyPreferences(): Promise<UserPreferences> {
+  // Sempre o usuário da sessão — nunca aceitar id vindo do cliente (IDOR).
+  const id = (await requireUser()).id;
   const row = await db.query.userPreferences.findFirst({
     where: eq(userPreferences.userId, id),
   });
@@ -155,7 +156,9 @@ export async function updateMyProfile(formData: FormData) {
 /**
  * Stats pessoais — usado no Dashboard + /me.
  */
-export async function getMyStats(userId: string) {
+export async function getMyStats() {
+  // Sempre o usuário da sessão — nunca aceitar id vindo do cliente (IDOR).
+  const userId = (await requireUser()).id;
   const since30 = new Date(Date.now() - 30 * 24 * 3600_000);
 
   const [myOps] = await db
@@ -231,7 +234,8 @@ export async function getMyStats(userId: string) {
   };
 }
 
-export async function getMyActiveOpportunitiesForForecast(userId: string) {
+export async function getMyActiveOpportunitiesForForecast() {
+  const userId = (await requireUser()).id;
   return db
     .select({
       id: opportunities.id,
@@ -249,8 +253,9 @@ export async function getMyActiveOpportunitiesForForecast(userId: string) {
     .orderBy(desc(opportunities.updatedAt));
 }
 
-/** Return the user's profile data + the session user's role/id */
-export async function getMyProfile(userId: string) {
+/** Return the session user's own profile data. */
+export async function getMyProfile() {
+  const userId = (await requireUser()).id;
   const u = await db.query.users.findFirst({ where: eq(users.id, userId) });
   if (!u) return null;
   return u;

@@ -7,6 +7,7 @@ import { db } from '@/lib/db';
 import { meetings, opportunities, fundebMunicipalities, contacts } from '@/lib/schema';
 import { requireUser } from '@/lib/session';
 import { logActivity } from '@/lib/activity';
+import { getAccessibleOpportunity } from '@/lib/authz';
 import { createCalendarEvent } from '@/lib/google-calendar';
 
 const createSchema = z.object({
@@ -36,6 +37,9 @@ export async function createMeeting(formData: FormData) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? 'Dados inválidos' };
   }
   const data = parsed.data;
+  if (!(await getAccessibleOpportunity(user, data.opportunityId))) {
+    return { ok: false as const, error: 'Oportunidade não encontrada' };
+  }
   const scheduledAt = new Date(data.scheduledAt);
   if (Number.isNaN(scheduledAt.getTime())) {
     return { ok: false as const, error: 'Data/hora inválida' };
