@@ -18,6 +18,7 @@ import { regionTagForUf } from '@/lib/uf';
 import { normalizeBrPhone, isBrMobile } from '@/lib/phone-utils';
 import { resolveMarketingContactId } from '@/lib/contact-bridge';
 import { rateLimitByIp } from '@/lib/rate-limit';
+import { diagnosticoForMunicipality, type Diagnostico } from '@/lib/prospecting';
 
 export type FieldDef = {
   name: string;
@@ -179,7 +180,18 @@ export async function submitIntake(formData: FormData) {
   revalidatePath('/pipeline');
   revalidatePath('/');
 
-  return { ok: true as const, opportunityId: op.id };
+  // Isca do intake: "diagnóstico gratuito" com dados públicos (FNDE/SIOPE) do
+  // município informado. Resiliente — falha aqui não pode perder o lead.
+  let diagnostico: Diagnostico | null = null;
+  if (municipalityId) {
+    try {
+      diagnostico = await diagnosticoForMunicipality(municipalityId);
+    } catch {
+      diagnostico = null;
+    }
+  }
+
+  return { ok: true as const, opportunityId: op.id, diagnostico };
 }
 
 export async function triageLead(formData: FormData) {

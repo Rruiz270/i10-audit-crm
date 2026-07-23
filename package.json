@@ -15,6 +15,7 @@
     "db:studio": "drizzle-kit studio",
     "db:check": "node scripts/db-check.mjs",
     "seed": "node scripts/seed.mjs",
+    "prospects:import": "node scripts/enrich-fundeb-prospects.mjs",
     "seed:test-accounts": "node scripts/seed-test-accounts.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
