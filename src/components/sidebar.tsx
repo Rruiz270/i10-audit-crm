@@ -16,6 +16,7 @@ const FUNIL_NAV: NavItem[] = [
 
 const OPERACAO_NAV: NavItem[] = [
   { href: '/tasks', label: 'Tarefas', icon: 'check-square' },
+  { href: '/prospeccao', label: 'Prospecção', icon: 'flag' },
   { href: '/leads', label: 'Leads', icon: 'inbox' },
   { href: '/meetings', label: 'Reuniões', icon: 'calendar' },
   { href: '/contacts', label: 'Contatos', icon: 'users' },
