@@ -10,13 +10,16 @@ export function ContactForm({ opportunityId }: { opportunityId: number }) {
   const router = useRouter();
   const formRef = React.useRef<HTMLFormElement>(null);
   const [err, setErr] = React.useState<string | null>(null);
+  const [pending, setPending] = React.useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErr(null);
+    setPending(true);
     const fd = new FormData(e.currentTarget);
     fd.set('opportunityId', String(opportunityId));
     const res = await createContact(fd);
+    setPending(false);
     if (res?.ok) {
       formRef.current?.reset();
       router.refresh();
@@ -57,7 +60,9 @@ export function ContactForm({ opportunityId }: { opportunityId: number }) {
       </Field>
       {err && <div className="text-xs text-rose-600">{err}</div>}
       <div className="flex justify-end">
-        <Button size="sm">Adicionar contato</Button>
+        <Button size="sm" disabled={pending}>
+          {pending ? 'Adicionando…' : 'Adicionar contato'}
+        </Button>
       </div>
     </form>
   );

@@ -27,13 +27,16 @@ export function OpportunityEditForm({
 }) {
   const router = useRouter();
   const [msg, setMsg] = React.useState<string | null>(null);
+  const [pending, setPending] = React.useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setMsg(null);
+    setPending(true);
     const fd = new FormData(e.currentTarget);
     fd.set('id', String(opportunity.id));
     const res = await updateOpportunity(fd);
+    setPending(false);
     if (res?.ok) {
       setMsg('Salvo');
       router.refresh();
@@ -94,7 +97,7 @@ export function OpportunityEditForm({
 
       <div className="flex items-center justify-between pt-2">
         <div className="text-xs text-slate-500">{msg}</div>
-        <Button>Salvar alterações</Button>
+        <Button disabled={pending}>{pending ? 'Salvando…' : 'Salvar alterações'}</Button>
       </div>
     </form>
   );
