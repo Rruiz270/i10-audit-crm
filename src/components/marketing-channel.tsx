@@ -1,4 +1,4 @@
-import type { WhatsAppConfig, TemplateApproval } from '@/lib/marketing/whatsapp-health';
+import type { WhatsAppConfig, TemplateApproval, WaQuota } from '@/lib/marketing/whatsapp-health';
 
 // Badge de canal — 📧 Email / 💬 WhatsApp. Pure, client-safe.
 export function ChannelBadge({ channel }: { channel?: string | null }) {
@@ -27,11 +27,40 @@ export function ApprovalBadge({ status }: { status: TemplateApproval['status'] }
   return <span className={`text-xs font-medium px-2 py-0.5 rounded ${t.cls}`}>{t.label}</span>;
 }
 
+// Medidor da quota Meta — conversas iniciadas nas últimas 24h vs. tier do
+// número. Verde < 80%, âmbar ≥ 80%, vermelho no teto (launch bloqueado).
+export function WaQuotaMeter({ quota }: { quota: WaQuota }) {
+  const pct = quota.limit > 0 ? Math.min(100, Math.round((quota.used / quota.limit) * 100)) : 100;
+  const tone =
+    quota.remaining === 0
+      ? { bar: 'bg-rose-500', text: 'text-rose-700' }
+      : pct >= 80
+        ? { bar: 'bg-amber-500', text: 'text-amber-700' }
+        : { bar: 'bg-emerald-500', text: 'text-emerald-700' };
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className={`text-sm font-semibold ${tone.text}`}>
+          {quota.used.toLocaleString('pt-BR')} / {quota.limit.toLocaleString('pt-BR')}
+        </span>
+        <span className="text-xs text-slate-400">
+          restam {quota.remaining.toLocaleString('pt-BR')}
+        </span>
+      </div>
+      <div className="mt-1 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+        <div className={`h-full rounded-full ${tone.bar}`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
 export function WhatsAppHealthPanel({
   config,
+  quota,
   templates,
 }: {
   config: WhatsAppConfig;
+  quota: WaQuota;
   templates: Array<{ id: number; name: string; contentSid: string; approval: TemplateApproval }>;
 }) {
   return (
@@ -64,8 +93,8 @@ export function WhatsAppHealthPanel({
           <div className="font-medium text-slate-900">{config.provider}</div>
         </div>
         <div>
-          <div className="text-xs text-slate-500">Limite</div>
-          <div className="font-medium text-slate-900 text-xs">{config.dailyLimitNote}</div>
+          <div className="text-xs text-slate-500">Conversas iniciadas · 24h</div>
+          <WaQuotaMeter quota={quota} />
         </div>
       </div>
 
