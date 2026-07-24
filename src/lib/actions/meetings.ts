@@ -112,8 +112,16 @@ export async function createMeeting(formData: FormData) {
 export async function markMeetingDone(formData: FormData) {
   const user = await requireUser();
   const id = Number(formData.get('id'));
-  const opportunityId = Number(formData.get('opportunityId'));
+  if (!Number.isFinite(id)) return { ok: false as const, error: 'ID inválido' };
   const outcome = formData.get('outcome')?.toString() ?? 'done';
+  // Anti-IDOR: valida acesso pela oportunidade DA reunião (banco), não pelo
+  // opportunityId do form.
+  const existing = await db.query.meetings.findFirst({ where: eq(meetings.id, id) });
+  if (!existing) return { ok: false as const, error: 'Reunião não encontrada' };
+  const opportunityId = existing.opportunityId;
+  if (!(await getAccessibleOpportunity(user, opportunityId))) {
+    return { ok: false as const, error: 'Reunião não encontrada' };
+  }
   await db
     .update(meetings)
     .set({ completedAt: new Date(), outcome })
@@ -153,6 +161,9 @@ export async function listAllMeetings() {
 }
 
 export async function suggestMeetingAttendees(opportunityId: number) {
+  // Anti-IDOR: devolve e-mails de contatos (PII/LGPD) — exige acesso à opp.
+  const user = await requireUser();
+  if (!(await getAccessibleOpportunity(user, opportunityId))) return [];
   const rows = await db
     .select({ email: contacts.email, name: contacts.name })
     .from(contacts)
