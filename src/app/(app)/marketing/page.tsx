@@ -38,6 +38,31 @@ export default async function MarketingHomePage() {
         </div>
       )}
 
+      {/* ── Funil WhatsApp — audiência → convertido ── */}
+      {(stats.waFunnel.audience > 0 || stats.waFunnel.sent > 0) && (
+        <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
+          <div className="flex items-baseline justify-between gap-4">
+            <h2 className="text-sm font-semibold text-slate-900">Funil WhatsApp</h2>
+            <span className="text-xs text-slate-400">
+              % relativo à etapa anterior · lido/respondido via eventos wa_read/wa_replied
+            </span>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            <FunnelStage label="Audiência" value={stats.waFunnel.audience} prev={null} />
+            <FunnelStage label="Enviado" value={stats.waFunnel.sent} prev={stats.waFunnel.audience} />
+            <FunnelStage label="Entregue" value={stats.waFunnel.delivered} prev={stats.waFunnel.sent} />
+            <FunnelStage label="Lido" value={stats.waFunnel.read} prev={stats.waFunnel.delivered} />
+            <FunnelStage label="Respondido" value={stats.waFunnel.replied} prev={stats.waFunnel.read} />
+            <FunnelStage
+              label="Convertido"
+              value={stats.waFunnel.converted}
+              prev={stats.waFunnel.replied}
+              highlight
+            />
+          </div>
+        </section>
+      )}
+
       {/* ── Tiles do hub ── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <HubTile
@@ -141,6 +166,35 @@ export default async function MarketingHomePage() {
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+// Etapa do funil WhatsApp — valor absoluto + conversão sobre a etapa anterior.
+// prev=null (audiência) e prev=0 não têm taxa; queda forte fica visível pelo %.
+function FunnelStage({
+  label,
+  value,
+  prev,
+  highlight,
+}: {
+  label: string;
+  value: number;
+  prev: number | null;
+  highlight?: boolean;
+}) {
+  const pct = prev != null && prev > 0 ? Math.round((value / prev) * 100) : null;
+  return (
+    <div
+      className={`rounded-lg border p-3 ${
+        highlight ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'
+      }`}
+    >
+      <div className="text-[11px] uppercase tracking-wide text-slate-500">{label}</div>
+      <div className={`mt-1 text-xl font-bold ${highlight ? 'text-emerald-700' : 'text-slate-900'}`}>
+        {value.toLocaleString('pt-BR')}
+      </div>
+      <div className="text-xs text-slate-500">{pct != null ? `${pct}%` : '—'}</div>
     </div>
   );
 }

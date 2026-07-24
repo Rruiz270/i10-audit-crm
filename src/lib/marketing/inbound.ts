@@ -1,6 +1,6 @@
-import { eq, or } from 'drizzle-orm';
+import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { conversations, messages, contacts } from '@/lib/schema-marketing';
+import { conversations, messages, contacts, sends, events, campaigns } from '@/lib/schema-marketing';
 import { sendPushToUsers, getAllSubscribedUserIds } from '@/lib/push';
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -73,7 +73,12 @@ export async function handleInboundWhatsApp(payload: Record<string, string>): Pr
         closedAt: null,
       },
     })
-    .returning({ id: conversations.id, assignedTo: conversations.assignedTo });
+    .returning({
+      id: conversations.id,
+      assignedTo: conversations.assignedTo,
+      campaignId: conversations.campaignId,
+      contactId: conversations.contactId,
+    });
 
   if (!conv) return null;
 
@@ -84,6 +89,51 @@ export async function handleInboundWhatsApp(payload: Record<string, string>): Pr
     body,
     mediaUrls,
   });
+
+  // ── Atribuição campanha→conversa (funil "respondido") ────────────────────
+  // Best-effort: acha o último send de campanha pra este número, registra
+  // wa_replied (1x por send — respostas seguintes não inflam o contador) e
+  // vincula a conversa à campanha de origem. Nunca derruba o webhook.
+  try {
+    const phoneVariants = [phone, phone.replace(/^\+/, ''), `whatsapp:${phone}`];
+    const [lastSend] = await db
+      .select({ id: sends.id, campaignId: sends.campaignId, contactId: sends.contactId })
+      .from(sends)
+      .where(inArray(sends.toPhone, phoneVariants))
+      .orderBy(desc(sends.id))
+      .limit(1);
+
+    if (lastSend) {
+      const [alreadyReplied] = await db
+        .select({ id: events.id })
+        .from(events)
+        .where(and(eq(events.sendId, lastSend.id), eq(events.type, 'wa_replied')))
+        .limit(1);
+
+      if (!alreadyReplied) {
+        await db.insert(events).values({
+          sendId: lastSend.id,
+          contactId: lastSend.contactId,
+          type: 'wa_replied',
+          payload: { text: body.slice(0, 500), conversationId: conv.id },
+        });
+        await db
+          .update(campaigns)
+          .set({ repliedCount: sql`${campaigns.repliedCount} + 1` })
+          .where(eq(campaigns.id, lastSend.campaignId));
+      }
+
+      // Preenche vínculos que faltam na conversa (nunca sobrescreve existentes)
+      const link: Partial<typeof conversations.$inferInsert> = {};
+      if (!conv.campaignId) link.campaignId = lastSend.campaignId;
+      if (!conv.contactId) link.contactId = lastSend.contactId;
+      if (Object.keys(link).length > 0) {
+        await db.update(conversations).set(link).where(eq(conversations.id, conv.id));
+      }
+    }
+  } catch (err) {
+    console.error('atribuição campanha→conversa falhou (best-effort):', err);
+  }
 
   // Push (best-effort — nunca bloqueia/derruba o webhook). Notifica o dono da
   // conversa; se estiver sem dono (fila), avisa todos os inscritos para alguém
