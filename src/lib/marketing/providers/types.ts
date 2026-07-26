@@ -47,7 +47,17 @@ export type WhatsAppSendInput = {
 
 export type WhatsAppSendResult =
   | { ok: true; providerId: string; provider: string }
-  | { ok: false; error: string; retryable: boolean; provider: string };
+  | {
+      ok: false;
+      error: string;
+      retryable: boolean;
+      provider: string;
+      // Código numérico do provider (ex: '63003' Twilio) — permite ao pipeline
+      // reagir por código (supressão, pausa) sem parsear a string de erro
+      errorCode?: string;
+      // Saturação (tier/rate limit do canal): só reagendar depois desse intervalo
+      retryAfterSeconds?: number;
+    };
 
 export interface WhatsAppProvider {
   readonly name: string;
