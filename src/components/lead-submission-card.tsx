@@ -16,6 +16,9 @@ export type LeadCard = {
   submittedAt: string | null;
   triaged: boolean;
   opportunityId: number | null;
+  // Score de potencial FUNDEB do município (src/lib/prospecting.ts) — null
+  // quando o lead não tem município resolvido ou não há dados importados.
+  prospect?: { score: number; valorEstimado: number | null } | null;
   // campos parseados no server (apresentação)
   name: string;
   local: string | null;
@@ -56,6 +59,26 @@ export function LeadSubmissionCard({ s }: { s: LeadCard }) {
 
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
         <Chip tone="violet">{s.formTitle ?? `Form #${s.formId ?? '?'}`}</Chip>
+        {s.prospect && (
+          <span
+            className={`rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums ${
+              s.prospect.score >= 70
+                ? 'bg-emerald-100 text-emerald-800'
+                : s.prospect.score >= 40
+                  ? 'bg-amber-100 text-amber-800'
+                  : 'bg-slate-100 text-slate-600'
+            }`}
+            title="Score de potencial FUNDEB do município (dados públicos FNDE/SIOPE/INEP)"
+          >
+            FUNDEB {s.prospect.score}
+            {s.prospect.valorEstimado != null &&
+              ` · ~${s.prospect.valorEstimado.toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+                maximumFractionDigits: 0,
+              })}/ano`}
+          </span>
+        )}
         <span className="text-slate-400">
           {s.submittedAt ? new Date(s.submittedAt).toLocaleString('pt-BR') : '—'}
         </span>

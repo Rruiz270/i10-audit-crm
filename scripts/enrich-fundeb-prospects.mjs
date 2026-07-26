@@ -7,6 +7,7 @@
 //     (Financiamento → FUNDEB → Dados estatísticos / portarias de ajuste)
 //   · Receita FUNDEB: SIOPE (fnde.gov.br/siope) — relatórios municipais
 //   · Matrículas: Censo Escolar (INEP) ou matrículas ponderadas do FNDE
+//   · IDEB: INEP (ideb.inep.gov.br) — anos iniciais da rede municipal
 //
 // Uso:
 //   node scripts/enrich-fundeb-prospects.mjs dados.csv [--ano 2025] [--fonte "fnde-vaat-2025"]
@@ -19,6 +20,7 @@
 //   receita_fundeb | receita           receita anual FUNDEB em R$
 //   vaat | complementacao_vaat         complementação VAAT anual em R$
 //   vaar | complementacao_vaar         complementação VAAR anual em R$
+//   ideb | ideb_anos_iniciais           IDEB anos iniciais da rede (INEP, 0–10)
 //   ano | ano_referencia | exercicio   ano de referência (senão usa --ano)
 //
 // Números aceitam formato BR ("1.234.567,89") ou US ("1234567.89").
@@ -85,6 +87,7 @@ const ALIASES = {
   receitaFundeb: ['receita_fundeb', 'receita_total_fundeb', 'receita', 'vl_receita_fundeb'],
   vaat: ['vaat', 'complementacao_vaat', 'vl_vaat'],
   vaar: ['vaar', 'complementacao_vaar', 'vl_vaar'],
+  ideb: ['ideb', 'ideb_anos_iniciais', 'ideb_ai', 'nota_ideb'],
   ano: ['ano', 'ano_referencia', 'exercicio'],
 };
 
@@ -146,19 +149,21 @@ for (const row of dataRows) {
   const receita = parseNumber(get('receitaFundeb'));
   const vaat = parseNumber(get('vaat'));
   const vaar = parseNumber(get('vaar'));
+  const ideb = parseNumber(get('ideb'));
   const ano = parseNumber(get('ano')) ?? defaultAno;
 
   await sql`
     INSERT INTO crm.municipality_prospecting
       (municipality_id, ano_referencia, matriculas, receita_fundeb,
-       complementacao_vaat, complementacao_vaar, fonte, updated_at)
-    VALUES (${municipalityId}, ${ano}, ${matriculas}, ${receita}, ${vaat}, ${vaar}, ${fonte}, now())
+       complementacao_vaat, complementacao_vaar, ideb, fonte, updated_at)
+    VALUES (${municipalityId}, ${ano}, ${matriculas}, ${receita}, ${vaat}, ${vaar}, ${ideb}, ${fonte}, now())
     ON CONFLICT (municipality_id) DO UPDATE SET
       ano_referencia      = COALESCE(EXCLUDED.ano_referencia, crm.municipality_prospecting.ano_referencia),
       matriculas          = COALESCE(EXCLUDED.matriculas, crm.municipality_prospecting.matriculas),
       receita_fundeb      = COALESCE(EXCLUDED.receita_fundeb, crm.municipality_prospecting.receita_fundeb),
       complementacao_vaat = COALESCE(EXCLUDED.complementacao_vaat, crm.municipality_prospecting.complementacao_vaat),
       complementacao_vaar = COALESCE(EXCLUDED.complementacao_vaar, crm.municipality_prospecting.complementacao_vaar),
+      ideb                = COALESCE(EXCLUDED.ideb, crm.municipality_prospecting.ideb),
       fonte               = EXCLUDED.fonte,
       updated_at          = now()`;
   upserted++;

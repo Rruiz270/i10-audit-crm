@@ -6,6 +6,7 @@ import { requireUser } from '@/lib/session';
 import { PipelineFilters } from '@/components/pipeline-filters';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { getConsultoriaSignalsBatch } from '@/lib/bncc-signals';
+import { prospectSnapshotsByMunicipality } from '@/lib/prospecting';
 import { STAGES } from '@/lib/pipeline';
 import { sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
@@ -47,6 +48,17 @@ export default async function PipelinePage({
         })),
       )
     : {};
+
+  // Score de potencial FUNDEB (dados públicos) por município — badge nos cards
+  // para priorizar prospecção. Resiliente: sem dados importados, sem badge.
+  let prospectByMun: Awaited<ReturnType<typeof prospectSnapshotsByMunicipality>> = {};
+  try {
+    prospectByMun = await prospectSnapshotsByMunicipality(
+      rows.map((r) => r.municipalityId).filter((id): id is number => id != null),
+    );
+  } catch {
+    prospectByMun = {};
+  }
 
   // Tasks count per opportunity (overdue + upcoming) para alerta SLA nos cards.
   // nowMs snapshot único para todas as linhas — satisfaz react-hooks/purity.
@@ -198,6 +210,7 @@ export default async function PipelinePage({
       taskSummary: taskSummaries[r.id],
       primaryContact: pc,
       lastInteraction,
+      prospect: r.municipalityId != null ? (prospectByMun[r.municipalityId] ?? null) : null,
     };
   });
 
