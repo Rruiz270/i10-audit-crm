@@ -66,7 +66,14 @@ export async function GET(request: NextRequest) {
             await completeJob(job.id);
             return { ok: true, jobId: job.id };
           }
-          await failJob(job.id, job.attempts, job.maxAttempts, result.error, result.retryable);
+          await failJob(
+            job.id,
+            job.attempts,
+            job.maxAttempts,
+            result.error,
+            result.retryable,
+            result.retryAfterSeconds,
+          );
           return { ok: false, jobId: job.id, error: result.error };
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);

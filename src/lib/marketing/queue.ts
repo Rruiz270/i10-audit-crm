@@ -1,4 +1,4 @@
-import { sql, eq } from 'drizzle-orm';
+import { sql, eq, and, lt } from 'drizzle-orm';
 import { db } from '../db';
 import { queueJobs } from '../schema-marketing';
 
@@ -69,12 +69,15 @@ export async function completeJob(jobId: number): Promise<void> {
 
 // Falha — decide se reenfileira ou manda pra dead-letter.
 // Backoff exponencial: 30s, 2min, 8min, 32min...
+// retryAfterSeconds (opcional) sobrepõe o exponencial — usado quando o provider
+// dita a espera (ex: saturação do tier Meta = janela de 24h).
 export async function failJob(
   jobId: number,
   attempts: number,
   maxAttempts: number,
   errorMessage: string,
   retryable: boolean,
+  retryAfterSeconds?: number,
 ): Promise<void> {
   const isDead = !retryable || attempts >= maxAttempts;
   if (isDead) {
@@ -87,7 +90,8 @@ export async function failJob(
       })
       .where(eq(queueJobs.id, jobId));
   } else {
-    const backoffSeconds = Math.min(30 * Math.pow(4, attempts - 1), 60 * 60); // cap 1h
+    const backoffSeconds =
+      retryAfterSeconds ?? Math.min(30 * Math.pow(4, attempts - 1), 60 * 60); // cap 1h
     const nextRun = new Date(Date.now() + backoffSeconds * 1000);
     await db
       .update(queueJobs)
@@ -99,6 +103,29 @@ export async function failJob(
       })
       .where(eq(queueJobs.id, jobId));
   }
+}
+
+// Pausa um rate bucket inteiro: empurra o run_at de todos os jobs pending do
+// bucket pra frente. Usado quando o provider sinaliza saturação (ex: tier Meta
+// esgotado) — sem isso, cada job pendente bateria no mesmo limite e queimaria
+// um attempt à toa. Só adia jobs que rodariam ANTES do fim da pausa (lt).
+export async function pausePendingBucket(
+  rateBucket: string,
+  delaySeconds: number,
+): Promise<number> {
+  const until = new Date(Date.now() + delaySeconds * 1000);
+  const result = await db
+    .update(queueJobs)
+    .set({ runAt: until })
+    .where(
+      and(
+        eq(queueJobs.status, 'pending'),
+        eq(queueJobs.rateBucket, rateBucket),
+        lt(queueJobs.runAt, until),
+      ),
+    )
+    .returning({ id: queueJobs.id });
+  return result.length;
 }
 
 // Enqueue helper — usado por server actions ao lançar campanha.
