@@ -11,9 +11,16 @@ import { LOST_REASONS, type LostReasonCode } from '@/lib/lost-reasons';
 export function StageControl({
   opportunityId,
   currentStage,
+  onNeedsProducts,
 }: {
   opportunityId: number;
   currentStage: StageKey;
+  /**
+   * Chamado quando mover para "ganhou" exige escolher produto(s)
+   * (`needsProducts` na action). Se ausente, o erro aparece inline —
+   * comportamento original da página da oportunidade.
+   */
+  onNeedsProducts?: () => void;
 }) {
   const router = useRouter();
   const [toStage, setToStage] = React.useState<StageKey>(currentStage);
@@ -37,6 +44,8 @@ export function StageControl({
     setPending(false);
     if (res?.ok) {
       router.refresh();
+    } else if (res && 'needsProducts' in res && res.needsProducts && onNeedsProducts) {
+      onNeedsProducts();
     } else {
       setError(res?.error ?? 'Falha ao mudar estágio');
       setMissing(res?.missing ?? []);
