@@ -1,9 +1,20 @@
 'use server';
 
-import { sql, eq } from 'drizzle-orm';
+import { sql, eq, and, or, isNotNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { campaigns, templates, contacts, projects, conversations } from '@/lib/schema-marketing';
 import { requireUser, requireRole } from '@/lib/session';
+
+// Funil WhatsApp de ponta a ponta: audiência → enviado → entregue → lido →
+// respondido → convertido (conversa ligada a campanha que virou oportunidade).
+export type WaFunnel = {
+  audience: number;
+  sent: number;
+  delivered: number;
+  read: number;
+  replied: number;
+  converted: number;
+};
 
 export type HubStats = {
   contacts: number;
@@ -13,6 +24,16 @@ export type HubStats = {
   emailCampaigns: number;
   emailOpenRate: number | null;
   openConversations: number;
+  waFunnel: WaFunnel;
+};
+
+const EMPTY_FUNNEL: WaFunnel = {
+  audience: 0,
+  sent: 0,
+  delivered: 0,
+  read: 0,
+  replied: 0,
+  converted: 0,
 };
 
 const EMPTY_STATS: HubStats = {
@@ -23,6 +44,7 @@ const EMPTY_STATS: HubStats = {
   emailCampaigns: 0,
   emailOpenRate: null,
   openConversations: 0,
+  waFunnel: EMPTY_FUNNEL,
 };
 
 // Métricas agregadas pro Marketing Hub. Best-effort de verdade: se o DB tossir,
@@ -48,9 +70,12 @@ async function computeHubStats(): Promise<HubStats> {
     .select({
       channel: templates.channel,
       n: sql<number>`count(*)::int`,
+      recipients: sql<number>`coalesce(sum(${campaigns.totalRecipients}),0)::int`,
       sent: sql<number>`coalesce(sum(${campaigns.sentCount}),0)::int`,
       opens: sql<number>`coalesce(sum(${campaigns.openCount}),0)::int`,
       delivered: sql<number>`coalesce(sum(${campaigns.deliveredCount}),0)::int`,
+      read: sql<number>`coalesce(sum(${campaigns.readCount}),0)::int`,
+      replied: sql<number>`coalesce(sum(${campaigns.repliedCount}),0)::int`,
     })
     .from(campaigns)
     .leftJoin(templates, eq(campaigns.templateId, templates.id))
@@ -60,6 +85,21 @@ async function computeHubStats(): Promise<HubStats> {
     .select({ n: sql<number>`count(*)::int` })
     .from(conversations)
     .where(eq(conversations.status, 'open'));
+
+  // Convertido = conversa ligada a uma campanha cujo lead virou oportunidade:
+  // ou a conversa aponta direto pra opp (opportunity_id), ou o contato de
+  // marketing já foi promovido a crm.contacts (crm_contact_id — handoff FUNDEB
+  // acontece depois, quando a opp chega em "Ganhou").
+  const [convertedRow] = await db
+    .select({ n: sql<number>`count(distinct ${conversations.id})::int` })
+    .from(conversations)
+    .leftJoin(contacts, eq(conversations.contactId, contacts.id))
+    .where(
+      and(
+        isNotNull(conversations.campaignId),
+        or(isNotNull(conversations.opportunityId), isNotNull(contacts.crmContactId)),
+      ),
+    );
 
   const wa = rows.find((r) => r.channel === 'whatsapp');
   const em = rows.find((r) => r.channel === 'email');
@@ -74,5 +114,13 @@ async function computeHubStats(): Promise<HubStats> {
     emailCampaigns: em?.n ?? 0,
     emailOpenRate,
     openConversations: convRow?.n ?? 0,
+    waFunnel: {
+      audience: wa?.recipients ?? 0,
+      sent: wa?.sent ?? 0,
+      delivered: wa?.delivered ?? 0,
+      read: wa?.read ?? 0,
+      replied: wa?.replied ?? 0,
+      converted: convertedRow?.n ?? 0,
+    },
   };
 }

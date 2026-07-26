@@ -192,10 +192,14 @@ export async function POST(request: NextRequest) {
         .set({ deliveredCount: sql`${campaigns.deliveredCount} + 1` })
         .where(eq(campaigns.id, send.campaignId));
     } else if (messageStatus === 'read') {
-      // WA read = equivalent a 'open' no email — incrementa openCount
+      // WA read = equivalent a 'open' no email — incrementa openCount.
+      // readCount é o contador dedicado do funil WhatsApp (lido).
       await db
         .update(campaigns)
-        .set({ openCount: sql`${campaigns.openCount} + 1` })
+        .set({
+          openCount: sql`${campaigns.openCount} + 1`,
+          readCount: sql`${campaigns.readCount} + 1`,
+        })
         .where(eq(campaigns.id, send.campaignId));
     } else if (messageStatus === 'failed' || messageStatus === 'undelivered') {
       await db
