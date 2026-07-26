@@ -13,8 +13,20 @@ import {
   templates,
   contacts,
 } from '@/lib/schema-marketing';
-import { opportunities, users, pipelineStages, fundebMunicipalities } from '@/lib/schema';
+import {
+  opportunities,
+  users,
+  pipelineStages,
+  fundebMunicipalities,
+  contacts as crmContacts,
+} from '@/lib/schema';
 import { requireUser, type SessionUser } from '@/lib/session';
+import { logActivity } from '@/lib/activity';
+import {
+  analyzeConversation,
+  isAiAssistantEnabled,
+  type AiAnalysis,
+} from '@/lib/marketing/ai-assistant';
 import { isAdmin } from '@/lib/roles';
 import { getWhatsAppProvider } from '@/lib/marketing/providers';
 import {
@@ -1182,4 +1194,108 @@ export async function getSupervisorData(): Promise<SupervisorData> {
       lastMessageAt: r.lastMessageAt ? new Date(r.lastMessageAt).toISOString() : null,
     })),
   };
+}
+
+// ─── IA no Atende (qualificação, resposta sugerida, resumo) ─────────────────
+
+// Analisa a conversa com o assistente LLM: qualifica o lead (município/cargo/
+// interesse), sugere a próxima resposta e gera um resumo para o CRM.
+// Mesmos guards de visibilidade das demais actions; erros de negócio voltam
+// {ok:false} para a UI (nunca 500).
+export async function getAiAssist(
+  conversationId: number,
+): Promise<
+  | { ok: true; analysis: AiAnalysis; hasOpportunity: boolean }
+  | { ok: false; error: string }
+> {
+  const user = await requireUser();
+  if (!conversationId) throw new Error('conversationId obrigatório');
+  if (!isAiAssistantEnabled()) {
+    return { ok: false as const, error: 'Assistente IA não configurado (ANTHROPIC_API_KEY).' };
+  }
+  const conv = await loadVisibleConversation(user, conversationId);
+  const msgs = await db
+    .select()
+    .from(messages)
+    .where(eq(messages.conversationId, conversationId))
+    .orderBy(desc(messages.createdAt))
+    .limit(60);
+  const visible = msgs.filter((m) => !m.deletedAt).reverse();
+  if (visible.length === 0) {
+    return { ok: false as const, error: 'Conversa sem mensagens para analisar.' };
+  }
+  const context = await getConversationContext(conversationId);
+
+  try {
+    const analysis = await analyzeConversation({
+      contactName: conv.contactName,
+      municipio: context.opportunity?.municipio ?? null,
+      projectName: context.projectName,
+      stageLabel: context.opportunity?.stageLabel ?? null,
+      messages: visible.map((m) => ({
+        direction: m.direction,
+        body: m.body,
+        isTemplate: m.isTemplate,
+      })),
+    });
+    return { ok: true as const, analysis, hasOpportunity: Boolean(context.opportunity) };
+  } catch (err) {
+    console.error('getAiAssist falhou:', err);
+    return {
+      ok: false as const,
+      error: err instanceof Error ? err.message : 'Falha ao consultar o assistente IA.',
+    };
+  }
+}
+
+// Grava o resumo gerado pela IA na timeline da oportunidade vinculada à
+// conversa (vínculo direto ou via contato marketing → contato CRM).
+export async function saveAiSummary(
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await requireUser();
+  const conversationId = Number(formData.get('conversationId'));
+  const resumo = String(formData.get('resumo') ?? '').trim();
+  const qualificacao = String(formData.get('qualificacao') ?? '').trim();
+  if (!conversationId || !resumo) throw new Error('conversationId e resumo obrigatórios');
+
+  const conv = await loadVisibleConversation(user, conversationId);
+
+  // Resolve a oportunidade: vínculo direto na conversa, senão pela cadeia
+  // marketing.contacts.crm_contact_id → crm.contacts.opportunity_id.
+  let opportunityId = conv.opportunityId ?? null;
+  if (!opportunityId && conv.contactId) {
+    const [mk] = await db
+      .select({ crmContactId: contacts.crmContactId })
+      .from(contacts)
+      .where(eq(contacts.id, conv.contactId))
+      .limit(1);
+    if (mk?.crmContactId) {
+      const [crm] = await db
+        .select({ opportunityId: crmContacts.opportunityId })
+        .from(crmContacts)
+        .where(eq(crmContacts.id, mk.crmContactId))
+        .limit(1);
+      opportunityId = crm?.opportunityId ?? null;
+    }
+  }
+  if (!opportunityId) {
+    return {
+      ok: false as const,
+      error: 'Conversa sem oportunidade vinculada no CRM — resumo não gravado.',
+    };
+  }
+
+  await logActivity({
+    opportunityId,
+    type: 'whatsapp',
+    subject: 'Resumo IA da conversa (Atende)',
+    body: qualificacao ? `${resumo}\n\nQualificação: ${qualificacao}` : resumo,
+    actorId: user.id,
+    metadata: { source: 'atende-ai', conversationId },
+  });
+
+  revalidatePath('/marketing/conversas');
+  revalidatePath('/atende');
+  return { ok: true as const };
 }

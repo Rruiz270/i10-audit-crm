@@ -1,7 +1,14 @@
-import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, or, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { conversations, messages, contacts, sends, events, campaigns } from '@/lib/schema-marketing';
 import { sendPushToUsers, getAllSubscribedUserIds } from '@/lib/push';
+import { getWhatsAppProvider } from '@/lib/marketing/providers';
+import {
+  generateAfterHoursReply,
+  isAfterHoursReplyEnabled,
+  isBlockedByTestAllowlist,
+  isWithinBusinessHours,
+} from '@/lib/marketing/ai-assistant';
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -151,6 +158,62 @@ export async function handleInboundWhatsApp(payload: Record<string, string>): Pr
     });
   } catch {
     /* noop — push é acessório */
+  }
+
+  // ── Auto-atendimento IA fora de horário (best-effort, opt-in) ────────────
+  // Com ATENDE_AI_AFTER_HOURS=1 e ANTHROPIC_API_KEY setados, responde fora do
+  // horário comercial com uma mensagem de acolhimento + qualificação. A janela
+  // de 24h acabou de reabrir com este inbound, então freeform é permitido.
+  // Trava anti-spam: só responde se não houve NENHUM outbound nas últimas 4h
+  // (evita responder por cima do atendente ou repetir a saudação a cada msg).
+  try {
+    if (
+      isAfterHoursReplyEnabled() &&
+      !isWithinBusinessHours() &&
+      !isBlockedByTestAllowlist(phone)
+    ) {
+      const cutoff = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+      const [recentOutbound] = await db
+        .select({ id: messages.id })
+        .from(messages)
+        .where(
+          and(
+            eq(messages.conversationId, conv.id),
+            eq(messages.direction, 'outbound'),
+            gt(messages.createdAt, cutoff),
+          ),
+        )
+        .limit(1);
+
+      if (!recentOutbound) {
+        const reply = await generateAfterHoursReply({
+          contactName: profileName ?? contact?.name ?? null,
+          lastMessage: body,
+        });
+        const provider = getWhatsAppProvider();
+        const result = await provider.send({
+          fromNumber: process.env.TWILIO_WHATSAPP_FROM ?? 'whatsapp:+14155238886',
+          toNumber: phone,
+          body: reply,
+        });
+        // authorUserId null = mensagem do sistema (assistente IA), não de um agente.
+        await db.insert(messages).values({
+          conversationId: conv.id,
+          twilioSid: result.ok ? result.providerId : null,
+          direction: 'outbound',
+          authorUserId: null,
+          body: reply,
+          status: result.ok ? 'sent' : 'failed',
+        });
+        // Mantém unread=true: o time ainda precisa ver o inbound do cliente.
+        await db
+          .update(conversations)
+          .set({ lastMessageAt: new Date() })
+          .where(eq(conversations.id, conv.id));
+      }
+    }
+  } catch (err) {
+    console.error('auto-atendimento IA fora de horário falhou (best-effort):', err);
   }
 
   return conv.id;
