@@ -73,6 +73,10 @@ export async function completeTask(formData: FormData) {
 
   const existing = await db.query.tasks.findFirst({ where: eq(tasks.id, taskId) });
   if (!existing) return { ok: false as const, error: 'Tarefa não encontrada' };
+  // Anti-IDOR: só quem enxerga a oportunidade da tarefa pode concluir/reabrir.
+  if (!(await getAccessibleOpportunity(user, existing.opportunityId))) {
+    return { ok: false as const, error: 'Tarefa não encontrada' };
+  }
   if (existing.completedAt) {
     // Undo: reopen
     await db.update(tasks).set({ completedAt: null }).where(eq(tasks.id, taskId));
@@ -103,7 +107,15 @@ export async function completeTask(formData: FormData) {
 export async function deleteTask(formData: FormData) {
   const user = await requireUser();
   const taskId = Number(formData.get('id'));
-  const opportunityId = Number(formData.get('opportunityId'));
+  if (!Number.isFinite(taskId)) return { ok: false as const, error: 'ID inválido' };
+  // Anti-IDOR: carrega a tarefa e valida acesso pela oportunidade DELA (não
+  // confiar no opportunityId vindo do form — poderia poluir outro histórico).
+  const existing = await db.query.tasks.findFirst({ where: eq(tasks.id, taskId) });
+  if (!existing) return { ok: false as const, error: 'Tarefa não encontrada' };
+  const opportunityId = existing.opportunityId;
+  if (!(await getAccessibleOpportunity(user, opportunityId))) {
+    return { ok: false as const, error: 'Tarefa não encontrada' };
+  }
   await db.delete(tasks).where(eq(tasks.id, taskId));
   await logActivity({
     opportunityId,

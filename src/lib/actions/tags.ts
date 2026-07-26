@@ -7,6 +7,7 @@ import { db } from '@/lib/db';
 import { opportunities, tags } from '@/lib/schema';
 import { requireUser } from '@/lib/session';
 import { isAdmin } from '@/lib/roles';
+import { getAccessibleOpportunity } from '@/lib/authz';
 import { logActivity } from '@/lib/activity';
 import { TAG_COLOR_OPTS } from '@/lib/tag-colors';
 
@@ -209,6 +210,10 @@ export async function setOpportunityTaxonomyTags(formData: FormData) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? 'Dados inválidos' };
   }
   const { id, selected, freeText } = parsed.data;
+  // Anti-IDOR: mesma guarda das demais mutações por opportunityId.
+  if (!(await getAccessibleOpportunity(user, id))) {
+    return { ok: false as const, error: 'Oportunidade não encontrada' };
+  }
 
   const selectedLabels = selected.split('\n').map((s) => s.trim()).filter(Boolean);
   const freeLabels = freeText.split(',').map((s) => s.trim()).filter(Boolean);
