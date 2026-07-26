@@ -1,0 +1,1 @@
+ALTER TABLE "crm"."municipality_prospecting" ADD COLUMN "ideb" real;

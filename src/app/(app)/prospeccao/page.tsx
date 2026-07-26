@@ -90,8 +90,13 @@ export default async function ProspeccaoPage({
           Prospecção FUNDEB
         </h1>
         <p className="mt-1 text-sm text-slate-500">
-          Municípios ranqueados por potencial (dados públicos FNDE/SIOPE — VAAT/VAAR, matrículas e
-          receita). Importe/atualize com <code className="bg-slate-100 px-1">npm run prospects:import</code>.
+          Municípios ranqueados por potencial (dados públicos FNDE/SIOPE/INEP — VAAT/VAAR,
+          matrículas, receita e IDEB). Importe/atualize com{' '}
+          <code className="bg-slate-100 px-1">npm run prospects:import</code>. Isca pública:{' '}
+          <Link href="/calculadora" target="_blank" className="text-cyan-700 hover:underline">
+            /calculadora
+          </Link>
+          .
         </p>
       </header>
 
@@ -173,6 +178,9 @@ export default async function ProspeccaoPage({
                           <div className="text-xs text-slate-500">
                             {p.uf ?? '—'}
                             {p.anoReferencia ? ` · dados ${p.anoReferencia}` : ''}
+                            {p.ideb != null
+                              ? ` · IDEB ${p.ideb.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}`
+                              : ''}
                           </div>
                         </td>
                         <td className="px-4 py-3 text-right tabular-nums">
@@ -232,7 +240,7 @@ export default async function ProspeccaoPage({
           )}
 
           <p className="mt-3 text-xs text-slate-400">
-            Score 0–100 (porte da rede, dependência de VAAT, VAAR e receita) e potencial estimado
+            Score 0–100 (porte da rede, dependência de VAAT, VAAR, receita e IDEB) e potencial estimado
             (≈2% da receita FUNDEB + 10% da complementação VAAT) — heurística sobre dados públicos;
             ver <code className="bg-slate-100 px-1">src/lib/prospecting.ts</code>.
           </p>

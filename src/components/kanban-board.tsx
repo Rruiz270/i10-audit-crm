@@ -81,6 +81,9 @@ export type KanbanCard = {
     marketingContactId: number | null;
   } | null;
   lastInteraction?: { label: string; at: string } | null;
+  // Score de potencial FUNDEB do município (dados públicos) — ver
+  // src/lib/prospecting.ts. Null quando não há dados importados.
+  prospect?: { score: number; valorEstimado: number | null } | null;
 };
 
 // Tempo relativo grosseiro (h/d) — igual ao mockup ("respondeu há 5h").
@@ -560,6 +563,28 @@ function DraggableCard({
         >
           {card.municipalityName ?? `Oport. #${card.id}`}
         </Link>
+        {card.prospect && (
+          <span
+            className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+              card.prospect.score >= 70
+                ? 'bg-emerald-100 text-emerald-800'
+                : card.prospect.score >= 40
+                  ? 'bg-amber-100 text-amber-800'
+                  : 'bg-slate-100 text-slate-600'
+            }`}
+            title={`Potencial FUNDEB ${card.prospect.score}/100${
+              card.prospect.valorEstimado != null
+                ? ` · ~${card.prospect.valorEstimado.toLocaleString('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL',
+                    maximumFractionDigits: 0,
+                  })}/ano`
+                : ''
+            } (dados públicos FNDE/SIOPE/INEP)`}
+          >
+            {card.prospect.score}
+          </span>
+        )}
         {card.activeNo != null ? (
           <span
             className="shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-bold text-white"

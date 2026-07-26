@@ -1,14 +1,17 @@
-import { asc, eq, sql } from 'drizzle-orm';
+import { asc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from './db';
 import { fundebMunicipalities, municipalityProspecting } from './schema';
 
 // ─── Score de potencial FUNDEB ─────────────────────────────────────────────
-// Heurística transparente sobre dados públicos (FNDE/SIOPE). Pontua 0–100:
+// Heurística transparente sobre dados públicos (FNDE/SIOPE/INEP). Pontua 0–100
+// (soma clampada em 100):
 //   · porte   (0–30): tamanho da rede municipal (matrículas, escala log)
 //   · vaat    (0–35): dependência da complementação VAAT — municípios que
 //                     recebem VAAT têm mais distorção declaratória a auditar
 //   · vaar    (0–10): recebe VAAR (condicionalidades ativas → gestão engajada)
 //   · receita (0–25): volume anual do FUNDEB (escala log)
+//   · ideb    (0–10): IDEB baixo → risco de perder/reduzir VAAR por
+//                     condicionalidade de resultado — urgência para o gestor
 // O valor estimado é o potencial anual de recuperação/incremento via auditoria:
 // 2% da receita FUNDEB + 10% da complementação VAAT; sem receita conhecida,
 // piso conservador de R$ 120/matrícula.
@@ -18,12 +21,14 @@ export type ProspectMetrics = {
   receitaFundeb: number | null;
   complementacaoVaat: number | null;
   complementacaoVaar: number | null;
+  // IDEB anos iniciais (0–10, INEP). Opcional — dado nem sempre importado.
+  ideb?: number | null;
 };
 
 export type ProspectScore = {
   score: number; // 0–100 (inteiro)
   valorEstimado: number | null; // R$/ano — null quando não há dado nenhum
-  breakdown: { porte: number; vaat: number; vaar: number; receita: number };
+  breakdown: { porte: number; vaat: number; vaar: number; receita: number; ideb: number };
 };
 
 function clamp01(x: number): number {
@@ -55,15 +60,20 @@ export function computeProspectScore(m: ProspectMetrics): ProspectScore {
   // Receita: R$ 2 mi/ano → 0 · R$ 500 mi/ano → 25.
   const receitaPts = 25 * logScale(receita, 2_000_000, 500_000_000);
 
+  // IDEB: linear invertido — ≤3,5 → 10 pts · ≥6,5 → 0. Sem dado, 0.
+  const ideb = m.ideb ?? null;
+  const idebPts = ideb == null ? 0 : 10 * clamp01((6.5 - ideb) / 3);
+
   const breakdown = {
     porte: Math.round(porte),
     vaat: Math.round(vaatPts),
     vaar: vaarPts,
     receita: Math.round(receitaPts),
+    ideb: Math.round(idebPts),
   };
   const score = Math.min(
     100,
-    breakdown.porte + breakdown.vaat + breakdown.vaar + breakdown.receita,
+    breakdown.porte + breakdown.vaat + breakdown.vaar + breakdown.receita + breakdown.ideb,
   );
 
   let valorEstimado: number | null = null;
@@ -88,6 +98,7 @@ export type RankedProspect = {
   receitaFundeb: number | null;
   complementacaoVaat: number | null;
   complementacaoVaar: number | null;
+  ideb: number | null;
   openOpportunities: number;
   consultorias: number;
 } & ProspectScore;
@@ -105,6 +116,7 @@ export async function rankedProspects(): Promise<RankedProspect[]> {
       receitaFundeb: municipalityProspecting.receitaFundeb,
       complementacaoVaat: municipalityProspecting.complementacaoVaat,
       complementacaoVaar: municipalityProspecting.complementacaoVaar,
+      ideb: municipalityProspecting.ideb,
       // Oportunidade "aberta" = sem desfecho (ganho/perda) — independe dos
       // estágios customizáveis.
       openOpportunities: sql<number>`(
@@ -142,6 +154,7 @@ export type Diagnostico = {
   receitaFundeb: number | null;
   recebeVaat: boolean;
   recebeVaar: boolean;
+  ideb: number | null;
   score: number;
   valorEstimado: number | null;
 };
@@ -162,6 +175,7 @@ export async function diagnosticoForMunicipality(
       receitaFundeb: municipalityProspecting.receitaFundeb,
       complementacaoVaat: municipalityProspecting.complementacaoVaat,
       complementacaoVaar: municipalityProspecting.complementacaoVaar,
+      ideb: municipalityProspecting.ideb,
     })
     .from(municipalityProspecting)
     .innerJoin(
@@ -181,7 +195,38 @@ export async function diagnosticoForMunicipality(
     receitaFundeb: row.receitaFundeb,
     recebeVaat: (row.complementacaoVaat ?? 0) > 0,
     recebeVaar: (row.complementacaoVaar ?? 0) > 0,
+    ideb: row.ideb,
     score,
     valorEstimado,
   };
+}
+
+export type ProspectSnapshot = { score: number; valorEstimado: number | null };
+
+/**
+ * Score/potencial por município em lote — para exibir nos cards do pipeline e
+ * na triagem de leads sem N+1. Só devolve entradas com dados importados.
+ */
+export async function prospectSnapshotsByMunicipality(
+  municipalityIds: number[],
+): Promise<Record<number, ProspectSnapshot>> {
+  const ids = [...new Set(municipalityIds)].filter((id) => Number.isFinite(id));
+  if (ids.length === 0) return {};
+  const rows = await db
+    .select({
+      municipalityId: municipalityProspecting.municipalityId,
+      matriculas: municipalityProspecting.matriculas,
+      receitaFundeb: municipalityProspecting.receitaFundeb,
+      complementacaoVaat: municipalityProspecting.complementacaoVaat,
+      complementacaoVaar: municipalityProspecting.complementacaoVaar,
+      ideb: municipalityProspecting.ideb,
+    })
+    .from(municipalityProspecting)
+    .where(inArray(municipalityProspecting.municipalityId, ids));
+  const out: Record<number, ProspectSnapshot> = {};
+  for (const r of rows) {
+    const { score, valorEstimado } = computeProspectScore(r);
+    out[r.municipalityId] = { score, valorEstimado };
+  }
+  return out;
 }

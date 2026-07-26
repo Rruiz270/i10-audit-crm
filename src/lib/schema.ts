@@ -62,6 +62,8 @@ export const municipalityProspecting = crmSchema.table('municipality_prospecting
   // Complementações da União recebidas no ano (portarias FNDE), em R$.
   complementacaoVaat: real('complementacao_vaat'),
   complementacaoVaar: real('complementacao_vaar'),
+  // IDEB anos iniciais da rede municipal (INEP, escala 0–10).
+  ideb: real('ideb'),
   // Origem dos dados (ex.: 'fnde-vaat-2025.csv') — rastreabilidade do import.
   fonte: text('fonte'),
   updatedAt: timestamp('updated_at').defaultNow(),

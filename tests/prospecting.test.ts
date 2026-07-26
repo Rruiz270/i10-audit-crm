@@ -57,6 +57,22 @@ describe('computeProspectScore — ranking de potencial FUNDEB', () => {
     expect(r.valorEstimado).toBe(1_500 * 120);
   });
 
+  it('IDEB baixo pontua mais que IDEB alto (risco de perder VAAR)', () => {
+    const base = metrics({ matriculas: 5_000, receitaFundeb: 30_000_000 });
+    const idebBaixo = computeProspectScore({ ...base, ideb: 3.2 });
+    const idebAlto = computeProspectScore({ ...base, ideb: 6.8 });
+    expect(idebBaixo.breakdown.ideb).toBe(10);
+    expect(idebAlto.breakdown.ideb).toBe(0);
+    expect(idebBaixo.score).toBeGreaterThan(idebAlto.score);
+  });
+
+  it('sem IDEB o componente é 0 e o score não muda', () => {
+    const base = metrics({ matriculas: 5_000, receitaFundeb: 30_000_000 });
+    const semIdeb = computeProspectScore(base);
+    expect(semIdeb.breakdown.ideb).toBe(0);
+    expect(computeProspectScore({ ...base, ideb: null }).score).toBe(semIdeb.score);
+  });
+
   it('VAAR presente soma exatamente 10 pontos', () => {
     const sem = computeProspectScore(metrics({ matriculas: 5_000 }));
     const com = computeProspectScore(

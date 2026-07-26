@@ -1,7 +1,8 @@
 import Link from 'next/link';
-import { and, desc, eq, ilike, sql, type SQL } from 'drizzle-orm';
+import { and, desc, eq, ilike, inArray, sql, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { leadForms, leadSubmissions } from '@/lib/schema';
+import { leadForms, leadSubmissions, opportunities } from '@/lib/schema';
+import { prospectSnapshotsByMunicipality } from '@/lib/prospecting';
 import { KpiTile } from '@/components/ui/kpi-tile';
 import { FacetGroup } from '@/components/ui/facet-group';
 import { Icon } from '@/components/ui/icon';
@@ -157,6 +158,31 @@ export default async function LeadsPage({
 
   const activeFilterCount = [q, status, formId].filter((v) => v != null && v !== '').length;
 
+  // Score de potencial FUNDEB do município do lead (via oportunidade criada
+  // no intake) — prioriza a triagem. Resiliente: sem dados, sem badge.
+  const prospectByOpp: Record<number, { score: number; valorEstimado: number | null }> = {};
+  try {
+    const oppIds = submissions
+      .map((s) => s.opportunityId)
+      .filter((id): id is number => id != null);
+    if (oppIds.length) {
+      const opps = await db
+        .select({ id: opportunities.id, municipalityId: opportunities.municipalityId })
+        .from(opportunities)
+        .where(inArray(opportunities.id, oppIds));
+      const snapshots = await prospectSnapshotsByMunicipality(
+        opps.map((o) => o.municipalityId).filter((id): id is number => id != null),
+      );
+      for (const o of opps) {
+        if (o.municipalityId != null && snapshots[o.municipalityId]) {
+          prospectByOpp[o.id] = snapshots[o.municipalityId];
+        }
+      }
+    }
+  } catch {
+    // dados de prospecção são opcionais — não pode derrubar a triagem
+  }
+
   const cards: LeadCard[] = submissions.map((s) => {
     const parsed = parseCard(s.payload);
     return {
@@ -166,6 +192,7 @@ export default async function LeadsPage({
       submittedAt: s.submittedAt ? new Date(s.submittedAt).toISOString() : null,
       triaged: !!s.triaged,
       opportunityId: s.opportunityId,
+      prospect: s.opportunityId != null ? (prospectByOpp[s.opportunityId] ?? null) : null,
       ...parsed,
     };
   });

@@ -14,6 +14,8 @@ export default auth((req) => {
     nextUrl.pathname === '/signup' ||
     nextUrl.pathname.startsWith('/api/auth') ||
     nextUrl.pathname.startsWith('/intake/') ||
+    // Calculadora de perda FUNDEB — isca pública de captação ligada ao intake
+    nextUrl.pathname === '/calculadora' ||
     nextUrl.pathname === '/apm' ||
     nextUrl.pathname.startsWith('/apm/') ||
     nextUrl.pathname.startsWith('/_next') ||
