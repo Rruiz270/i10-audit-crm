@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { isAdmin } from '@/lib/roles';
 import { requireUser } from '@/lib/session';
-import { getWhatsAppConfig } from '@/lib/marketing/whatsapp-health';
+import { getWhatsAppConfig, getWaQuotaStatus } from '@/lib/marketing/whatsapp-health';
+import { WaQuotaMeter } from '@/components/marketing-channel';
 import {
   createWaCampaign,
   getWaWizardData,
@@ -10,9 +11,6 @@ import {
   type WaPreviewDetailed,
   type WaPublicMode,
 } from '@/lib/actions/marketing/wa-wizard';
-
-// Meta limita conversas iniciadas pelo negócio por dia (tier atual ≈ 2k).
-const META_DAILY_TIER = 2000;
 
 // Resolve o valor de uma variável do template p/ um contato da amostra —
 // espelha o mergeVars do launch (canônicos + attributes).
@@ -45,8 +43,9 @@ export default async function NewWhatsAppCampaignPage({
   const mode = (sp.mode ?? 'filters') as WaPublicMode;
   const wantsPreview = sp.preview === '1';
 
-  const [wa, data] = await Promise.all([
+  const [wa, quota, data] = await Promise.all([
     Promise.resolve(getWhatsAppConfig()),
+    getWaQuotaStatus(),
     getWaWizardData(),
   ]);
 
@@ -91,6 +90,12 @@ export default async function NewWhatsAppCampaignPage({
           <div className="text-sm font-semibold text-slate-900 mt-0.5">
             {wa.fromNumber ?? 'não configurado'}{' '}
             <span className="font-normal text-slate-500">· Instituto i10 · provider {wa.provider}</span>
+          </div>
+        </div>
+        <div className="w-52">
+          <div className="text-xs text-slate-500 uppercase tracking-wide">Quota Meta · 24h</div>
+          <div className="mt-1">
+            <WaQuotaMeter quota={quota} />
           </div>
         </div>
         <span
@@ -383,12 +388,14 @@ export default async function NewWhatsAppCampaignPage({
                 )}
               </div>
 
-              {preview.withPhone > META_DAILY_TIER && (
-                <p className="mt-3 text-xs text-amber-700 bg-amber-50 rounded p-2">
-                  ⚠️ Recorte acima do tier diário da Meta (~
-                  {META_DAILY_TIER.toLocaleString('pt-BR')} conversas/dia). O rate espalha os
-                  envios, mas o que passar do limite diário pode falhar — considere dividir em
-                  lotes.
+              {preview.withPhone > quota.remaining && (
+                <p className="mt-3 text-xs text-red-700 bg-red-50 rounded p-2">
+                  ⚠️ Recorte ({preview.withPhone.toLocaleString('pt-BR')}) acima do que resta na
+                  quota Meta: {quota.used.toLocaleString('pt-BR')} de{' '}
+                  {quota.limit.toLocaleString('pt-BR')} conversas iniciadas nas últimas 24h — restam{' '}
+                  {quota.remaining.toLocaleString('pt-BR')}. O launch acima disso é bloqueado pra não
+                  queimar o número: divida em lotes (campo limit no launch) ou aguarde a janela de
+                  24h girar.
                 </p>
               )}
 

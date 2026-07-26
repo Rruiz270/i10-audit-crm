@@ -13,6 +13,7 @@ import {
   sends,
 } from '@/lib/schema-marketing';
 import { requireUser, requireRole } from '@/lib/session';
+import { getWaQuotaStatus } from '@/lib/marketing/whatsapp-health';
 import { generateTrackingToken } from '@/lib/marketing/template-engine';
 import { batchIsSuppressed } from '@/lib/marketing/suppression';
 import { bulkEnqueueJobs } from '@/lib/marketing/queue';
@@ -145,6 +146,21 @@ export async function launchCampaign(formData: FormData): Promise<void> {
     redirect(
       `/marketing/${camp.projectId}/campaigns/${campaignId}?dryrun=${final.length}`,
     );
+  }
+
+  // Trava de quota Meta: launch real não pode passar do que resta no tier de
+  // conversas iniciadas/24h do número — estourar o tier queima o número.
+  if (isWhatsApp) {
+    const quota = await getWaQuotaStatus();
+    if (final.length > quota.remaining) {
+      throw new Error(
+        `Quota Meta insuficiente: ${quota.used.toLocaleString('pt-BR')} de ` +
+          `${quota.limit.toLocaleString('pt-BR')} conversas iniciadas nas últimas 24h ` +
+          `(restam ${quota.remaining.toLocaleString('pt-BR')}) e este launch criaria ` +
+          `${final.length.toLocaleString('pt-BR')}. Use o campo limit ` +
+          `(≤ ${quota.remaining.toLocaleString('pt-BR')}) pra enviar em lotes ou aguarde a janela girar.`,
+      );
+    }
   }
 
   // Marcar campanha como sending
