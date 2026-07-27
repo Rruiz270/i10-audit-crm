@@ -8,6 +8,7 @@ import { proposals, opportunities } from '@/lib/schema';
 import { requireUser } from '@/lib/session';
 import { logActivity } from '@/lib/activity';
 import { getAccessibleOpportunity } from '@/lib/authz';
+import { generatePublicToken } from '@/lib/proposal-public';
 
 // ─── Propostas dentro do CRM ────────────────────────────────────────────────
 // Registro canônico por oportunidade. Criar registra atividade; mudar status
@@ -63,6 +64,7 @@ export async function createProposal(formData: FormData): Promise<void> {
       items,
       validDays,
       notes,
+      publicToken: generatePublicToken(),
       createdBy: user.id,
     })
     .returning({ id: proposals.id, number: proposals.number, version: proposals.version });
@@ -123,6 +125,7 @@ export async function uploadProposal(
       total,
       externalUrl,
       notes: notes ?? `Upload manual · ${filename}`,
+      publicToken: generatePublicToken(),
       createdBy: user.id,
     })
     .returning({ id: proposals.id, number: proposals.number });
