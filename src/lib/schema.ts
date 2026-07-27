@@ -217,9 +217,32 @@ export const proposals = crmSchema.table('proposals', {
   validDays: integer('valid_days').default(30),
   externalUrl: text('external_url'),
   notes: text('notes'),
+  // Link público (capability URL): quem tem o token vê a proposta interativa
+  // sem login. Gerado no create (lazy-backfill para propostas antigas).
+  publicToken: text('public_token').unique(),
+  // Aceite digital feito pelo cliente na página pública.
+  acceptedAt: timestamp('accepted_at'),
+  acceptedByName: text('accepted_by_name'),
+  acceptedByRole: text('accepted_by_role'),
   createdBy: text('created_by').references(() => users.id),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// Tracking da proposta pública: cada abertura vira um evento 'view'; o tempo
+// de leitura chega por beacon e é acumulado num evento 'read' por sessão de
+// navegação (session_key gerado no client); o aceite registra 'accept'.
+export const proposalEvents = crmSchema.table('proposal_events', {
+  id: serial('id').primaryKey(),
+  proposalId: integer('proposal_id')
+    .notNull()
+    .references(() => proposals.id, { onDelete: 'cascade' }),
+  // 'view' | 'read' | 'accept'
+  kind: text('kind').notNull(),
+  sessionKey: text('session_key'),
+  readSeconds: integer('read_seconds'),
+  userAgent: text('user_agent'),
+  createdAt: timestamp('created_at').defaultNow(),
 });
 
 export const activities = crmSchema.table('activities', {
