@@ -18,7 +18,11 @@ export type ActivityKind =
   | 'task_completed'
   | 'tags_updated'
   | 'bulk_reassign'
-  | 'lost';
+  | 'lost'
+  // Disparo da cadência automática de deal parado (pipeline-cadences.ts).
+  // NUNCA logado via logActivity — é INSERT direto, sem bump de
+  // lastActivityAt, senão o deal deixaria de estar "rotten".
+  | 'auto_cadence';
 
 export async function logActivity(input: {
   opportunityId: number;

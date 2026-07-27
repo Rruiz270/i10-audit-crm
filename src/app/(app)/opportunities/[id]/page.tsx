@@ -143,6 +143,7 @@ const ACTIVITY_LABEL: Record<string, string> = {
   handoff: 'Handoff BNCC-CAPTACAO',
   intake_submission: 'Formulário público',
   lost: 'Perda registrada',
+  auto_cadence: 'Cadência automática',
 };
 
 export default async function OpportunityDetailPage({
