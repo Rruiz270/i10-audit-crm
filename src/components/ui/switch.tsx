@@ -50,7 +50,7 @@ export function Switch({
       onClick={toggle}
       className={cn(
         'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
-        'focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-1',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-i10-cyan focus-visible:ring-offset-2',
         on ? 'bg-i10-cyan' : 'bg-slate-300',
         disabled && 'cursor-not-allowed opacity-50',
         className,
