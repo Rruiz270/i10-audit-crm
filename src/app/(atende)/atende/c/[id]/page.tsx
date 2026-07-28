@@ -10,7 +10,7 @@ import {
 import { requireUser } from '@/lib/session';
 import { isAiAssistantEnabled } from '@/lib/marketing/ai-assistant';
 import { ChatClient, type ChatMsg } from '@/components/atende/chat-client';
-import { InboxAutoRefresh } from '@/components/inbox-auto-refresh';
+import { InboxRealtime } from '@/components/inbox-realtime';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'i10 · Conversa' };
@@ -71,7 +71,7 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
 
   return (
     <>
-      <InboxAutoRefresh intervalMs={6000} />
+      <InboxRealtime conversationId={conv.id} includeList={false} />
       <ChatClient
       conversationId={conv.id}
       contactName={conv.contactName}
