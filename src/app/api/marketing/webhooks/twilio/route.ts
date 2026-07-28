@@ -5,6 +5,7 @@ import { webhookLog, sends, events, campaigns, messages } from '@/lib/schema-mar
 import { addSuppression } from '@/lib/marketing/suppression';
 import { handleInboundWhatsApp } from '@/lib/marketing/inbound';
 import { rateLimitByIp } from '@/lib/rate-limit';
+import { captureError } from '@/lib/observability';
 
 // Statuses de entrega (callback). Se não for um desses e tiver Body → é inbound.
 const DELIVERY_STATUSES = ['queued', 'sending', 'sent', 'delivered', 'read', 'failed', 'undelivered'];
@@ -90,6 +91,7 @@ export async function POST(request: NextRequest) {
       return Response.json({ ok: true, inbound: true, conversationId: convId });
     } catch (err) {
       const m = err instanceof Error ? err.message : String(err);
+      captureError(err, { area: 'webhook:twilio', extra: { kind: 'inbound' } });
       // 500 → Twilio re-tenta (não perdemos a mensagem do contato)
       return Response.json({ ok: false, error: m }, { status: 500 });
     }
@@ -235,6 +237,10 @@ export async function POST(request: NextRequest) {
     return Response.json({ ok: true, sendId: send.id, eventType });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    captureError(err, {
+      area: 'webhook:twilio',
+      extra: { kind: 'status-callback', messageSid, messageStatus, webhookLogId: logEntry.id },
+    });
     await db
       .update(webhookLog)
       .set({ status: 'error', errorMessage: message })
