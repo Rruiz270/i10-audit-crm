@@ -8,7 +8,7 @@ import { pipelineStages } from '@/lib/schema';
 import { requireUser } from '@/lib/session';
 
 /**
- * Dynamic pipeline stages: estágios padrão são seeded pelo migrate-stages.mjs
+ * Dynamic pipeline stages: estágios padrão são seeded pelo scripts/legacy/migrate-stages.mjs
  * (is_custom=false). Admins podem adicionar estágios CUSTOM — que aparecem
  * entre os padrão na ordem definida.
  *

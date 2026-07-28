@@ -43,7 +43,7 @@ CRM do Instituto i10 para captação de leads de municípios e handoff para o si
 - `src/components/`, `src/proxy.ts`
 - `drizzle/` — migrations SQL (`0000_baseline.sql`, subpastas `marketing/`, `meta/`); dois journals separados (`__drizzle_migrations_crm` vs marketing)
 - `drizzle.config.ts` (schema `crm`) e `drizzle.config.marketing.ts`
-- `scripts/` — migrations pontuais (`migrate-*.mjs`), seeds, backfills, testes de WhatsApp
+- `scripts/` — seeds, backfills, testes de WhatsApp; `legacy/` guarda os antigos `migrate-*.mjs` (aposentados — schema evolui só via migrations Drizzle)
 - `tests/`, `vercel.json` (crons), `README.md`, `BLUEPRINT_RESULT.md`, `USECASE_REPORT.md`
 
 ## Convenções de código
@@ -68,8 +68,8 @@ Integrações adicionais (Twilio/SES/Blob/web-push) exigem suas próprias envs �
 
 ## CI/CD & Deploy
 
-- **Deploy:** Vercel — push na `main` = produção; PRs geram preview. `vercel.json` define 3 crons de marketing (`drain` e `sequences` a cada minuto, `recover` a cada 5 min).
-- **CI:** não há workflows em `.github/workflows/`. Recomendado workflow mínimo em PR: `npm ci` → `npm run lint` → `npm run typecheck` → `npm test` → `npm run build`.
+- **Deploy:** Vercel — push na `main` = produção; PRs geram preview. `vercel.json` define os crons de marketing e o `buildCommand` (`npm run build:deploy`), que aplica as migrations Drizzle (`scripts/db-migrate-deploy.mjs`) antes do `next build` — só em deploy de produção; previews não tocam o banco.
+- **CI:** `.github/workflows/ci.yml` roda `drizzle-kit check` (crm + marketing) em PRs e na `main`. Recomendado ampliar com: `npm run lint` → `npm run typecheck` → `npm test` → `npm run build`.
 
 ## Boas práticas de PR
 

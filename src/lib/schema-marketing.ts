@@ -181,7 +181,7 @@ export const campaigns = marketingSchema.table('campaigns', {
   openCount: integer('open_count').notNull().default(0),
   clickCount: integer('click_count').notNull().default(0),
   // WhatsApp: leituras (wa_read) e respostas únicas (wa_replied, 1 por send).
-  // Backfill histórico a partir de marketing.events: scripts/migrate-wa-funnel.mjs
+  // Backfill histórico a partir de marketing.events: scripts/legacy/migrate-wa-funnel.mjs
   readCount: integer('read_count').notNull().default(0),
   repliedCount: integer('replied_count').notNull().default(0),
   bounceCount: integer('bounce_count').notNull().default(0),

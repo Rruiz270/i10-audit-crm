@@ -11,6 +11,8 @@
     "db:generate:marketing": "drizzle-kit generate --config drizzle.config.marketing.ts",
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:marketing": "drizzle-kit migrate --config drizzle.config.marketing.ts",
+    "db:migrate:deploy": "node scripts/db-migrate-deploy.mjs",
+    "build:deploy": "npm run db:migrate:deploy && next build",
     "db:baseline": "node scripts/db-baseline.mjs",
     "db:studio": "drizzle-kit studio",
     "db:check": "node scripts/db-check.mjs",

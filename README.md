@@ -56,11 +56,10 @@ Fill in:
 ### 3. Database migration
 
 ```bash
-npx drizzle-kit generate   # produces SQL in ./drizzle
-npx drizzle-kit push       # applies to Neon
+npm run db:migrate   # applies the versioned migrations in ./drizzle to Neon
 ```
 
-The `crm` schema is created on first push. NextAuth tables (`users`, `accounts`, `sessions`, `verification_tokens`) live inside `crm.*`.
+Schema changes are made in `src/lib/schema.ts`, then `npm run db:generate` produces a new SQL migration to commit — never `drizzle-kit push` (see `drizzle/README.md`). Production migrations run automatically during the Vercel deploy build. The `crm` schema is created by the baseline migration. NextAuth tables (`users`, `accounts`, `sessions`, `verification_tokens`) live inside `crm.*`.
 
 ### 4. Run
 
