@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { webhookLog, sends, events, campaigns, messages } from '@/lib/schema-marketing';
 import { addSuppression } from '@/lib/marketing/suppression';
 import { handleInboundWhatsApp } from '@/lib/marketing/inbound';
+import { notifyInboxChange } from '@/lib/marketing/realtime';
 import { rateLimitByIp } from '@/lib/rate-limit';
 
 // Statuses de entrega (callback). Se não for um desses e tiver Body → é inbound.
@@ -87,6 +88,9 @@ export async function POST(request: NextRequest) {
     });
     try {
       const convId = await handleInboundWhatsApp(payload);
+      // Acorda streams SSE abertos (/api/atende/stream) na mesma instância —
+      // entrega quase instantânea; instâncias irmãs pegam no tick do cursor.
+      notifyInboxChange(typeof convId === 'number' ? convId : null);
       return Response.json({ ok: true, inbound: true, conversationId: convId });
     } catch (err) {
       const m = err instanceof Error ? err.message : String(err);
@@ -121,8 +125,10 @@ export async function POST(request: NextRequest) {
         .update(messages)
         .set({ status: messageStatus })
         .where(eq(messages.twilioSid, messageSid))
-        .returning({ id: messages.id });
+        .returning({ id: messages.id, conversationId: messages.conversationId });
       inboxMessageUpdated = updatedMsg.length > 0;
+      // Status novo (✓ → ✓✓ → lido) aparece na hora pra quem está no thread.
+      if (inboxMessageUpdated) notifyInboxChange(updatedMsg[0].conversationId);
     }
 
     // Resolver send pelo providerId (MessageSid foi salvo lá)
