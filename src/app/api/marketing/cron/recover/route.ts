@@ -1,5 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { neon } from '@neondatabase/serverless';
+import { runQueueHealthCheck } from '@/lib/marketing/alerts';
+import { captureError } from '@/lib/observability';
 
 // ─── /api/marketing/cron/recover ───────────────────────────────────────────
 // Auto-recovery: re-enfileira sends que ficaram 'queued' mas cujo job morreu
@@ -52,5 +54,23 @@ export async function GET(request: NextRequest) {
     requeued++;
   }
 
-  return Response.json({ ok: true, recovered: requeued, scannedStuck: stuck.length });
+  // Health check do motor de envios pega carona aqui (a cada 5 min): fila
+  // dead/stuck, drain parado, taxa de erro de provider e webhooks com erro.
+  // Notifica o time (e-mail/WhatsApp) com cooldown. Best-effort: nunca pode
+  // impedir a recuperação de sends acima.
+  let health: Awaited<ReturnType<typeof runQueueHealthCheck>> | null = null;
+  try {
+    health = await runQueueHealthCheck({ notify: true });
+  } catch (err) {
+    captureError(err, { area: 'cron:recover' });
+  }
+
+  return Response.json({
+    ok: true,
+    recovered: requeued,
+    scannedStuck: stuck.length,
+    health: health
+      ? { healthy: health.healthy, issues: health.issues, notified: health.notifiedKeys }
+      : null,
+  });
 }

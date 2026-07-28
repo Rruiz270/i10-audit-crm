@@ -527,6 +527,25 @@ export const pushSubscriptions = marketingSchema.table(
   (t) => [index('push_subs_user_idx').on(t.userId)],
 );
 
+// ─── Observabilidade do motor de envios ────────────────────────────────────
+// Heartbeats de cron (drain/recover marcam cada execução) + estado de alertas
+// (cooldown pra não spammar o time a cada check de 5 min). Consumidos por
+// src/lib/marketing/alerts.ts e pelo endpoint /api/marketing/health.
+export const opsHeartbeats = marketingSchema.table('ops_heartbeats', {
+  // 'cron:drain' | 'cron:recover' | ...
+  key: text('key').primaryKey(),
+  lastRunAt: timestamp('last_run_at').notNull().defaultNow(),
+  // Snapshot do resultado da última execução (ex: { claimed, completed, failed })
+  lastMeta: jsonb('last_meta').notNull().default({}),
+});
+
+export const opsAlertState = marketingSchema.table('ops_alert_state', {
+  // Chave do alerta (ex: 'queue_dead_jobs', 'drain_stalled')
+  key: text('key').primaryKey(),
+  lastNotifiedAt: timestamp('last_notified_at').notNull().defaultNow(),
+  lastMessage: text('last_message'),
+});
+
 export const messages = marketingSchema.table(
   'messages',
   {
