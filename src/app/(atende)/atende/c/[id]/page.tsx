@@ -8,6 +8,7 @@ import {
   markConversationRead,
 } from '@/lib/actions/marketing/conversations';
 import { requireUser } from '@/lib/session';
+import { isAiAssistantEnabled } from '@/lib/marketing/ai-assistant';
 import { ChatClient, type ChatMsg } from '@/components/atende/chat-client';
 import { InboxAutoRefresh } from '@/components/inbox-auto-refresh';
 
@@ -90,6 +91,7 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
       templates={templates}
       cannedResponses={canned.map((c) => ({ id: c.id, title: c.title, body: c.body }))}
       audioEnabled={audioEnabled}
+      aiEnabled={isAiAssistantEnabled()}
     />
     </>
   );
