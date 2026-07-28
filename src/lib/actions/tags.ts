@@ -13,7 +13,7 @@ import { TAG_COLOR_OPTS } from '@/lib/tag-colors';
 
 /**
  * Taxonomia de tags gerenciada em banco (crm.tags). Diferente do free-text:
- *   · seed padrão (is_custom=false) vem do migrate-tags.mjs — não deletável
+ *   · seed padrão (is_custom=false) vem do scripts/legacy/migrate-tags.mjs — não deletável
  *   · admin/gestor adiciona tags CUSTOM via /settings/tags
  *   · oportunidades guardam o LABEL da tag em crm.opportunities.tags (text[])
  *
