@@ -27,7 +27,15 @@ const DEAD_WINDOW_MINUTES = 60;
 const STUCK_CLAIMED_MINUTES = 15;
 const WEBHOOK_WINDOW_MINUTES = 60;
 
+// Chaves de heartbeat dos crons do motor. A Agenda de Jobs (painel de Agentes)
+// lê marketing.ops_heartbeats pra saber se o cron REALMENTE rodou: a API da
+// Vercel entrega só a agenda, nunca a execução. Sem batida, o painel mostra
+// "sem telemetria" — melhor que um verde que não prova nada.
+// Convenção: 'cron:<último segmento do path>' — o monitor deriva a chave assim.
 export const DRAIN_HEARTBEAT_KEY = 'cron:drain';
+export const SEQUENCES_HEARTBEAT_KEY = 'cron:sequences';
+export const RECOVER_HEARTBEAT_KEY = 'cron:recover';
+export const CADENCES_HEARTBEAT_KEY = 'cron:pipeline-cadences';
 
 export type AlertConfig = {
   deadJobsThreshold: number;

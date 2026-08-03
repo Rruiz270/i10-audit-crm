@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { neon } from '@neondatabase/serverless';
-import { runQueueHealthCheck } from '@/lib/marketing/alerts';
+import { beatHeartbeat, RECOVER_HEARTBEAT_KEY, runQueueHealthCheck } from '@/lib/marketing/alerts';
 import { captureError } from '@/lib/observability';
 
 // ─── /api/marketing/cron/recover ───────────────────────────────────────────
@@ -64,6 +64,8 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     captureError(err, { area: 'cron:recover' });
   }
+
+  await beatHeartbeat(RECOVER_HEARTBEAT_KEY, { recovered: requeued, scannedStuck: stuck.length });
 
   return Response.json({
     ok: true,
