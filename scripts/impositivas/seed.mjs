@@ -100,7 +100,16 @@ for (let i = 0; i < contacts.length; i += 200) {
         municipio  = EXCLUDED.municipio,
         uf         = COALESCE(marketing.contacts.uf, EXCLUDED.uf),
         role       = COALESCE(marketing.contacts.role, EXCLUDED.role),
-        attributes = marketing.contacts.attributes || EXCLUDED.attributes,
+        -- `||` em jsonb SUBSTITUI a chave inteira: mesclar direto apagaria as
+        -- tags que o contato já tinha de outras campanhas. Por isso as tags
+        -- são reconciliadas à parte, somando sem duplicar.
+        attributes = (marketing.contacts.attributes || EXCLUDED.attributes)
+          || jsonb_build_object('tags', (
+               SELECT COALESCE(jsonb_agg(DISTINCT t), '[]'::jsonb)
+               FROM jsonb_array_elements(
+                 COALESCE(marketing.contacts.attributes->'tags', '[]'::jsonb) ||
+                 COALESCE(EXCLUDED.attributes->'tags', '[]'::jsonb)) AS t
+             )),
         updated_at = NOW()
       RETURNING (xmax = 0) AS inserted`;
     if (r[0]?.inserted) novos += 1;
