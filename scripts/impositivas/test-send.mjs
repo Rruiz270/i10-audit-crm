@@ -10,6 +10,7 @@ import { config } from 'dotenv';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { EMAILS, WA_TEMPLATES } from './emails.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 config({ path: path.join(__dirname, '..', '..', '.env.local') });
@@ -32,18 +33,12 @@ if (!email && !whatsapp) {
   process.exit(1);
 }
 
-const PECAS = {
-  E1: 'E1 · Abertura (TCE aponta impropriedades)',
-  E2: 'E2 · Aula aberta 20 min',
-  E3: 'E3 · Três instâncias + autodiagnóstico',
-  A1: 'Trilha A · A1 — convite à sessão de 30 min',
-  A2: 'Trilha A · A2 — checklist em 1 página',
-  B1: 'B1 · Duas perguntas diretas (frios)',
-  B2: 'B2 · Emendas que ficam na mesa (frios)',
-  B4: 'B4 · Encerramento do ciclo (frios)',
-  W1: 'W1 · WhatsApp abertura',
-  B3: 'B3 · WhatsApp urgência (frios)',
-};
+// Deriva o nome do template das próprias copies — assim renomear uma peça em
+// emails.mjs não quebra o teste.
+const PECAS = Object.fromEntries([
+  ...EMAILS.map((e) => [e.key, e.name]),
+  ...WA_TEMPLATES.map((w) => [w.key, w.friendly]),
+]);
 
 const [proj] = await sql`SELECT id, settings FROM marketing.projects WHERE slug = 'impositivas-sp'`;
 if (!proj) {

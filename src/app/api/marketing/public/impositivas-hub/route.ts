@@ -69,7 +69,8 @@ export async function GET(req: Request) {
       FROM marketing.list_members lm
       JOIN marketing.audiences a ON a.id = lm.audience_id
       JOIN marketing.contacts c  ON c.id = lm.contact_id
-      WHERE a.project_id = ${projectId}
+      -- Audiências "ZZ …" são de teste interno: ficam fora dos números.
+      WHERE a.project_id = ${projectId} AND a.name NOT LIKE 'ZZ %'
     ),
     env AS (
       SELECT s.contact_id,
@@ -164,7 +165,8 @@ export async function GET(req: Request) {
            c.open_count, c.click_count, c.bounce_count, c.unsubscribe_count, t.channel
     FROM marketing.campaigns c
     JOIN marketing.templates t ON t.id = c.template_id
-    WHERE c.project_id = ${projectId} AND c.name NOT LIKE '[seq:%'
+    WHERE c.project_id = ${projectId}
+      AND c.name NOT LIKE '[seq:%' AND c.name NOT LIKE 'ZZ TESTE%'
     ORDER BY c.scheduled_at NULLS LAST, c.id
   `) as Array<Record<string, unknown>>;
 
