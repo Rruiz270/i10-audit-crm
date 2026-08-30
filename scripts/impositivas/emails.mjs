@@ -85,7 +85,7 @@ export const EMAILS = [
         'TCE-SP · Relatório de Fiscalização, Contas Anuais 2025',
       ),
       p(
-        'Não é um movimento isolado: desde maio de 2025 são <strong>6 atos normativos do TCE-SP</strong> sobre o tema — incluindo a exigência de <strong>conta bancária específica por emenda</strong> (Comunicado Audesp 09) — depois que o STF encerrou o orçamento secreto e as “emendas Pix” (ADPF 854 e ADI 7697).',
+        'Não é um movimento isolado: desde maio de 2025 são <strong>sete atos normativos do TCE-SP</strong> mais o Manual de 2026. A Resolução 17/2025 exige <strong>onze informações publicadas em tempo real</strong> e está em vigor desde <strong>1º de janeiro de 2026</strong> — o prazo de implementação já venceu. E o Comunicado GP 46/2025 instituiu o <strong>questionário eletrônico ao Legislativo</strong>: é ele que chega à Câmara.',
       ),
       p(
         'O Instituto i10, por indicação da <strong>APM</strong>, preparou um diagnóstico rápido para as Câmaras paulistas: em poucos minutos você vê onde a Câmara de {{municipio}} está diante do checklist que os auditores aplicam.',
@@ -198,7 +198,7 @@ export const EMAILS = [
         'Alguém consegue seguir o dinheiro de cada emenda <strong>até o beneficiário final</strong>?',
       ]),
       p(
-        'Nas contas anuais de 2025, responder “não” a qualquer uma delas já rendeu <strong>apontamento de impropriedade</strong> a Câmaras paulistas. E a régua segue subindo: desde março de 2026 o TCE-SP exige <strong>conta bancária específica por emenda</strong>.',
+        'Nas contas anuais de 2025, responder “não” a qualquer uma delas já rendeu <strong>apontamento de impropriedade</strong> a Câmaras paulistas. E o prazo não é mais futuro: a Resolução 17/2025 está em vigor desde <strong>1º de janeiro de 2026</strong>, com onze informações que precisam estar publicadas em tempo real.',
       ),
       p('Em 3 minutos você vê onde sua Câmara está — e o que é prioridade resolver antes da próxima fiscalização.'),
       `      <p style="margin:18px 0 0 0;">${btn('{{link_lp}}', 'Ver a situação da minha Câmara →')}</p>`,
@@ -262,7 +262,7 @@ export const WA_TEMPLATES = [
     category: 'MARKETING',
     body:
       'Olá, {{1}}! Aqui é do Instituto i10, em parceria com a APM.\n\n' +
-      'O TCE-SP publicou novas regras para as emendas impositivas — inclusive conta bancária específica por emenda — e os relatórios de contas anuais das Câmaras já registram impropriedades no tema.\n\n' +
+      'A Resolução 17/2025 do TCE-SP está em vigor desde 1º de janeiro e exige onze informações publicadas em tempo real. O questionário eletrônico ao Legislativo já foi instituído.\n\n' +
       'Preparamos um material gratuito de 20 minutos para a Câmara de {{2}} verificar se está em conformidade. Posso te enviar?',
     buttons: [{ id: 'quero', title: 'Quero o material' }, { id: 'falar', title: 'Falar com especialista' }],
     variables: ['primeiro_nome', 'municipio'],
@@ -276,7 +276,7 @@ export const WA_TEMPLATES = [
     // "Presidente" antes do {{1}}.
     body:
       'Presidente {{1}}, um alerta rápido do Instituto i10 (parceria APM):\n\n' +
-      'o TCE-SP passou a exigir conta bancária específica por emenda impositiva e já registra impropriedades em contas de Câmaras sem manual orientativo e sem rastreabilidade.\n\n' +
+      'a Resolução 17/2025 está em vigor desde 1º de janeiro, com onze informações que precisam estar publicadas em tempo real, e o Tribunal já registra impropriedades em Câmaras sem manual orientativo e sem rastreabilidade.\n\n' +
       'A Câmara de {{2}} já se adequou? Em 3 minutos dá para verificar.',
     buttons: [{ id: 'verificar', title: 'Verificar minha Câmara' }, { id: 'falar', title: 'Falar com especialista' }],
     variables: ['primeiro_nome', 'municipio'],
