@@ -150,4 +150,4 @@ await sql`
 console.log(`send ...................... #${send.id} enfileirado (${tpl.channel})`);
 console.log(`\nO GitHub Actions drena a fila a cada 5 min. Para sair agora:`);
 console.log(`  curl -H "Authorization: Bearer $CRON_SECRET" \\`);
-console.log(`    "https://crm.institutoi10.com.br/api/marketing/cron/drain?limit=5"`);
+console.log(`    "https://i10-audit-crm.vercel.app/api/marketing/cron/drain?limit=5"`);

@@ -169,13 +169,17 @@ export async function GET(req: Request) {
   `) as Array<Record<string, unknown>>;
 
   const municipios = rows.map((r) => {
+    // "Frio" só faz sentido depois de a peça ter chegado: antes do primeiro
+    // disparo todo mundo é "não iniciado", senão o painel abre com 645 frios.
     const trilha = r.descadastrou
       ? 'opt-out'
       : r.em_trilha_a || r.inscreveu || r.clicou || r.baixou || r.wa_conversa
         ? 'A'
         : r.abriu
           ? 'observacao'
-          : 'B';
+          : r.entregue
+            ? 'B'
+            : 'nao_iniciado';
     return { ...r, trilha };
   });
 
@@ -198,6 +202,7 @@ export async function GET(req: Request) {
     B: count((m) => m.trilha === 'B'),
     observacao: count((m) => m.trilha === 'observacao'),
     optout: count((m) => m.trilha === 'opt-out'),
+    nao_iniciado: count((m) => m.trilha === 'nao_iniciado'),
   };
 
   return Response.json(

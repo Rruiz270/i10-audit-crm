@@ -93,8 +93,11 @@ for (let i = 0; i < contacts.length; i += 200) {
         name       = COALESCE(marketing.contacts.name, EXCLUDED.name),
         phone      = COALESCE(marketing.contacts.phone, EXCLUDED.phone),
         whatsapp   = COALESCE(marketing.contacts.whatsapp, EXCLUDED.whatsapp),
-        ibge       = COALESCE(marketing.contacts.ibge, EXCLUDED.ibge),
-        municipio  = COALESCE(marketing.contacts.municipio, EXCLUDED.municipio),
+        -- município e IBGE vêm da planilha da APM, que é a fonte autoritativa
+        -- aqui: bases antigas trazem o nome em caixa alta e sem código, o que
+        -- quebraria o agrupamento por município no painel.
+        ibge       = EXCLUDED.ibge,
+        municipio  = EXCLUDED.municipio,
         uf         = COALESCE(marketing.contacts.uf, EXCLUDED.uf),
         role       = COALESCE(marketing.contacts.role, EXCLUDED.role),
         attributes = marketing.contacts.attributes || EXCLUDED.attributes,
