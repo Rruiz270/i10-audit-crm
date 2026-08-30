@@ -2,6 +2,7 @@ import { eq, or } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { conversations, messages, contacts } from '@/lib/schema-marketing';
 import { sendPushToUsers, getAllSubscribedUserIds } from '@/lib/push';
+import { maybeAutoReply } from '@/lib/marketing/auto-reply';
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -70,6 +71,9 @@ export async function handleInboundWhatsApp(payload: Record<string, string>): Pr
         unread: true,
         // Mantém nome se já tínhamos; preenche se faltava
         contactName: profileName ?? contact?.name ?? undefined,
+        // Conversa criada antes de o contato existir ficava órfã para sempre:
+        // agora que sabemos quem é, amarramos.
+        contactId: contact?.id ?? undefined,
         closedAt: null,
       },
     })
@@ -84,6 +88,20 @@ export async function handleInboundWhatsApp(payload: Record<string, string>): Pr
     body,
     mediaUrls,
   });
+
+  // Resposta automática da campanha (ex.: tocou em "Quero o material").
+  // Em linha de propósito: a janela de 24h acabou de abrir e a promessa é
+  // entregar na hora. Best-effort — falhar aqui não pode perder a mensagem.
+  try {
+    const auto = await maybeAutoReply({
+      conversationId: conv.id,
+      contactId: contact?.id ?? null,
+      phone,
+    });
+    if (auto.sent) console.log(`[auto-reply] ${auto.projectSlug} → ${phone}`);
+  } catch (err) {
+    console.error('[auto-reply] falhou (mensagem preservada):', err);
+  }
 
   // Push (best-effort — nunca bloqueia/derruba o webhook). Notifica o dono da
   // conversa; se estiver sem dono (fila), avisa todos os inscritos para alguém
