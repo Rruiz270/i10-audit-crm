@@ -64,8 +64,8 @@ export async function GET(req: Request) {
   // daquela câmara (a planilha traz institucional + pessoal do presidente).
   const rows = (await sql`
     WITH membros AS (
-      SELECT DISTINCT c.id, c.email, c.municipio, c.ibge, c.name, c.whatsapp, c.status,
-             c.attributes
+      SELECT DISTINCT c.id, c.email, c.municipio, c.ibge, c.name, c.whatsapp, c.phone,
+             c.status, c.attributes
       FROM marketing.list_members lm
       JOIN marketing.audiences a ON a.id = lm.audience_id
       JOIN marketing.contacts c  ON c.id = lm.contact_id

@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
   // se inscreveu no formulário, ou respondeu no WhatsApp.
   const engajados = (await sql`
     WITH membros AS (
-      SELECT DISTINCT c.id, c.email, c.name, c.whatsapp, c.municipio, c.ibge, c.attributes
+      SELECT DISTINCT c.id, c.email, c.name, c.whatsapp, c.phone, c.municipio, c.ibge, c.attributes
       FROM marketing.list_members lm
       JOIN marketing.audiences a ON a.id = lm.audience_id
       JOIN marketing.contacts c  ON c.id = lm.contact_id
