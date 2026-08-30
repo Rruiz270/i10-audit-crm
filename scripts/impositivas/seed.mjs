@@ -28,18 +28,21 @@ const SLUG = 'impositivas-sp';
 const LP = 'https://www.institutoi10.com.br/impositivas-sp'; // canônico: sem www redireciona (307)
 const WA_NUMBER = '5511947223906';
 
-// Calendário aprovado (horário de Brasília = UTC-3 → 12:00Z ≈ 09:00 BRT)
+// Calendário (antecipado em 30/08: começa no dia seguinte).
+// Horário de Brasília = UTC-3 → 12:00Z ≈ 09:00 BRT.
+// 07/09 é feriado (Independência), por isso o E2 cai na terça seguinte.
 const CAL = {
-  E1: '2026-09-09T12:00:00Z',
-  W1: '2026-09-10T13:00:00Z',
-  E2: '2026-09-14T12:00:00Z',
-  E3: '2026-09-21T12:00:00Z',
-  B1: '2026-09-24T12:00:00Z',
-  B2: '2026-10-01T12:00:00Z',
-  B3: '2026-10-08T13:00:00Z',
-  B4: '2026-10-15T12:00:00Z',
+  E1: '2026-08-31T12:00:00Z', // seg
+  W1: '2026-09-01T13:00:00Z', // ter
+  E2: '2026-09-08T12:00:00Z', // ter (07/09 feriado)
+  E3: '2026-09-14T12:00:00Z', // seg
+  B1: '2026-09-17T12:00:00Z', // qui
+  B2: '2026-09-24T12:00:00Z', // qui
+  B3: '2026-10-01T13:00:00Z', // qui
+  B4: '2026-10-08T12:00:00Z', // qui
 };
-const CORTE_B = '2026-09-23T12:00:00Z';
+// Corte A/B: 2 dias depois do E3, antes da primeira peça da régua fria.
+const CORTE_B = '2026-09-16T12:00:00Z';
 const AUD_B = 'Câmaras SP — Trilha B (dinâmica)';
 
 // ─── 1. Projeto ────────────────────────────────────────────────────────────
