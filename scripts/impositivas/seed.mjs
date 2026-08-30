@@ -78,42 +78,53 @@ console.log(`projeto ................... #${projectId} (${SLUG})`);
 // ─── 2. Contatos ───────────────────────────────────────────────────────────
 const contacts = JSON.parse(fs.readFileSync(path.join(__dirname, 'contacts.json'), 'utf8'));
 let novos = 0;
+// Um INSERT por contato seria ~950 idas ao banco (minutos). Mandamos o chunk
+// inteiro como arrays paralelos e deixamos o Postgres expandir com unnest.
 for (let i = 0; i < contacts.length; i += 200) {
   const chunk = contacts.slice(i, i + 200);
-  for (const c of chunk) {
-    const r = await sql`
-      INSERT INTO marketing.contacts
-        (email, phone, whatsapp, name, ibge, municipio, uf, role, source, attributes, lgpd_basis, status)
-      VALUES (${c.email}, ${c.phone}, ${c.whatsapp}, ${c.name}, ${c.ibge}, ${c.municipio}, 'SP',
-              ${c.role}, 'apm-camaras-sp', ${JSON.stringify(c.attributes)}::jsonb,
-              'legitimate_interest', 'active')
-      ON CONFLICT (email) DO UPDATE SET
-        -- Contato que já existe de outra campanha: completamos o que falta e
-        -- acumulamos a tag, sem mexer em status (respeita descadastro prévio).
-        name       = COALESCE(marketing.contacts.name, EXCLUDED.name),
-        phone      = COALESCE(marketing.contacts.phone, EXCLUDED.phone),
-        whatsapp   = COALESCE(marketing.contacts.whatsapp, EXCLUDED.whatsapp),
-        -- município e IBGE vêm da planilha da APM, que é a fonte autoritativa
-        -- aqui: bases antigas trazem o nome em caixa alta e sem código, o que
-        -- quebraria o agrupamento por município no painel.
-        ibge       = EXCLUDED.ibge,
-        municipio  = EXCLUDED.municipio,
-        uf         = COALESCE(marketing.contacts.uf, EXCLUDED.uf),
-        role       = COALESCE(marketing.contacts.role, EXCLUDED.role),
-        -- `||` em jsonb SUBSTITUI a chave inteira: mesclar direto apagaria as
-        -- tags que o contato já tinha de outras campanhas. Por isso as tags
-        -- são reconciliadas à parte, somando sem duplicar.
-        attributes = (marketing.contacts.attributes || EXCLUDED.attributes)
-          || jsonb_build_object('tags', (
-               SELECT COALESCE(jsonb_agg(DISTINCT t), '[]'::jsonb)
-               FROM jsonb_array_elements(
-                 COALESCE(marketing.contacts.attributes->'tags', '[]'::jsonb) ||
-                 COALESCE(EXCLUDED.attributes->'tags', '[]'::jsonb)) AS t
-             )),
-        updated_at = NOW()
-      RETURNING (xmax = 0) AS inserted`;
-    if (r[0]?.inserted) novos += 1;
-  }
+  const r = await sql`
+    INSERT INTO marketing.contacts
+      (email, phone, whatsapp, name, ibge, municipio, uf, role, source, attributes, lgpd_basis, status)
+    SELECT * FROM unnest(
+      ${chunk.map((c) => c.email)}::text[],
+      ${chunk.map((c) => c.phone)}::text[],
+      ${chunk.map((c) => c.whatsapp)}::text[],
+      ${chunk.map((c) => c.name)}::text[],
+      ${chunk.map((c) => c.ibge)}::varchar[],
+      ${chunk.map((c) => c.municipio)}::text[],
+      ${chunk.map(() => 'SP')}::varchar[],
+      ${chunk.map((c) => c.role)}::text[],
+      ${chunk.map(() => 'apm-camaras-sp')}::text[],
+      ${chunk.map((c) => JSON.stringify(c.attributes))}::jsonb[],
+      ${chunk.map(() => 'legitimate_interest')}::text[],
+      ${chunk.map(() => 'active')}::text[]
+    ) AS t(email, phone, whatsapp, name, ibge, municipio, uf, role, source, attributes, lgpd_basis, status)
+    ON CONFLICT (email) DO UPDATE SET
+      -- Contato que já existe de outra campanha: completamos o que falta e
+      -- acumulamos a tag, sem mexer em status (respeita descadastro prévio).
+      name       = COALESCE(marketing.contacts.name, EXCLUDED.name),
+      phone      = COALESCE(marketing.contacts.phone, EXCLUDED.phone),
+      whatsapp   = COALESCE(marketing.contacts.whatsapp, EXCLUDED.whatsapp),
+      -- município e IBGE vêm da planilha da APM, que é a fonte autoritativa
+      -- aqui: bases antigas trazem o nome em caixa alta e sem código, o que
+      -- quebraria o agrupamento por município no painel.
+      ibge       = EXCLUDED.ibge,
+      municipio  = EXCLUDED.municipio,
+      uf         = COALESCE(marketing.contacts.uf, EXCLUDED.uf),
+      role       = COALESCE(marketing.contacts.role, EXCLUDED.role),
+      -- O operador || em jsonb SUBSTITUI a chave inteira: mesclar direto
+      -- apagaria as tags que o contato já tinha de outras campanhas. Por
+      -- isso as tags são reconciliadas à parte, somando sem duplicar.
+      attributes = (marketing.contacts.attributes || EXCLUDED.attributes)
+        || jsonb_build_object('tags', (
+             SELECT COALESCE(jsonb_agg(DISTINCT t), '[]'::jsonb)
+             FROM jsonb_array_elements(
+               COALESCE(marketing.contacts.attributes->'tags', '[]'::jsonb) ||
+               COALESCE(EXCLUDED.attributes->'tags', '[]'::jsonb)) AS t
+           )),
+      updated_at = NOW()
+    RETURNING (xmax = 0) AS inserted`;
+  novos += r.filter((x) => x.inserted).length;
 }
 console.log(`contatos .................. ${contacts.length} na planilha · ${novos} novos`);
 
@@ -260,7 +271,7 @@ await sql`
 const PLANO = [
   { key: 'E1', nome: 'E1 · Abertura (TCE aponta impropriedades)', aud: audBase, canal: 'email', rate: 40 },
   { key: 'W1', nome: 'W1 · WhatsApp abertura', aud: audWa, canal: 'whatsapp', rate: 25 },
-  { key: 'E2', nome: 'E2 · Aula aberta 20 min', aud: audBase, canal: 'email', rate: 40 },
+  { key: 'E2', nome: 'E2 · Três pontos que passam batido', aud: audBase, canal: 'email', rate: 40 },
   { key: 'E3', nome: 'E3 · Três instâncias + autodiagnóstico', aud: audBase, canal: 'email', rate: 40 },
   { key: 'B1', nome: 'B1 · Duas perguntas diretas (frios)', aud: audTrilhaB, canal: 'email', rate: 40 },
   { key: 'B2', nome: 'B2 · Emendas que ficam na mesa (frios)', aud: audTrilhaB, canal: 'email', rate: 40 },

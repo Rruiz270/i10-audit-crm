@@ -11,6 +11,10 @@ import {
   sends,
 } from '../schema-marketing';
 import { getWhatsAppProvider } from './providers';
+import { buildMergeVars } from './launch';
+import { renderMergeVars } from './template-engine';
+import { isSuppressed } from './suppression';
+import { blockedByTestAllowlist } from './test-allowlist';
 
 // ─── Resposta automática do WhatsApp ───────────────────────────────────────
 // Quem toca em "Quero o material" precisa receber o material na hora — não
@@ -24,10 +28,12 @@ import { getWhatsAppProvider } from './providers';
 //     "quietHours": false        // opcional: não responder de madrugada
 //   }
 //
-// Três travas, nesta ordem — qualquer uma cancela o envio:
-//   1. só responde a contato que está numa audiência do projeto;
-//   2. nunca responde duas vezes na mesma conversa (tag na conversa);
-//   3. nunca interrompe atendimento humano em andamento.
+// Travas, nesta ordem — qualquer uma cancela o envio:
+//   1. pedido de descadastro na própria mensagem;
+//   2. só responde a contato que está numa audiência do projeto;
+//   3. nunca responde duas vezes na mesma conversa (tag na conversa);
+//   4. nunca interrompe atendimento humano em andamento;
+//   5. allowlist de teste e lista de supressão, como todo outbound do motor.
 
 const HUMANO_RECENTE_MS = 6 * 60 * 60 * 1000;
 
@@ -40,10 +46,6 @@ type AutoReplyConfig = {
 export type AutoReplyResult =
   | { sent: true; projectSlug: string; body: string }
   | { sent: false; reason: string };
-
-function render(tpl: string, vars: Record<string, string>): string {
-  return tpl.replace(/\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g, (_, k) => vars[k] ?? '');
-}
 
 // Quem pede para sair não pode receber material de marketing de volta — o
 // atendimento humano assume esses casos.
@@ -157,26 +159,24 @@ export async function maybeAutoReply(input: {
     .orderBy(desc(sends.id))
     .limit(1);
 
-  const attrs = (contato.attributes ?? {}) as Record<string, unknown>;
-  const lpBaseUrl = typeof settings.lpBaseUrl === 'string' ? settings.lpBaseUrl : '';
-  const q = ultimoSend?.token
-    ? `?t=${encodeURIComponent(ultimoSend.token)}${contato.ibge ? `&ibge=${contato.ibge}` : ''}`
-    : contato.ibge
-      ? `?ibge=${contato.ibge}`
-      : '';
-
-  const vars: Record<string, string> = {
-    nome: contato.name ?? '',
-    primeiro_nome:
-      (typeof attrs.primeiro_nome === 'string' && attrs.primeiro_nome) ||
-      String(contato.name ?? '').split(' ')[0] ||
-      '',
-    municipio: contato.municipio ?? '',
-    link_lp: lpBaseUrl ? `${lpBaseUrl}${q}` : '',
-    link_aula: lpBaseUrl ? `${lpBaseUrl}/aula${q}` : '',
-  };
-  const body = render(cfg.message!, vars).trim();
+  // Mesmas variáveis do disparo — se a régua e a auto-resposta montassem o
+  // link de formas diferentes, um dos dois quebraria em silêncio.
+  const vars = buildMergeVars(
+    { ...contato, id: contactId, email: null, uf: null },
+    ultimoSend?.token ?? '',
+    settings,
+  );
+  const body = renderMergeVars(cfg.message!, vars, { escape: false }).trim();
   if (!body) return { sent: false, reason: 'mensagem vazia após renderizar' };
+
+  // Duas travas que todo outbound do motor respeita e que uma resposta
+  // automática não pode furar: allowlist de teste e lista de supressão.
+  if (blockedByTestAllowlist(phone)) {
+    return { sent: false, reason: 'número fora da allowlist de teste' };
+  }
+  if (await isSuppressed(phone, 'whatsapp')) {
+    return { sent: false, reason: 'número na lista de supressão' };
+  }
 
   const provider = getWhatsAppProvider();
   const result = await provider.send({

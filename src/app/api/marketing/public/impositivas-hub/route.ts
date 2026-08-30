@@ -118,9 +118,12 @@ export async function GET(req: Request) {
     conv AS (
       SELECT DISTINCT m.id AS contact_id, cv.last_inbound_at
       FROM membros m
+      -- Mesma regra do cron de trilhas (últimos 11 dígitos); se divergir, o
+      -- painel e o piloto discordam sobre quem respondeu no WhatsApp.
       JOIN marketing.conversations cv
-        ON regexp_replace(cv.wa_phone, '\\D', '', 'g') = regexp_replace(COALESCE(m.whatsapp,''), '\\D', '', 'g')
-      WHERE m.whatsapp IS NOT NULL AND cv.last_inbound_at IS NOT NULL
+        ON right(regexp_replace(cv.wa_phone, '\\D', '', 'g'), 11)
+         = right(regexp_replace(COALESCE(m.whatsapp, m.phone, ''), '\\D', '', 'g'), 11)
+      WHERE COALESCE(m.whatsapp, m.phone) IS NOT NULL AND cv.last_inbound_at IS NOT NULL
     ),
     opp AS (
       SELECT lower(cc.email) AS email, max(oo.stage) AS stage

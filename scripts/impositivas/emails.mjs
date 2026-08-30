@@ -99,23 +99,28 @@ export const EMAILS = [
   },
   {
     key: 'E2',
-    name: 'E2 · Aula aberta 20 min',
-    subject: 'Aula aberta (20 min): quem decide onde o dinheiro do seu município vai parar',
+    name: 'E2 · Três pontos que passam batido',
+    subject: 'Três pontos das impositivas que costumam passar batido',
     body: [
       p('Presidente <strong>{{presidente}}</strong>,'),
       p(
-        'na semana passada escrevemos sobre o que o TCE-SP passou a cobrar das Câmaras. Hoje queremos entregar algo prático: uma <strong>aula aberta de 20 minutos</strong> que explica o tema do zero — sem juridiquês.',
+        'não vamos explicar o que é emenda impositiva — a Câmara convive com isso todo ano. Vamos direto a três pontos que, na prática, decidem se a emenda se sustenta diante do controle externo:',
       ),
-      p('O que você leva da aula:'),
-      ul([
-        '<strong>2015, o ano em que o pedido virou ordem</strong> — as 4 emendas constitucionais que mudaram a relação entre Câmara e Prefeitura;',
-        '<strong>O filtro que sumiu</strong> — por que a obrigatoriedade sem exame técnico criou um efeito colateral que hoje cai na conta da Câmara;',
-        '<strong>Emenda genérica é a única que o vereador não consegue exigir</strong> — o paradoxo do objeto vago;',
-        '<strong>O que olhar no portal da sua cidade</strong> — o teste que qualquer auditor pode fazer hoje.',
-      ]),
-      `      <p style="margin:18px 0 10px 0;">${btn('{{link_aula}}', '▶ Assistir à aula agora (20 min)')}</p>`,
+      p('<strong>1. O regime é opcional, e o percentual é decisão da própria Câmara.</strong>'),
       p(
-        `<span style="color:${MUTED};font-size:13.5px;">P.S.: quem preferir ler, a apresentação técnica completa — com a linha do tempo dos atos do TCE-SP — está <a href="{{link_apresentacao}}" style="color:${AZUL};">disponível aqui</a>.</span>`,
+        'Nenhum município é obrigado a adotar o regime impositivo: ele foi desenhado para a União, e quem adotou fez por simetria, alterando a Lei Orgânica. Não existe percentual nacional — cada cidade fixa o seu. Por isso a primeira pergunta do auditor nunca é sobre a emenda, e sim sobre o que diz a Lei Orgânica de {{municipio}}: percentual, reserva para a saúde, prazos de impedimento técnico e rito de tramitação.',
+      ),
+      p('<strong>2. A emenda genérica é a única que o autor não consegue cobrar.</strong>'),
+      p(
+        '“Melhorias na área da saúde” nunca é rejeitada por inviabilidade — e, pelo mesmo motivo, nunca pode ser exigida: sem objeto definido, ninguém consegue afirmar que não foi entregue. Já “duas cadeiras odontológicas para a UBS do bairro X” é verificável e, por isso, cobrável pelo próprio vereador que a propôs.',
+      ),
+      p('<strong>3. O rastro se rompe na execução — e é ali que o TCE aponta.</strong>'),
+      p(
+        'A partir do empenho, os registros contábeis costumam deixar de dizer de qual emenda aquele gasto veio. O dinheiro chega ao fim; a informação, não. É exatamente esse ponto que virou impropriedade nos relatórios de fiscalização: <em>“inexistência de mecanismos que garantam a transparência e a rastreabilidade ponta a ponta, impedindo a identificação precisa da origem e do beneficiário final dos recursos.”</em>',
+      ),
+      `      <p style="margin:18px 0 10px 0;">${btn('{{link_apresentacao}}', 'Ver a análise completa dos atos do TCE-SP')}</p>`,
+      p(
+        `<span style="color:${MUTED};font-size:13.5px;">Na mesma página está o panorama normativo em 20 minutos — das ECs 86, 100, 105 e 126 às duas decisões do STF — para quem quiser o histórico completo.</span>`,
       ),
     ],
   },
@@ -128,7 +133,7 @@ export const EMAILS = [
       p(
         'as emendas impositivas deixaram de ser assunto interno da Câmara. Hoje <strong>três instâncias</strong> atuam sobre elas: o <strong>STF</strong> fixou as regras (transparência e rastreabilidade ponta a ponta), o <strong>MP-SP</strong> instaura inquéritos civis e acompanha conflitos de interesse — sobretudo com o terceiro setor — e o <strong>TCE-SP</strong> confere a conformidade nas contas anuais.',
       ),
-      p('<strong>Autodiagnóstico — responda em 1 minuto:</strong>'),
+      p('<strong>Cinco perguntas do checklist — a Câmara responde “sim” a todas?</strong>'),
       ul([
         'A Lei Orgânica de {{municipio}} prevê o regime de emendas impositivas (art. 166)?',
         'O Regimento Interno disciplina prazos e critérios de <strong>impedimento técnico</strong>?',

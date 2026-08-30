@@ -103,6 +103,19 @@ export async function runSequences(): Promise<RunResult> {
     .where(inArray(contacts.id, contactIds));
   const contactMap = new Map(contactRows.map((c) => [c.id, c]));
 
+  // Pré-carregar settings dos projetos envolvidos — as merge vars precisam
+  // deles, e buscar por member seria uma query por e-mail enviado.
+  const projectIds = Array.from(new Set(sequenceRows.map((s) => s.projectId)));
+  const projectRows = projectIds.length
+    ? await db
+        .select({ id: projects.id, settings: projects.settings })
+        .from(projects)
+        .where(inArray(projects.id, projectIds))
+    : [];
+  const projectSettings = new Map(
+    projectRows.map((p) => [p.id, (p.settings ?? {}) as Record<string, unknown>]),
+  );
+
   for (const member of ready) {
     result.processed += 1;
     try {
@@ -181,15 +194,10 @@ export async function runSequences(): Promise<RunResult> {
       );
 
       const trackingToken = generateTrackingToken();
-      const [seqProject] = await db
-        .select({ settings: projects.settings })
-        .from(projects)
-        .where(eq(projects.id, seq.projectId))
-        .limit(1);
       const mergeVars = buildMergeVars(
         contact,
         trackingToken,
-        (seqProject?.settings ?? {}) as Record<string, unknown>,
+        projectSettings.get(seq.projectId) ?? {},
       );
 
       const [sendRow] = await db

@@ -17,6 +17,7 @@ import { opportunities, users, pipelineStages, fundebMunicipalities } from '@/li
 import { requireUser, type SessionUser } from '@/lib/session';
 import { isAdmin } from '@/lib/roles';
 import { getWhatsAppProvider } from '@/lib/marketing/providers';
+import { blockedByTestAllowlist } from '@/lib/marketing/test-allowlist';
 import {
   getTemplateApproval,
   getTemplateBody,
@@ -126,18 +127,6 @@ export async function markConversationRead(id: number) {
   const user = await requireUser();
   await loadVisibleConversation(user, id);
   await db.update(conversations).set({ unread: false }).where(eq(conversations.id, id));
-}
-
-function blockedByTestAllowlist(phone: string): boolean {
-  const allow = process.env.MARKETING_TEST_ALLOWLIST_PHONE;
-  if (!allow) return false;
-  const digits = phone.replace(/\D/g, '');
-  const ok = allow
-    .split(',')
-    .map((s) => s.trim().replace(/\D/g, ''))
-    .filter(Boolean)
-    .some((a) => digits.endsWith(a) || a.endsWith(digits));
-  return !ok;
 }
 
 // Responde uma conversa com mensagem livre (só dentro da janela de 24h).

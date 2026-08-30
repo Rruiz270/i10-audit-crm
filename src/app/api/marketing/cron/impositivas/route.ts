@@ -80,9 +80,13 @@ export async function GET(request: NextRequest) {
     respondeu AS (
       SELECT DISTINCT m.id AS contact_id
       FROM membros m
+      -- Últimos 11 dígitos é a regra canônica de casamento de telefone do
+      -- repo (contact-bridge): sem ela, contato salvo sem o 55 nunca casaria
+      -- com a conversa salva em E.164.
       JOIN marketing.conversations cv
-        ON regexp_replace(cv.wa_phone, '\\D', '', 'g') = regexp_replace(COALESCE(m.whatsapp,''), '\\D', '', 'g')
-      WHERE m.whatsapp IS NOT NULL AND cv.last_inbound_at IS NOT NULL
+        ON right(regexp_replace(cv.wa_phone, '\\D', '', 'g'), 11)
+         = right(regexp_replace(COALESCE(m.whatsapp, m.phone, ''), '\\D', '', 'g'), 11)
+      WHERE COALESCE(m.whatsapp, m.phone) IS NOT NULL AND cv.last_inbound_at IS NOT NULL
     ),
     alvo AS (
       SELECT contact_id FROM clicou
@@ -109,17 +113,23 @@ export async function GET(request: NextRequest) {
 
   log.trilhaA_novos = engajados.length;
 
-  if (!dryRun && settings.trilhaASequenceId) {
+  if (!dryRun && settings.trilhaASequenceId && engajados.length) {
+    // Matrícula e marcação são idênticas para todos: dois statements em lote,
+    // não dois por contato — depois do E1 isso pode ser uma leva grande, e o
+    // cron tem orçamento de tempo.
+    const ids = engajados.map((c) => c.id);
+    await sql`
+      INSERT INTO marketing.sequence_members (sequence_id, contact_id, current_step, next_send_at)
+      SELECT ${settings.trilhaASequenceId}, id, 0, NOW() + interval '1 day'
+      FROM unnest(${ids}::int[]) AS id
+    `;
+    await sql`
+      UPDATE marketing.contacts
+      SET attributes = jsonb_set(attributes, '{trilha}', '"A"'::jsonb), updated_at = NOW()
+      WHERE id = ANY(${ids}::int[])
+    `;
+
     for (const c of engajados) {
-      await sql`
-        INSERT INTO marketing.sequence_members (sequence_id, contact_id, current_step, next_send_at)
-        VALUES (${settings.trilhaASequenceId}, ${c.id}, 0, NOW() + interval '1 day')
-      `;
-      await sql`
-        UPDATE marketing.contacts
-        SET attributes = jsonb_set(attributes, '{trilha}', '"A"'::jsonb), updated_at = NOW()
-        WHERE id = ${c.id}
-      `;
       await ensureOpportunity({
         email: c.email,
         name: c.name,
