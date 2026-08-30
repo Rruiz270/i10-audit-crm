@@ -59,7 +59,10 @@ export async function GET(request: NextRequest) {
       FROM marketing.list_members lm
       JOIN marketing.audiences a ON a.id = lm.audience_id
       JOIN marketing.contacts c  ON c.id = lm.contact_id
+      -- Mesmo recorte do painel: audiências "ZZ …" são de teste interno e não
+      -- podem gerar oportunidade no pipeline comercial.
       WHERE a.project_id = ${projectId} AND c.status = 'active'
+        AND a.name NOT LIKE 'ZZ %'
     ),
     clicou AS (
       SELECT DISTINCT s.contact_id
