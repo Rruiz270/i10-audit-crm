@@ -25,7 +25,7 @@ url = url.trim().replace(/^["']|["']$/g, '');
 const sql = neon(url);
 
 const SLUG = 'impositivas-sp';
-const LP = 'https://institutoi10.com.br/impositivas-sp';
+const LP = 'https://www.institutoi10.com.br/impositivas-sp'; // canônico: sem www redireciona (307)
 const WA_NUMBER = '5511947223906';
 
 // Calendário aprovado (horário de Brasília = UTC-3 → 12:00Z ≈ 09:00 BRT)
