@@ -36,10 +36,14 @@ const CAL = {
   W1: '2026-09-01T13:00:00Z', // ter
   E2: '2026-09-08T12:00:00Z', // ter (07/09 feriado)
   E3: '2026-09-14T12:00:00Z', // seg
+  // Régua fria: 2 peças por semana (terças e quintas) até fechar o ciclo.
   B1: '2026-09-17T12:00:00Z', // qui
+  B5: '2026-09-22T12:00:00Z', // ter
   B2: '2026-09-24T12:00:00Z', // qui
-  B3: '2026-10-01T13:00:00Z', // qui
-  B4: '2026-10-08T12:00:00Z', // qui
+  B6: '2026-09-29T12:00:00Z', // ter
+  B3: '2026-10-01T13:00:00Z', // qui · WhatsApp
+  B7: '2026-10-06T12:00:00Z', // ter
+  B4: '2026-10-08T12:00:00Z', // qui · encerramento
 };
 // Corte A/B: 2 dias depois do E3, antes da primeira peça da régua fria.
 const CORTE_B = '2026-09-16T12:00:00Z';
@@ -277,8 +281,11 @@ const PLANO = [
   { key: 'E2', nome: 'E2 · Três pontos que passam batido', aud: audBase, canal: 'email', rate: 40 },
   { key: 'E3', nome: 'E3 · Três instâncias + autodiagnóstico', aud: audBase, canal: 'email', rate: 40 },
   { key: 'B1', nome: 'B1 · Duas perguntas diretas (frios)', aud: audTrilhaB, canal: 'email', rate: 40 },
+  { key: 'B5', nome: 'B5 · As onze informações em tempo real (frios)', aud: audTrilhaB, canal: 'email', rate: 40 },
   { key: 'B2', nome: 'B2 · Emendas que ficam na mesa (frios)', aud: audTrilhaB, canal: 'email', rate: 40 },
+  { key: 'B6', nome: 'B6 · O questionário já tem destinatário (frios)', aud: audTrilhaB, canal: 'email', rate: 40 },
   { key: 'B3', nome: 'B3 · WhatsApp urgência (frios)', aud: audWa, canal: 'whatsapp', rate: 25 },
+  { key: 'B7', nome: 'B7 · Três a Casa aprova, o quarto não (frios)', aud: audTrilhaB, canal: 'email', rate: 40 },
   { key: 'B4', nome: 'B4 · Encerramento do ciclo (frios)', aud: audTrilhaB, canal: 'email', rate: 40 },
 ];
 

@@ -77,20 +77,41 @@ const FICHA = {
     publico: 'frios (recebeu e não clicou)',
     papel: 'Reativação: duas perguntas do checklist que já viraram apontamento.',
   },
-  'Trilha B · B2 — emendas que ficam na mesa': {
+  'Trilha B · B5 — as onze informações em tempo real': {
     ordem: '08',
+    quando: 'ter 22/09',
+    publico: 'frios',
+    papel:
+      'Lista as onze informações que o art. 3º da Resolução 17/2025 exige em tempo real e pergunta se o portal manual sustenta isso por doze meses.',
+  },
+  'Trilha B · B2 — emendas que ficam na mesa': {
+    ordem: '09',
     quando: 'qui 24/09',
     publico: 'frios',
     papel: 'Reativação pelo custo de não regulamentar — o que fica na mesa dos dois lados.',
   },
+  'Trilha B · B6 — o questionário já tem destinatário': {
+    ordem: '10',
+    quando: 'ter 29/09',
+    publico: 'frios',
+    papel:
+      'O Comunicado GP 46/2025 instituiu o questionário eletrônico ao Legislativo. Ou a resposta já existe documentada, ou vira força-tarefa de véspera.',
+  },
   'B3 · WhatsApp urgência (reativação)': {
-    ordem: '09',
+    ordem: '11',
     quando: 'qui 01/10',
     publico: 'frios com celular',
     papel: 'Último toque no WhatsApp. Modelo aprovado pela Meta.',
   },
+  'Trilha B · B7 — três a Casa aprova, o quarto não': {
+    ordem: '12',
+    quando: 'ter 06/10',
+    publico: 'frios',
+    papel:
+      'Três itens do checklist dependem de decisão da Casa e cabem nesta sessão legislativa; o quarto — rastreabilidade — a Câmara precisa operar, não aprovar.',
+  },
   'Trilha B · B4 — encerramento do ciclo': {
-    ordem: '10',
+    ordem: '13',
     quando: 'qui 08/10',
     publico: 'frios',
     papel: 'Fecha o ciclo com prazo: as sessões de diagnóstico do semestre estão sendo encerradas.',

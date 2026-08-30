@@ -226,6 +226,67 @@ export const EMAILS = [
     ],
   },
   {
+    key: 'B5',
+    name: 'Trilha B · B5 — as onze informações em tempo real',
+    subject: 'As onze informações que já deveriam estar no ar — {{municipio}}',
+    body: [
+      p('Presidente <strong>{{presidente}}</strong>,'),
+      p(
+        'o art. 3º da Resolução 17/2025 lista <strong>onze informações</strong> que precisam estar publicadas <strong>em tempo real</strong>, por emenda. Não é relatório periódico: é publicação no ato, incluindo alterações e cancelamentos.',
+      ),
+      ul([
+        'Autor da emenda, número identificador, objeto e finalidade da despesa;',
+        'Órgão executor ou entidade beneficiária e a localidade atendida;',
+        'Valores autorizado, liberado e executado, com a conta bancária utilizada;',
+        'Classificação em custeio ou investimento e o instrumento jurídico vinculado;',
+        'Cronograma físico-financeiro e prazo de aplicação dos recursos;',
+        'Alterações, acréscimos, reduções e cancelamentos — também em tempo real.',
+      ]),
+      p(
+        'A pergunta prática não é se a Câmara consegue publicar isso uma vez. É se consegue sustentar por doze meses, a cada movimentação, com portal atualizado à mão.',
+      ),
+      `      <p style="margin:18px 0 0 0;">${btn('{{link_apresentacao}}', 'Ver como isso fica em uma tela só')}</p>`,
+    ],
+  },
+  {
+    key: 'B6',
+    name: 'Trilha B · B6 — o questionário já tem destinatário',
+    subject: 'O questionário eletrônico do TCE-SP tem endereço: a Câmara',
+    body: [
+      p('Presidente <strong>{{presidente}}</strong>,'),
+      p(
+        'em dezembro o Tribunal instituiu dois questionários eletrônicos: o Comunicado GP 43/2025 para o Executivo e o <strong>GP 46/2025 para o Legislativo</strong>. O segundo chega à Câmara — e pergunta exatamente o que o checklist da fiscalização cobra.',
+      ),
+      p(
+        'Quando ele chegar, existem só dois cenários. Ou a resposta já existe, documentada, e é só exportar; ou vira força-tarefa de véspera, reconstruindo à mão o percurso de cada emenda — que é justamente o ponto em que o rastro costuma estar rompido.',
+      ),
+      p(
+        'A diferença entre os dois cenários não se resolve na semana do questionário. Se resolve agora, com a rotina de registro rodando.',
+      ),
+      `      <p style="margin:18px 0 6px 0;">${btn('{{link_lp}}', 'Ver a situação da Câmara de {{municipio}} →')}</p>`,
+      `      <p style="margin:0;">${btnWa('{{link_whatsapp}}', '💬 Conversar por WhatsApp')}</p>`,
+    ],
+  },
+  {
+    key: 'B7',
+    name: 'Trilha B · B7 — três a Casa aprova, o quarto não',
+    subject: 'Três itens a Câmara aprova nesta sessão. O quarto, não.',
+    body: [
+      p('Presidente <strong>{{presidente}}</strong>,'),
+      p('o checklist da fiscalização tem quatro itens, e eles não se resolvem do mesmo jeito.'),
+      ul([
+        '<strong>Lei Orgânica</strong> com o regime de emendas impositivas e o respectivo limite — aprovação legislativa;',
+        '<strong>Regimento Interno</strong> com janela de indicação, forma e critérios de admissibilidade — aprovação legislativa;',
+        '<strong>Manual orientativo</strong> de indicação e execução — ato da Mesa ou resolução.',
+      ]),
+      p(
+        'Esses três dependem de decisão da Casa e cabem nesta sessão legislativa. O quarto — <strong>rastreabilidade ponta a ponta, com identificação do beneficiário final</strong> — não se resolve por norma nenhuma: é rotina diária de registro, publicação e conferência. É o item que a Câmara precisa <em>operar</em>, não aprovar.',
+      ),
+      p('E é exatamente o que o Tribunal confere na prestação de contas.'),
+      `      <p style="margin:18px 0 0 0;">${btn('{{link_lp}}', 'Ver onde a minha Câmara está nos quatro →')}</p>`,
+    ],
+  },
+  {
     key: 'B4',
     name: 'Trilha B · B4 — encerramento do ciclo',
     subject: 'Encerrando as sessões de diagnóstico deste semestre — {{municipio}}',
