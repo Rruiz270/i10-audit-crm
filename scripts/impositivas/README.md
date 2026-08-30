@@ -67,6 +67,22 @@ node scripts/impositivas/arm.mjs --disarm        # volta tudo para draft
 
 Secrets: `CRM_BASE_URL`, `CRM_CRON_SECRET` (= `CRON_SECRET` do Vercel).
 
+## Antes de mudar SQL nestas rotas
+
+As rotas do cron e do painel montam SQL em template string: o `tsc` passa
+limpo mesmo com a query quebrada, e o erro só aparece como 500 em produção.
+Já aconteceu — um JOIN passou a usar `contacts.phone` e a CTE não projetava a
+coluna. Então, ao mexer na consulta:
+
+1. rode a **query inteira** contra o banco (não só o trecho alterado);
+2. confira que o recorte de `membros` é o mesmo nas duas rotas — audiências
+   `ZZ %` ficam de fora nas duas, senão contato de teste vira oportunidade;
+3. depois do deploy, `curl` nas duas rotas esperando 200.
+
+Outras armadilhas já pagas: crase dentro de comentário SQL encerra o template
+literal do JS; e `SELECT * FROM unnest(a, b, …)` sem alias colapsa as colunas
+no driver Neon — use `AS t(col1, col2, …)`.
+
 ## Painel
 
 `institutoi10.com.br/impositivashub` — protegido por chave
