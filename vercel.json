@@ -12,6 +12,10 @@
     {
       "path": "/api/marketing/cron/recover",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/marketing/cron/impositivas",
+      "schedule": "*/15 * * * *"
     }
   ]
 }
