@@ -267,8 +267,10 @@ export const WA_TEMPLATES = [
     name: 'impositivas_urgencia_sp',
     friendly: 'B3 · WhatsApp urgência (reativação)',
     category: 'MARKETING',
+    // A Meta recusa template que começa (ou termina) com variável — por isso
+    // "Presidente" antes do {{1}}.
     body:
-      '{{1}}, um alerta rápido do Instituto i10 (parceria APM):\n\n' +
+      'Presidente {{1}}, um alerta rápido do Instituto i10 (parceria APM):\n\n' +
       'o TCE-SP passou a exigir conta bancária específica por emenda impositiva e já registra impropriedades em contas de Câmaras sem manual orientativo e sem rastreabilidade.\n\n' +
       'A Câmara de {{2}} já se adequou? Em 3 minutos dá para verificar.',
     buttons: [{ id: 'verificar', title: 'Verificar minha Câmara' }, { id: 'falar', title: 'Falar com especialista' }],

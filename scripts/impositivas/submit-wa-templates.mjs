@@ -45,8 +45,15 @@ for (const w of WA_TEMPLATES) {
   const tpl = rows[0];
 
   if (tpl.wa_template_name) {
-    console.log(`${w.name.padEnd(30)} já criado (${tpl.wa_template_name}) → ${await approvalStatus(tpl.wa_template_name)}`);
-    continue;
+    const st = await approvalStatus(tpl.wa_template_name);
+    // Recusado pela Meta: o SID antigo é inútil, então recriamos com a copy
+    // corrigida em vez de deixar a peça travada.
+    if (st !== 'rejected' || statusOnly) {
+      console.log(`${w.name.padEnd(30)} já criado (${tpl.wa_template_name}) → ${st}`);
+      continue;
+    }
+    console.log(`${w.name.padEnd(30)} recusado antes — recriando com a copy nova`);
+    await sql`UPDATE marketing.templates SET wa_template_name = NULL WHERE id = ${tpl.id}`;
   }
   if (statusOnly) {
     console.log(`${w.name.padEnd(30)} ainda não submetido`);
