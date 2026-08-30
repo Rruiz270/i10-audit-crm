@@ -97,6 +97,7 @@ export async function handleInboundWhatsApp(payload: Record<string, string>): Pr
       conversationId: conv.id,
       contactId: contact?.id ?? null,
       phone,
+      body,
     });
     if (auto.sent) console.log(`[auto-reply] ${auto.projectSlug} → ${phone}`);
   } catch (err) {

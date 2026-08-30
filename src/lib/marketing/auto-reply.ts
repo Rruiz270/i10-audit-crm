@@ -45,12 +45,21 @@ function render(tpl: string, vars: Record<string, string>): string {
   return tpl.replace(/\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g, (_, k) => vars[k] ?? '');
 }
 
+// Quem pede para sair não pode receber material de marketing de volta — o
+// atendimento humano assume esses casos.
+const OPT_OUT = /\b(par(e|ar)|sair|remover|descadastr\w*|cancel\w*|n[aã]o\s+(quero|tenho\s+interesse)|stop)\b/i;
+
 export async function maybeAutoReply(input: {
   conversationId: number;
   contactId: number | null;
   phone: string;
+  body?: string;
 }): Promise<AutoReplyResult> {
   const { conversationId, phone } = input;
+
+  if (input.body && OPT_OUT.test(input.body)) {
+    return { sent: false, reason: 'mensagem parece pedido de descadastro' };
+  }
 
   // 1. Quem é essa pessoa na campanha?
   // O mesmo telefone costuma aparecer em vários contatos (cadastros antigos,
