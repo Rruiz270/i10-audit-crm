@@ -50,26 +50,42 @@ export async function maybeAutoReply(input: {
   contactId: number | null;
   phone: string;
 }): Promise<AutoReplyResult> {
-  const { conversationId, contactId, phone } = input;
-  if (!contactId) return { sent: false, reason: 'conversa sem contato identificado' };
+  const { conversationId, phone } = input;
 
-  // 1. Projeto do contato que tenha auto-resposta ligada
-  const projRows = await db
+  // 1. Quem é essa pessoa na campanha?
+  // O mesmo telefone costuma aparecer em vários contatos (cadastros antigos,
+  // registros de teste), e o inbound casa só o primeiro. Então olhamos todos
+  // os contatos daquele número e escolhemos o que está numa audiência de um
+  // projeto com auto-resposta ligada — senão o robô ficaria mudo justamente
+  // para quem veio da campanha.
+  const digitos = phone.replace(/\D/g, '').slice(-11);
+  const candidatos = await db
     .selectDistinct({
-      id: projects.id,
+      contactId: contacts.id,
+      projectId: projects.id,
       slug: projects.slug,
       settings: projects.settings,
     })
-    .from(listMembers)
+    .from(contacts)
+    .innerJoin(listMembers, eq(listMembers.contactId, contacts.id))
     .innerJoin(audiences, eq(audiences.id, listMembers.audienceId))
     .innerJoin(projects, eq(projects.id, audiences.projectId))
-    .where(and(eq(listMembers.contactId, contactId), eq(projects.status, 'active')));
+    .where(
+      and(
+        eq(projects.status, 'active'),
+        eq(contacts.status, 'active'),
+        sql`right(regexp_replace(coalesce(${contacts.whatsapp}, ${contacts.phone}, ''), '\\D', '', 'g'), 11) = ${digitos}`,
+      ),
+    );
 
-  const proj = projRows.find((p) => {
+  const escolhido = candidatos.find((p) => {
     const cfg = (p.settings as Record<string, unknown> | null)?.autoReply as AutoReplyConfig | undefined;
     return cfg?.enabled && cfg.message;
   });
-  if (!proj) return { sent: false, reason: 'nenhum projeto do contato tem auto-resposta ligada' };
+  if (!escolhido) return { sent: false, reason: 'nenhum projeto do contato tem auto-resposta ligada' };
+
+  const contactId = escolhido.contactId;
+  const proj = { id: escolhido.projectId, slug: escolhido.slug, settings: escolhido.settings };
 
   const settings = (proj.settings ?? {}) as Record<string, unknown>;
   const cfg = settings.autoReply as AutoReplyConfig;
