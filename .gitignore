@@ -50,3 +50,7 @@ next-env.d.ts
 # raw simulation output
 .simulation-runs/
 .env*.local
+
+# Campanha Impositivas SP: base de contatos (PII) e env de produção puxado do Vercel
+scripts/impositivas/contacts.json
+scripts/impositivas/prod.env
