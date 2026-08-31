@@ -38,8 +38,24 @@ export async function ensureOpportunity(
 ): Promise<EnsureOpportunityResult> {
   try {
     const { neon } = await import('@neondatabase/serverless');
+    const { normalizeBrPhone, isBrMobile } = await import('../phone-utils');
     const q = neon(process.env.DATABASE_URL!);
     const email = input.email.trim().toLowerCase();
+
+    // Telefone do contato; se ele não tiver, procuramos outro contato da MESMA
+    // câmara que tenha. Quem engajou pode ser o e-mail institucional, enquanto
+    // o celular está no cadastro pessoal do presidente — e sem isso o botão de
+    // WhatsApp no card do pipeline nasce morto.
+    let fone = normalizeBrPhone(input.phone);
+    if (!fone && input.ibge) {
+      const daCamara = await q`
+        select whatsapp, phone from marketing.contacts
+        where ibge = ${String(input.ibge)} and coalesce(whatsapp, phone) is not null
+        order by (whatsapp is null), id limit 1`;
+      fone = normalizeBrPhone(daCamara[0]?.whatsapp ?? daCamara[0]?.phone ?? null);
+    }
+    // Só celular vira WhatsApp: fixo no campo do zap gera erro no envio.
+    const zap = isBrMobile(fone) ? fone : null;
 
     const existing = await q`
       select 1 from crm.contacts cc
@@ -92,9 +108,9 @@ export async function ensureOpportunity(
       if (daCidade.length) {
         const opportunityId = daCidade[0].id as number;
         await q`
-          insert into crm.contacts (opportunity_id, name, email, phone, role, is_primary)
+          insert into crm.contacts (opportunity_id, name, email, phone, whatsapp, role, is_primary)
           values (${opportunityId}, ${input.name ?? email.split('@')[0]}, ${email},
-                  ${input.phone ?? null}, 'prefeitura', false)`;
+                  ${fone}, ${zap}, 'prefeitura', false)`;
         await q`
           update crm.opportunities
           set lead_entrada_at = NOW(), last_activity_at = NOW(), updated_at = NOW()
@@ -137,9 +153,9 @@ export async function ensureOpportunity(
     }
 
     await q`
-      insert into crm.contacts (opportunity_id, name, email, phone, role, is_primary)
+      insert into crm.contacts (opportunity_id, name, email, phone, whatsapp, role, is_primary)
       values (${opportunityId}, ${input.name ?? email.split('@')[0]}, ${email},
-              ${input.phone ?? null}, 'prefeitura', true)`;
+              ${fone}, ${zap}, 'prefeitura', true)`;
 
     await q`
       insert into crm.activities (opportunity_id, type, subject, body, metadata)
