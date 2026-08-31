@@ -1,8 +1,9 @@
 import Link from 'next/link';
-import { and, desc, eq, ilike, sql, type SQL } from 'drizzle-orm';
+import { and, desc, eq, gte, ilike, lte, sql, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { leadForms, leadSubmissions } from '@/lib/schema';
 import { KpiTile } from '@/components/ui/kpi-tile';
+import { DateRangeFilter } from '@/components/ui/date-range-filter';
 import { FacetGroup } from '@/components/ui/facet-group';
 import { Icon } from '@/components/ui/icon';
 import { LeadSubmissionCard, type LeadCard } from '@/components/lead-submission-card';
@@ -13,6 +14,8 @@ type RawSearch = {
   q?: string;
   status?: string; // 'pendente' | 'triado'
   formId?: string;
+  desde?: string; // data de entrada (YYYY-MM-DD)
+  ate?: string;
 };
 
 function buildHref(base: RawSearch, overrides: Partial<RawSearch>): string {
@@ -90,6 +93,8 @@ export default async function LeadsPage({
   const status = sp.status === 'triado' ? 'triado' : sp.status === 'pendente' ? 'pendente' : undefined;
   const formId = sp.formId ? Number(sp.formId) : undefined;
   const q = sp.q?.trim() || undefined;
+  const desde = sp.desde?.trim() || undefined;
+  const ate = sp.ate?.trim() || undefined;
 
   const since30 = new Date(new Date().getTime() - 30 * 24 * 3600 * 1000);
 
@@ -104,6 +109,10 @@ export default async function LeadsPage({
     const c = ilike(sql`${leadSubmissions.payload}::text`, term);
     if (c) conds.push(c);
   }
+  // Data de entrada do lead. Aqui a origem é a própria submissão do formulário
+  // (`submitted_at`), não a oportunidade — esta tela lista submissões.
+  if (desde) conds.push(gte(leadSubmissions.submittedAt, new Date(`${desde}T00:00:00`)));
+  if (ate) conds.push(lte(leadSubmissions.submittedAt, new Date(`${ate}T23:59:59`)));
   const where = conds.length ? and(...conds) : undefined;
 
   const [forms, submissions, kpiRow, formFacetRows] = await Promise.all([
@@ -155,7 +164,7 @@ export default async function LeadsPage({
     { value: 'triado', count: total - pending },
   ];
 
-  const activeFilterCount = [q, status, formId].filter((v) => v != null && v !== '').length;
+  const activeFilterCount = [q, status, formId, desde, ate].filter((v) => v != null && v !== '').length;
 
   const cards: LeadCard[] = submissions.map((s) => {
     const parsed = parseCard(s.payload);
@@ -202,6 +211,8 @@ export default async function LeadsPage({
           <form action="/leads" method="get" className="flex gap-2">
             {status && <input type="hidden" name="status" value={status} />}
             {formId && <input type="hidden" name="formId" value={String(formId)} />}
+            {desde && <input type="hidden" name="desde" value={desde} />}
+            {ate && <input type="hidden" name="ate" value={ate} />}
             <input
               name="q"
               defaultValue={q ?? ''}
@@ -216,6 +227,13 @@ export default async function LeadsPage({
               <Icon name="search" size={16} />
             </button>
           </form>
+
+          <DateRangeFilter
+            desde={desde}
+            ate={ate}
+            basePath="/leads"
+            outros={{ q, status, formId: formId ? String(formId) : undefined }}
+          />
 
           {activeFilterCount > 0 && (
             <Link href="/leads" className="inline-block text-xs font-medium text-cyan-700 hover:underline">

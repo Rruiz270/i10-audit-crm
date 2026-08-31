@@ -15,6 +15,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/marketing/cron/impositivas",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/marketing/cron/pipeline-cadences",
       "schedule": "0 11 * * *"
     }

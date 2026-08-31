@@ -1,0 +1,41 @@
+name: Campanha Impositivas SP (piloto automático)
+
+# Promove engajados à Trilha A, recalcula a audiência fria da Trilha B e
+# lança as campanhas cuja data chegou. Idempotente — rodar de novo não
+# duplica nada.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry:
+        description: "Simular (não grava nem dispara)"
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: impositivas-sp
+  cancel-in-progress: false
+
+jobs:
+  piloto:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rodar trilhas + agendadas
+        env:
+          BASE: ${{ secrets.CRM_BASE_URL }}
+          SECRET: ${{ secrets.CRM_CRON_SECRET }}
+          DRY: ${{ github.event.inputs.dry == 'true' && '1' || '0' }}
+        run: |
+          set -euo pipefail
+          : "${BASE:?defina o secret CRM_BASE_URL}"
+          : "${SECRET:?defina o secret CRM_CRON_SECRET}"
+          curl -sS --fail-with-body -m 120 \
+            -H "Authorization: Bearer $SECRET" \
+            "$BASE/api/marketing/cron/impositivas?dry=$DRY" | tee resultado.json
+          echo
+          echo "### Impositivas SP" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          cat resultado.json >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

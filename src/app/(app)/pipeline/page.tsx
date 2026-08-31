@@ -5,6 +5,7 @@ import { getMyPreferences } from '@/lib/actions/me';
 import { requireUser } from '@/lib/session';
 import { PipelineFilters } from '@/components/pipeline-filters';
 import { SegmentedControl } from '@/components/ui/segmented-control';
+import { DateRangeFilter } from '@/components/ui/date-range-filter';
 import { getConsultoriaSignalsBatch } from '@/lib/bncc-signals';
 import { STAGES } from '@/lib/pipeline';
 import { sql } from 'drizzle-orm';
@@ -15,7 +16,7 @@ export const dynamic = 'force-dynamic';
 export default async function PipelinePage({
   searchParams,
 }: {
-  searchParams: Promise<{ mine?: string }>;
+  searchParams: Promise<{ mine?: string; desde?: string; ate?: string }>;
 }) {
   const [user, params, prefs, stages] = await Promise.all([
     requireUser(),
@@ -33,7 +34,11 @@ export default async function PipelinePage({
         : prefs.defaultPipelineFilter === 'mine';
 
   const [rows, team] = await Promise.all([
-    opportunitiesByStage(mine ? { ownerId: user.id } : undefined),
+    opportunitiesByStage({
+      ownerId: mine ? user.id : undefined,
+      desde: params.desde,
+      ate: params.ate,
+    }),
     listUsersForAssignment(),
   ]);
 
@@ -221,6 +226,12 @@ export default async function PipelinePage({
               { value: 'all', label: 'Todas', href: '/pipeline?mine=0' },
               { value: 'mine', label: 'Minhas', href: '/pipeline?mine=1' },
             ]}
+          />
+          <DateRangeFilter
+            desde={params.desde}
+            ate={params.ate}
+            basePath="/pipeline"
+            outros={{ mine: params.mine }}
           />
           <div className="text-xs text-slate-500 text-right">
             {rows.length} oportunidade{rows.length === 1 ? '' : 's'} no funil

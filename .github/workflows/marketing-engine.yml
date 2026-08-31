@@ -1,0 +1,61 @@
+name: Motor de marketing (fila + réguas)
+
+# Gatilho do motor de disparo do CRM. Roda no GitHub Actions — nunca na
+# máquina de ninguém. O cron do GitHub tem granularidade de 5 min e pode
+# atrasar, então cada execução drena a fila várias vezes em sequência.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      rodadas:
+        description: "Quantas vezes drenar a fila nesta execução"
+        required: false
+        default: "8"
+
+concurrency:
+  group: marketing-engine
+  cancel-in-progress: false
+
+jobs:
+  motor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Drenar fila de envios
+        env:
+          BASE: ${{ secrets.CRM_BASE_URL }}
+          SECRET: ${{ secrets.CRM_CRON_SECRET }}
+          RODADAS: ${{ github.event.inputs.rodadas || '8' }}
+        run: |
+          set -euo pipefail
+          : "${BASE:?defina o secret CRM_BASE_URL}"
+          : "${SECRET:?defina o secret CRM_CRON_SECRET}"
+          for i in $(seq 1 "$RODADAS"); do
+            out=$(curl -sS --fail-with-body -m 60 \
+              -H "Authorization: Bearer $SECRET" \
+              "$BASE/api/marketing/cron/drain?limit=100")
+            echo "drain #$i → $out"
+            # Nada mais na fila: encerra cedo em vez de queimar 8 rodadas.
+            echo "$out" | grep -q '"claimed":0' && { echo "fila vazia"; break; }
+            sleep 20
+          done
+
+      - name: Avançar réguas (sequences)
+        env:
+          BASE: ${{ secrets.CRM_BASE_URL }}
+          SECRET: ${{ secrets.CRM_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          curl -sS --fail-with-body -m 60 \
+            -H "Authorization: Bearer $SECRET" \
+            "$BASE/api/marketing/cron/sequences"
+
+      - name: Recuperar sends órfãos
+        env:
+          BASE: ${{ secrets.CRM_BASE_URL }}
+          SECRET: ${{ secrets.CRM_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          curl -sS --fail-with-body -m 60 \
+            -H "Authorization: Bearer $SECRET" \
+            "$BASE/api/marketing/cron/recover"

@@ -5,12 +5,14 @@ import {
   sequenceMembers,
   contacts,
   campaigns,
+  projects,
   templates,
   sends,
 } from '../schema-marketing';
 import { generateTrackingToken } from './template-engine';
 import { isSuppressed } from './suppression';
 import { bulkEnqueueJobs } from './queue';
+import { buildMergeVars } from './launch';
 
 // ─── Sequence Runner — avança membros pelos steps ──────────────────────────
 // Chamado pelo cron /api/marketing/cron/sequences a cada minuto.
@@ -101,7 +103,20 @@ export async function runSequences(): Promise<RunResult> {
     .where(inArray(contacts.id, contactIds));
   const contactMap = new Map(contactRows.map((c) => [c.id, c]));
 
-  // Pré-carregar canal ('email' | 'whatsapp') dos templates dos steps atuais
+  // Pré-carregar settings dos projetos envolvidos — as merge vars precisam
+  // deles, e buscar por member seria uma query por e-mail enviado.
+  const projectIds = Array.from(new Set(sequenceRows.map((s) => s.projectId)));
+  const projectRows = projectIds.length
+    ? await db
+        .select({ id: projects.id, settings: projects.settings })
+        .from(projects)
+        .where(inArray(projects.id, projectIds))
+    : [];
+  const projectSettings = new Map(
+    projectRows.map((p) => [p.id, (p.settings ?? {}) as Record<string, unknown>]),
+  );
+
+// Pré-carregar canal ('email' | 'whatsapp') dos templates dos steps atuais
   const stepTemplateIds = new Set<number>();
   for (const member of ready) {
     const seq = sequenceMap.get(member.sequenceId);
@@ -212,17 +227,11 @@ export async function runSequences(): Promise<RunResult> {
       );
 
       const trackingToken = generateTrackingToken();
-      const mergeVars: Record<string, unknown> = {
-        ...((contact.attributes ?? {}) as Record<string, unknown>),
-        nome: contact.name ?? ((contact.attributes as Record<string, unknown> | null)?.nome ?? ''),
-        ibge: contact.ibge,
-        municipio: contact.municipio,
-        uf: contact.uf,
-        email: contact.email,
-        link_inscricao: contact.ibge
-          ? `https://webinar-fundeb.institutoi10.org.br/?ibge=${contact.ibge}`
-          : 'https://institutoi10.org.br',
-      };
+      const mergeVars = buildMergeVars(
+        contact,
+        trackingToken,
+        projectSettings.get(seq.projectId) ?? {},
+      );
 
       const [sendRow] = await db
         .insert(sends)
@@ -312,6 +321,16 @@ async function ensureCampaignForSequenceStep(
     throw new Error(`No audience in project ${projectId} for sequence campaign`);
   }
 
+  // O provider da campanha do step herda o do projeto (settings.provider).
+  // Sem isso a sequence cairia sempre no provider padrão do ambiente — o que
+  // mandaria a régua de um projeto pelo gateway de outro.
+  const [proj] = await db
+    .select({ settings: projects.settings })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+  const projectProvider = (proj?.settings as Record<string, unknown> | null)?.provider;
+
   const [created] = await db
     .insert(campaigns)
     .values({
@@ -320,7 +339,7 @@ async function ensureCampaignForSequenceStep(
       templateId,
       name: campaignName,
       status: 'sending',
-      provider: null,
+      provider: typeof projectProvider === 'string' ? projectProvider : null,
       ratePerMinute: 60,
       totalRecipients: 0,
     })

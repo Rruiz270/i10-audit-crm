@@ -9,6 +9,7 @@ export const PRODUCTS = [
   'Escola Online',
   'Município Bilíngue',
   'Radar Fiscal 360',
+  'Emendas Impositivas',
 ] as const;
 
 export type Product = (typeof PRODUCTS)[number];
@@ -20,4 +21,6 @@ export const PRODUCT_POSVENDA: Record<Product, string> = {
   'Escola Online': 'Onboarding da plataforma + carga de turmas e docentes.',
   'Município Bilíngue': 'Cronograma plurianual: formação docente, material Alumni, tablets.',
   'Radar Fiscal 360': 'Provisionar acesso SaaS + convites aos usuários da prefeitura.',
+  'Emendas Impositivas':
+    'Diagnóstico do checklist TCE-SP, parametrização (LOA/dotações/Audesp), capacitação da Mesa e portal no ar — 30 dias.',
 };

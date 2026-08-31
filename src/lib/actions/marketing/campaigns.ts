@@ -9,14 +9,10 @@ import {
   audiences,
   templates,
   contacts,
-  listMembers,
   sends,
 } from '@/lib/schema-marketing';
 import { requireUser, requireRole } from '@/lib/session';
-import { getWaQuotaStatus } from '@/lib/marketing/whatsapp-health';
-import { generateTrackingToken } from '@/lib/marketing/template-engine';
-import { batchIsSuppressed } from '@/lib/marketing/suppression';
-import { bulkEnqueueJobs } from '@/lib/marketing/queue';
+import { launchCampaignCore } from '@/lib/marketing/launch';
 
 export async function listCampaigns(projectId: number) {
   const user = await requireUser();
@@ -89,138 +85,21 @@ export async function launchCampaign(formData: FormData): Promise<void> {
   const c = await db.select().from(campaigns).where(eq(campaigns.id, campaignId)).limit(1);
   if (!c[0]) throw new Error('campaign não encontrada');
   const camp = c[0];
-  if (camp.status === 'sent' || camp.status === 'sending') {
-    throw new Error(`campaign já está ${camp.status}`);
-  }
 
-  // Canal da campanha = canal do template (email | whatsapp). Define como
-  // filtramos elegíveis, qual destino gravamos e qual job enfileiramos.
-  const tplRow = await db
-    .select({ channel: templates.channel })
-    .from(templates)
-    .where(eq(templates.id, camp.templateId))
-    .limit(1);
-  const isWhatsApp = tplRow[0]?.channel === 'whatsapp';
-
-  // Carregar contacts da audience (inclui phone/whatsapp p/ o canal WhatsApp)
-  const audienceContacts = await db
-    .select({
-      id: contacts.id,
-      email: contacts.email,
-      phone: contacts.phone,
-      whatsapp: contacts.whatsapp,
-      name: contacts.name,
-      ibge: contacts.ibge,
-      municipio: contacts.municipio,
-      uf: contacts.uf,
-      attributes: contacts.attributes,
-      status: contacts.status,
-    })
-    .from(listMembers)
-    .innerJoin(contacts, eq(listMembers.contactId, contacts.id))
-    .where(
-      and(eq(listMembers.audienceId, camp.audienceId), eq(contacts.status, 'active')),
-    );
-
-  if (audienceContacts.length === 0) {
-    throw new Error('audience vazia ou sem contatos ativos');
-  }
-
-  // Destino + supressão por canal
-  const destOf = (c: (typeof audienceContacts)[number]) =>
-    isWhatsApp ? c.whatsapp ?? c.phone ?? null : c.email ?? null;
-  const dests = audienceContacts.map(destOf).filter((d): d is string => Boolean(d));
-  const suppressedSet = await batchIsSuppressed(dests, isWhatsApp ? 'whatsapp' : 'email');
-  const eligible = audienceContacts.filter((c) => {
-    const d = destOf(c);
-    return d && !suppressedSet.has(d);
+  // A mecânica do disparo vive em lib/marketing/launch (o cron de campanhas
+  // agendadas usa a mesma função, sem sessão). Aqui fica só auth + navegação.
+  const result = await launchCampaignCore(campaignId, {
+    dryRun: dryRunOnly,
+    limit: limitInput > 0 ? limitInput : undefined,
   });
 
-  // Aplicar limit (pra dry-run)
-  const final = eligible.slice(0, limit);
-
-  if (dryRunOnly) {
-    // Para dry-run via UI, gravamos snapshot na campanha em "notes-like"
-    // metadata via update (não mexe no status). Em script use a função inferior.
-    revalidatePath(`/marketing/${camp.projectId}/campaigns/${campaignId}`);
-    redirect(
-      `/marketing/${camp.projectId}/campaigns/${campaignId}?dryrun=${final.length}`,
-    );
-  }
-
-  // Trava de quota Meta: launch real não pode passar do que resta no tier de
-  // conversas iniciadas/24h do número — estourar o tier queima o número.
-  if (isWhatsApp) {
-    const quota = await getWaQuotaStatus();
-    if (final.length > quota.remaining) {
-      throw new Error(
-        `Quota Meta insuficiente: ${quota.used.toLocaleString('pt-BR')} de ` +
-          `${quota.limit.toLocaleString('pt-BR')} conversas iniciadas nas últimas 24h ` +
-          `(restam ${quota.remaining.toLocaleString('pt-BR')}) e este launch criaria ` +
-          `${final.length.toLocaleString('pt-BR')}. Use o campo limit ` +
-          `(≤ ${quota.remaining.toLocaleString('pt-BR')}) pra enviar em lotes ou aguarde a janela girar.`,
-      );
-    }
-  }
-
-  // Marcar campanha como sending
-  await db
-    .update(campaigns)
-    .set({ status: 'sending', startedAt: new Date(), totalRecipients: final.length })
-    .where(eq(campaigns.id, campaignId));
-
-  // Inserir sends + jobs em chunks
-  const chunkSize = 500;
-  let sendsCreated = 0;
-  for (let i = 0; i < final.length; i += chunkSize) {
-    const chunk = final.slice(i, i + chunkSize);
-    const insertedSends = await db
-      .insert(sends)
-      .values(
-        chunk.map((c) => {
-          // Merge vars = atributos do contact + campos canônicos
-          const mergeVars: Record<string, unknown> = {
-            ...((c.attributes ?? {}) as Record<string, unknown>),
-            nome: c.name ?? ((c.attributes as Record<string, unknown> | null)?.nome ?? ''),
-            ibge: c.ibge,
-            municipio: c.municipio,
-            uf: c.uf,
-            email: c.email,
-            // link_inscricao computed se houver IBGE
-            link_inscricao: c.ibge
-              ? `https://webinar-fundeb.institutoi10.org.br/?ibge=${c.ibge}`
-              : 'https://institutoi10.org.br',
-          };
-          return {
-            campaignId,
-            contactId: c.id,
-            toEmail: isWhatsApp ? null : c.email,
-            toPhone: isWhatsApp ? c.whatsapp ?? c.phone : null,
-            mergeVars,
-            status: 'queued',
-            trackingToken: generateTrackingToken(),
-          };
-        }),
-      )
-      .returning({ id: sends.id });
-    sendsCreated += insertedSends.length;
-
-    // Enfileirar jobs com staggered runAt baseado em ratePerMinute
-    // (espalha sends ao longo do tempo pra respeitar rate limit do provider)
-    const jobsToEnqueue = insertedSends.map((s, idx) => {
-      const offsetMs = ((i + idx) / camp.ratePerMinute!) * 60_000;
-      return {
-        type: (isWhatsApp ? 'send_whatsapp' : 'send_email') as 'send_whatsapp' | 'send_email',
-        payload: { sendId: s.id },
-        runAt: new Date(Date.now() + offsetMs),
-        rateBucket: isWhatsApp ? camp.provider ?? 'twilio' : camp.provider ?? 'brevo',
-      };
-    });
-    await bulkEnqueueJobs(jobsToEnqueue);
-  }
 
   revalidatePath(`/marketing/${camp.projectId}/campaigns/${campaignId}`);
-  redirect(`/marketing/${camp.projectId}/campaigns/${campaignId}?launched=${sendsCreated}`);
+  redirect(
+    dryRunOnly
+      ? `/marketing/${camp.projectId}/campaigns/${campaignId}?dryrun=${result.sendsCreated}`
+      : `/marketing/${camp.projectId}/campaigns/${campaignId}?launched=${result.sendsCreated}`,
+  );
 }
 
 export async function pauseCampaign(formData: FormData): Promise<void> {

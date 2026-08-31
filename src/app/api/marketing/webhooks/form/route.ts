@@ -9,6 +9,7 @@ import {
   webhookLog,
 } from '@/lib/schema-marketing';
 import { enrollContactInSequence } from '@/lib/marketing/sequence-runner';
+import { ensureOpportunity } from '@/lib/marketing/opportunity-bridge';
 import { rateLimitByIp } from '@/lib/rate-limit';
 
 // ─── /api/marketing/webhooks/form — recebe form submissions externos ──────
@@ -138,6 +139,13 @@ async function processFormSubmission(
     posSequenceId?: number;
     signupTag?: string;
     createOpportunity?: boolean;
+    // Rótulos da oportunidade criada no pipeline (default = PA Smart)
+    opportunitySource?: string;
+    opportunityNotes?: string;
+    opportunitySubject?: string;
+    opportunityOrigin?: string;
+    opportunityOwnerId?: string;
+    opportunityProducts?: string[];
   };
   const signupTag = settings.signupTag ?? `${project.slug}:signup`;
 
@@ -238,52 +246,22 @@ async function processFormSubmission(
   // Escopado por settings.createOpportunity (só projetos que optam, ex: PB).
   // Defensivo: NUNCA quebra o cadastro do lead — falha aqui só loga.
   if (settings.createOpportunity) {
-    try {
-      const { neon } = await import('@neondatabase/serverless');
-      const q = neon(process.env.DATABASE_URL!);
-      const src = `agendamento_${project.slug}`;
-      // idempotente: não duplica oportunidade pro mesmo e-mail nesta origem
-      const existing = await q`
-        select 1 from crm.contacts cc
-        join crm.opportunities oo on oo.id = cc.opportunity_id
-        where lower(cc.email) = ${email} and oo.source = ${src} limit 1`;
-      if (existing.length === 0) {
-        // consultor ativo com menos oportunidades (load-balance)
-        const owner = await q`
-          select id from crm.users
-          where role = 'consultor' and is_active = true
-          order by (select count(*) from crm.opportunities o where o.owner_id = crm.users.id) asc, id asc
-          limit 1`;
-        const ownerId = owner[0]?.id ?? null;
-        const oppNotes =
-          `Agendou diagnóstico no Smart Cities Park (LP /pa-smart). Município: ${String(body.municipio ?? '')}`;
-        // resolve municipality_id pelo IBGE (pra qualificar/exibir a cidade no pipeline)
-        let municipalityId: number | null = null;
-        if (body.ibge) {
-          try {
-            const muni = await q`select id from fundeb.municipalities where codigo_ibge::text = ${String(body.ibge)} limit 1`;
-            municipalityId = muni[0]?.id ?? null;
-          } catch {
-            municipalityId = null;
-          }
-        }
-        const opp = await q`
-          insert into crm.opportunities (municipality_id, owner_id, stage, source, notes)
-          values (${municipalityId}, ${ownerId}, 'novo', ${src}, ${oppNotes}) returning id`;
-        const oppId = opp[0].id;
-        await q`
-          insert into crm.contacts (opportunity_id, name, email, phone, role, is_primary)
-          values (${oppId}, ${String(body.name ?? email.split('@')[0])}, ${email},
-                  ${body.phone ? String(body.phone) : null}, 'prefeitura', true)`;
-        await q`
-          insert into crm.activities (opportunity_id, type, subject, body, metadata)
-          values (${oppId}, 'agendamento', 'Agendou no Smart Cities Park',
-                  ${`Lead criado via LP /pa-smart. E-mail: ${email}`},
-                  ${JSON.stringify({ source: src, marketingContactId: contactId })})`;
-      }
-    } catch (err) {
-      console.error('[pb-opp-bridge] falhou (lead preservado):', err);
-    }
+    // Rótulos vêm do projeto; os defaults preservam o texto do PA Smart, que
+    // foi o primeiro projeto a usar esta ponte.
+    await ensureOpportunity({
+      email,
+      name: body.name ? String(body.name) : null,
+      phone: body.phone ? String(body.phone) : null,
+      ibge: body.ibge ? String(body.ibge) : null,
+      municipio: body.municipio ? String(body.municipio) : null,
+      source: settings.opportunitySource ?? `agendamento_${project.slug}`,
+      notes: `${settings.opportunityNotes ?? 'Agendou diagnóstico no Smart Cities Park (LP /pa-smart).'} Município: ${String(body.municipio ?? '')}`,
+      activitySubject: settings.opportunitySubject ?? 'Agendou no Smart Cities Park',
+      activityBody: `Lead criado via ${settings.opportunityOrigin ?? 'LP /pa-smart'}. E-mail: ${email}`,
+      marketingContactId: contactId,
+      ownerId: settings.opportunityOwnerId ?? null,
+      products: settings.opportunityProducts ?? null,
+    });
   }
 
   return { contactId, tagged: signupTag, exitedFromSequence, enrolledInSequence };
