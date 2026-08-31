@@ -19,7 +19,7 @@ export default async function OpportunitiesPage({
   searchParams: Promise<{ stage?: string; tag?: string; mine?: string; desde?: string; ate?: string }>;
 }) {
   const [user, params] = await Promise.all([requireUser(), searchParams]);
-  const prefs = await getMyPreferences(user.id);
+  const prefs = await getMyPreferences();
 
   const mine =
     params.mine === '1' || params.mine === 'true'

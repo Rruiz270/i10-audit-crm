@@ -10,6 +10,7 @@ import {
 } from '@/lib/schema-marketing';
 import { enrollContactInSequence } from '@/lib/marketing/sequence-runner';
 import { ensureOpportunity } from '@/lib/marketing/opportunity-bridge';
+import { rateLimitByIp } from '@/lib/rate-limit';
 
 // ─── /api/marketing/webhooks/form — recebe form submissions externos ──────
 // Usado por landing pages de inscrição (webinar/newsletter/etc) pra:
@@ -51,6 +52,15 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: NextRequest) {
+  // Público (CORS *) — limita flood por IP.
+  const rl = await rateLimitByIp('webhook:form', { limit: 30, windowMs: 60_000 });
+  if (!rl.ok) {
+    return Response.json(
+      { ok: false, error: 'rate limited' },
+      { status: 429, headers: { ...CORS_HEADERS, 'Retry-After': String(rl.retryAfterSeconds) } },
+    );
+  }
+
   let body: Record<string, unknown>;
   try {
     body = (await request.json()) as Record<string, unknown>;

@@ -14,6 +14,8 @@ import {
 import { requireUser } from '@/lib/session';
 import { logActivity } from '@/lib/activity';
 import { PRODUCTS } from '@/lib/products';
+import { canSeeOpportunity } from '@/lib/visibility';
+import { getAccessibleOpportunity } from '@/lib/authz';
 
 // ─── Dados do CARD-MODAL da oportunidade (layout do mockup) ─────────────────
 // Clicar num card do kanban abre um modal com abas Resumo/Propostas/Atividades
@@ -57,7 +59,7 @@ const LAST_LABEL: Record<string, string> = {
 };
 
 export async function getOppCard(id: number): Promise<OppCardData | null> {
-  await requireUser();
+  const viewer = await requireUser();
   const [op] = await db
     .select({
       id: opportunities.id,
@@ -66,6 +68,7 @@ export async function getOppCard(id: number): Promise<OppCardData | null> {
       products: opportunities.products,
       municipality: fundebMunicipalities.nome,
       ownerName: users.name,
+      ownerId: opportunities.ownerId,
     })
     .from(opportunities)
     .leftJoin(fundebMunicipalities, eq(opportunities.municipalityId, fundebMunicipalities.id))
@@ -73,6 +76,11 @@ export async function getOppCard(id: number): Promise<OppCardData | null> {
     .where(eq(opportunities.id, id))
     .limit(1);
   if (!op) return null;
+  // Anti-IDOR: mesma regra de visibilidade do resto do app — o card expõe
+  // contatos de gestores municipais (LGPD).
+  if (!canSeeOpportunity(viewer, { ownerId: op.ownerId, stage: op.stage })) {
+    return null;
+  }
 
   const [pc] = await db
     .select({
@@ -155,6 +163,9 @@ export async function getOppCard(id: number): Promise<OppCardData | null> {
 export async function setOpportunityProduct(input: { opportunityId: number; product: string }) {
   const user = await requireUser();
   if (!(PRODUCTS as readonly string[]).includes(input.product)) {
+    return { ok: false as const };
+  }
+  if (!(await getAccessibleOpportunity(user, input.opportunityId))) {
     return { ok: false as const };
   }
   await db

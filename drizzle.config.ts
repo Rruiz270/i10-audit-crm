@@ -12,6 +12,12 @@ export default defineConfig({
     url: process.env.DATABASE_URL!,
   },
   schemaFilter: ['crm'],
+  // Journal próprio — o config de marketing usa outra tabela pra não misturar
+  // os dois fluxos de migração (o migrator compara created_at da última linha).
+  migrations: {
+    table: '__drizzle_migrations_crm',
+    schema: 'drizzle',
+  },
   verbose: true,
   strict: true,
 });

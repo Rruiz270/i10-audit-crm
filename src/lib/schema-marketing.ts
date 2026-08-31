@@ -180,6 +180,10 @@ export const campaigns = marketingSchema.table('campaigns', {
   deliveredCount: integer('delivered_count').notNull().default(0),
   openCount: integer('open_count').notNull().default(0),
   clickCount: integer('click_count').notNull().default(0),
+  // WhatsApp: leituras (wa_read) e respostas únicas (wa_replied, 1 por send).
+  // Backfill histórico a partir de marketing.events: scripts/legacy/migrate-wa-funnel.mjs
+  readCount: integer('read_count').notNull().default(0),
+  repliedCount: integer('replied_count').notNull().default(0),
   bounceCount: integer('bounce_count').notNull().default(0),
   unsubscribeCount: integer('unsubscribe_count').notNull().default(0),
   complaintCount: integer('complaint_count').notNull().default(0),
@@ -522,6 +526,25 @@ export const pushSubscriptions = marketingSchema.table(
   },
   (t) => [index('push_subs_user_idx').on(t.userId)],
 );
+
+// ─── Observabilidade do motor de envios ────────────────────────────────────
+// Heartbeats de cron (drain/recover marcam cada execução) + estado de alertas
+// (cooldown pra não spammar o time a cada check de 5 min). Consumidos por
+// src/lib/marketing/alerts.ts e pelo endpoint /api/marketing/health.
+export const opsHeartbeats = marketingSchema.table('ops_heartbeats', {
+  // 'cron:drain' | 'cron:recover' | ...
+  key: text('key').primaryKey(),
+  lastRunAt: timestamp('last_run_at').notNull().defaultNow(),
+  // Snapshot do resultado da última execução (ex: { claimed, completed, failed })
+  lastMeta: jsonb('last_meta').notNull().default({}),
+});
+
+export const opsAlertState = marketingSchema.table('ops_alert_state', {
+  // Chave do alerta (ex: 'queue_dead_jobs', 'drain_stalled')
+  key: text('key').primaryKey(),
+  lastNotifiedAt: timestamp('last_notified_at').notNull().defaultNow(),
+  lastMessage: text('last_message'),
+});
 
 export const messages = marketingSchema.table(
   'messages',

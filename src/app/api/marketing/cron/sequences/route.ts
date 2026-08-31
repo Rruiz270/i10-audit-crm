@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { runSequences } from '@/lib/marketing/sequence-runner';
+import { beatHeartbeat, SEQUENCES_HEARTBEAT_KEY } from '@/lib/marketing/alerts';
 
 // ─── /api/marketing/cron/sequences ────────────────────────────────────────
 // Cron 1x/min — avança sequence_members elegíveis (next_send_at <= NOW).
@@ -19,6 +20,7 @@ export async function GET(request: NextRequest) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
   }
   const result = await runSequences();
+  await beatHeartbeat(SEQUENCES_HEARTBEAT_KEY, { processed: result.processed, sent: result.sent });
   return Response.json(result);
 }
 

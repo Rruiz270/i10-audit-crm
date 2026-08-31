@@ -6,7 +6,11 @@ import { getProject } from '@/lib/actions/marketing/projects';
 import { listAudiences } from '@/lib/actions/marketing/audiences';
 import { listTemplates } from '@/lib/actions/marketing/templates';
 import { listCampaigns } from '@/lib/actions/marketing/campaigns';
-import { getWhatsAppConfig, getTemplateApproval } from '@/lib/marketing/whatsapp-health';
+import {
+  getWhatsAppConfig,
+  getTemplateApproval,
+  getWaQuotaStatus,
+} from '@/lib/marketing/whatsapp-health';
 import { ChannelBadge, WhatsAppHealthPanel } from '@/components/marketing-channel';
 
 export const dynamic = 'force-dynamic';
@@ -30,17 +34,21 @@ export default async function ProjectDashboardPage({
     listCampaigns(id),
   ]);
 
-  // Canal WhatsApp: config + status de aprovação (ao vivo) dos templates com Content SID.
+  // Canal WhatsApp: config + quota Meta ao vivo + status de aprovação (ao vivo)
+  // dos templates com Content SID.
   const waConfig = getWhatsAppConfig();
   const waTpls = tpl.filter((t) => t.channel === 'whatsapp' && t.waTemplateName);
-  const waTemplates = await Promise.all(
-    waTpls.map(async (t) => ({
-      id: t.id,
-      name: t.name,
-      contentSid: t.waTemplateName as string,
-      approval: await getTemplateApproval(t.waTemplateName as string),
-    })),
-  );
+  const [waQuota, waTemplates] = await Promise.all([
+    getWaQuotaStatus(),
+    Promise.all(
+      waTpls.map(async (t) => ({
+        id: t.id,
+        name: t.name,
+        contentSid: t.waTemplateName as string,
+        approval: await getTemplateApproval(t.waTemplateName as string),
+      })),
+    ),
+  ]);
   // Mapa templateId → channel, pra badge nas campanhas.
   const channelByTemplate = new Map(tpl.map((t) => [t.id, t.channel]));
 
@@ -89,7 +97,7 @@ export default async function ProjectDashboardPage({
         />
       </div>
 
-      <WhatsAppHealthPanel config={waConfig} templates={waTemplates} />
+      <WhatsAppHealthPanel config={waConfig} quota={waQuota} templates={waTemplates} />
 
       {camp.length > 0 && (
         <section className="mb-8">

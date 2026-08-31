@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export const dynamic = "force-dynamic";
 
 // O admin de social (i10-marketing) roda em institutoi10.com.br/marketing com
@@ -10,9 +12,9 @@ export default function SocialPage() {
     <div className="flex h-[calc(100dvh-3.5rem)] flex-col md:h-[100dvh]">
       <div className="flex items-center justify-between border-b border-gray-200 bg-white px-5 py-2.5">
         <div>
-          <a href="/marketing" className="text-[11px] text-slate-400 hover:text-slate-600">
+          <Link href="/marketing" className="text-[11px] text-slate-400 hover:text-slate-600">
             ← Marketing
-          </a>
+          </Link>
           <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-i10-cyan-dark">
             Marketing · Social Medias
           </p>

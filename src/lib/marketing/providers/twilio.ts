@@ -15,6 +15,11 @@ import type { WhatsAppProvider, WhatsAppSendInput, WhatsAppSendResult } from './
 //
 // Tag do Twilio (passado em statusCallback) volta no webhook pra correlação.
 
+// Saturação do canal WhatsApp — janela rolling de 24h do tier de messaging da
+// Meta (ver getWaDailyLimit em whatsapp-health.ts).
+const SATURATION_CODES = ['63018', '63049'];
+const TIER_WINDOW_SECONDS = 24 * 60 * 60;
+
 // E.164 brasileiro: strip de máscara/espacos; 10-11 dígitos = nacional → +55;
 // 12-13 começando com 55 = já tem país; com '+' respeita o que veio.
 function normalizeBrE164(raw: string): string {
@@ -113,16 +118,34 @@ export class TwilioWhatsAppProvider implements WhatsAppProvider {
     } catch (err) {
       const e = err as { code?: number | string; message?: string; status?: number };
       const message = e.message ?? String(err);
+      const codeStr = String(e.code ?? '');
+      const errorText = `twilio${e.code ? `[${e.code}]` : ''}: ${message.slice(0, 500)}`;
+
+      // Saturação do canal: 63018=rate limit do canal, 63049=Meta bloqueou por
+      // limite de mensagens de marketing. O número é válido — retryable, mas o
+      // backoff exponencial padrão (cap 1h) queimaria os attempts dentro da
+      // mesma janela; reagendar pra depois da janela de 24h do tier Meta.
+      if (SATURATION_CODES.includes(codeStr)) {
+        return {
+          ok: false,
+          error: errorText,
+          errorCode: codeStr,
+          retryable: true,
+          retryAfterSeconds: TIER_WINDOW_SECONDS,
+          provider: this.name,
+        };
+      }
+
       // Twilio errors: 21610=unsubscribed, 63016=template not approved, 63003=channel not found
       // 21408=permission denied (sandbox: not opted in)
-      const codeStr = String(e.code ?? '');
       const nonRetryableCodes = ['21610', '21408', '63016', '63003', '21211'];
       const retryable =
         !nonRetryableCodes.includes(codeStr) &&
         !/permission denied|not opted in|invalid/i.test(message);
       return {
         ok: false,
-        error: `twilio${e.code ? `[${e.code}]` : ''}: ${message.slice(0, 500)}`,
+        error: errorText,
+        errorCode: codeStr || undefined,
         retryable,
         provider: this.name,
       };

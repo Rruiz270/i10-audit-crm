@@ -1,5 +1,8 @@
 import 'server-only';
 
+import { sql } from 'drizzle-orm';
+import { db } from '@/lib/db';
+
 // ─── Saúde do canal WhatsApp ───────────────────────────────────────────────
 // Lê a config de env e consulta o status de aprovação de templates direto na
 // Content API do Twilio. Usado pelo painel "Canal WhatsApp" no dashboard do
@@ -11,11 +14,22 @@ export type WhatsAppConfig = {
   fromNumber: string | null;
   /** true se um número de produção (não o sandbox compartilhado do Twilio) */
   isProduction: boolean;
-  /** Tier de conversas iniciadas/24h — fonte da verdade: WhatsApp Manager → Messaging limits */
-  dailyLimitNote: string;
+  /** Tier de conversas iniciadas/24h do número — ver getWaDailyLimit() */
+  dailyLimit: number;
 };
 
 const SANDBOX_FROM = 'whatsapp:+14155238886';
+
+// Tier de messaging da Meta (conversas iniciadas pelo negócio por 24h). A fonte
+// da verdade é o WhatsApp Manager → Messaging limits; espelhe o valor via env
+// META_DAILY_CONVERSATION_LIMIT quando a Meta subir/descer o tier do número.
+// 2000 = tier inicial padrão de número verificado.
+const DEFAULT_META_DAILY_LIMIT = 2000;
+
+export function getWaDailyLimit(): number {
+  const n = Number(process.env.META_DAILY_CONVERSATION_LIMIT);
+  return Number.isInteger(n) && n > 0 ? n : DEFAULT_META_DAILY_LIMIT;
+}
 
 export function getWhatsAppConfig(): WhatsAppConfig {
   const from = process.env.TWILIO_WHATSAPP_FROM ?? null;
@@ -25,9 +39,48 @@ export function getWhatsAppConfig(): WhatsAppConfig {
     provider: process.env.MARKETING_WHATSAPP_PROVIDER ?? 'twilio',
     fromNumber: from,
     isProduction: Boolean(from) && from !== SANDBOX_FROM,
-    dailyLimitNote:
-      '2.000 conversas iniciadas/24h (tier atual — conferir em WhatsApp Manager → Messaging limits)',
+    dailyLimit: getWaDailyLimit(),
   };
+}
+
+// ─── Quota Meta ao vivo ────────────────────────────────────────────────────
+// Conversas iniciadas pelo negócio nas últimas 24h = números distintos que
+// receberam template no período, somando as duas origens de disparo: campanhas
+// (marketing.sends com to_phone) e inbox (marketing.messages com is_template).
+// Distinct pelos últimos 11 dígitos — mesma regra de match do resto do CRM
+// (tolera +55/máscara) e deduplica o espelho da campanha gravado no inbox.
+
+export type WaQuota = {
+  limit: number;
+  used: number;
+  remaining: number;
+};
+
+export async function getWaQuotaStatus(): Promise<WaQuota> {
+  const limit = getWaDailyLimit();
+  const res = await db.execute(sql`
+    SELECT count(DISTINCT right(regexp_replace(t.phone, '[^0-9]', '', 'g'), 11))::int AS used
+    FROM (
+      SELECT s.to_phone AS phone
+        FROM marketing.sends s
+       WHERE s.to_phone IS NOT NULL
+         AND s.status NOT IN ('failed', 'bounced')
+         AND coalesce(s.sent_at, s.queued_at) >= now() - interval '24 hours'
+      UNION ALL
+      SELECT c.wa_phone
+        FROM marketing.messages m
+        JOIN marketing.conversations c ON c.id = m.conversation_id
+       WHERE m.direction = 'outbound'
+         AND m.is_template = true
+         AND (m.status IS NULL OR m.status <> 'failed')
+         AND m.created_at >= now() - interval '24 hours'
+    ) t
+  `);
+  const rows =
+    (res as unknown as { rows?: Array<{ used: number }> }).rows ??
+    (res as unknown as Array<{ used: number }>);
+  const used = Number(rows[0]?.used ?? 0);
+  return { limit, used, remaining: Math.max(0, limit - used) };
 }
 
 export type TemplateApproval = {

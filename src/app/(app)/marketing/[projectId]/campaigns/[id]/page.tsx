@@ -62,6 +62,8 @@ export default async function CampaignDetailPage({
             <Stat label="Entregues" value={stats.deliveredCount} total={stats.totalRecipients} />
             <Stat label="Opens" value={stats.openCount} total={stats.deliveredCount || 1} />
             <Stat label="Clicks" value={stats.clickCount} total={stats.deliveredCount || 1} />
+            <Stat label="Lidos (WA)" value={stats.readCount} total={stats.deliveredCount || 1} />
+            <Stat label="Respondidos (WA)" value={stats.repliedCount} total={stats.deliveredCount || 1} />
             <Stat label="Bounces" value={stats.bounceCount} total={stats.totalRecipients} negative />
             <Stat label="Unsubscribes" value={stats.unsubscribeCount} total={stats.deliveredCount || 1} negative />
             <Stat

@@ -10,7 +10,11 @@ import {
   returnConversationToQueue,
   saveConversationContext,
   sendFundebReport,
+  sendConversationReply,
+  getAiAssist,
+  saveAiSummary,
 } from '@/lib/actions/marketing/conversations';
+import type { AiAnalysis } from '@/lib/marketing/ai-assistant';
 import { avatarColor, initials, displayName, relTime, windowExpired } from './util';
 import { AtendeComposer } from './atende-composer';
 
@@ -51,6 +55,14 @@ export type ChatProps = {
   templates: { contentSid: string; name: string }[];
   cannedResponses: { id: number; title: string; body: string }[];
   audioEnabled: boolean;
+  aiEnabled: boolean;
+};
+
+type AiState = {
+  loading: boolean;
+  analysis: AiAnalysis | null;
+  hasOpportunity: boolean;
+  error: string | null;
 };
 
 function Ticks({ status }: { status: string | null }) {

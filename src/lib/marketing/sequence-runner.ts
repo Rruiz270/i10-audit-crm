@@ -116,6 +116,26 @@ export async function runSequences(): Promise<RunResult> {
     projectRows.map((p) => [p.id, (p.settings ?? {}) as Record<string, unknown>]),
   );
 
+// Pré-carregar canal ('email' | 'whatsapp') dos templates dos steps atuais
+  const stepTemplateIds = new Set<number>();
+  for (const member of ready) {
+    const seq = sequenceMap.get(member.sequenceId);
+    if (!seq) continue;
+    const cfg = (seq.steps ?? []) as unknown as
+      | SequenceStep[]
+      | { steps?: SequenceStep[] };
+    const steps = Array.isArray(cfg) ? cfg : (cfg.steps ?? []);
+    const step = steps[member.currentStep];
+    if (step) stepTemplateIds.add(step.templateId);
+  }
+  const templateRows = stepTemplateIds.size
+    ? await db
+        .select({ id: templates.id, channel: templates.channel })
+        .from(templates)
+        .where(inArray(templates.id, Array.from(stepTemplateIds)))
+    : [];
+  const templateChannelMap = new Map(templateRows.map((t) => [t.id, t.channel]));
+
   for (const member of ready) {
     result.processed += 1;
     try {
@@ -172,8 +192,21 @@ export async function runSequences(): Promise<RunResult> {
         }
       }
 
-      // Suppression check antes de criar send
-      if (contact.email && (await isSuppressed(contact.email, 'email'))) {
+      // Canal do step vem do template: 'whatsapp' → job send_whatsapp;
+      // qualquer outra coisa (ou template desconhecido) → email, como antes.
+      const channel =
+        templateChannelMap.get(step.templateId) === 'whatsapp'
+          ? 'whatsapp'
+          : 'email';
+      const phone = contact.whatsapp ?? contact.phone;
+
+      // Suppression check antes de criar send (o handler de WhatsApp já
+      // checa suppression do phone por conta própria em send-pipeline.ts)
+      if (
+        channel === 'email' &&
+        contact.email &&
+        (await isSuppressed(contact.email, 'email'))
+      ) {
         await exitMember(member.memberId, 'suppressed');
         result.exited += 1;
         continue;
@@ -205,7 +238,8 @@ export async function runSequences(): Promise<RunResult> {
         .values({
           campaignId,
           contactId: contact.id,
-          toEmail: contact.email,
+          toEmail: channel === 'email' ? contact.email : null,
+          toPhone: channel === 'whatsapp' ? phone : null,
           mergeVars,
           status: 'queued',
           trackingToken,
@@ -214,9 +248,11 @@ export async function runSequences(): Promise<RunResult> {
 
       await bulkEnqueueJobs([
         {
-          type: 'send_email',
+          type: channel === 'whatsapp' ? 'send_whatsapp' : 'send_email',
           payload: { sendId: sendRow.id },
-          rateBucket: 'sequence',
+          // WhatsApp compartilha o bucket do provider ('twilio') pra respeitar
+          // o pause-on-saturation do send-pipeline; email mantém 'sequence'.
+          rateBucket: channel === 'whatsapp' ? 'twilio' : 'sequence',
         },
       ]);
 

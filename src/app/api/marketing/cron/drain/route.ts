@@ -1,6 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { claimJobs, completeJob, failJob } from '@/lib/marketing/queue';
 import { dispatchJob } from '@/lib/marketing/send-pipeline';
+import { beatHeartbeat, DRAIN_HEARTBEAT_KEY } from '@/lib/marketing/alerts';
+import { captureMessage } from '@/lib/observability';
 
 // ─── /api/marketing/cron/drain ────────────────────────────────────────────
 // Endpoint chamado pelo Vercel Cron. Drena queue em batches paralelos.
@@ -43,6 +45,8 @@ export async function GET(request: NextRequest) {
   const jobs = await claimJobs(limit);
 
   if (jobs.length === 0) {
+    // Heartbeat mesmo sem trabalho — "drain está vivo" ≠ "drain teve jobs".
+    await beatHeartbeat(DRAIN_HEARTBEAT_KEY, { claimed: 0 });
     return Response.json({
       claimed: 0,
       completed: 0,
@@ -66,7 +70,14 @@ export async function GET(request: NextRequest) {
             await completeJob(job.id);
             return { ok: true, jobId: job.id };
           }
-          await failJob(job.id, job.attempts, job.maxAttempts, result.error, result.retryable);
+          await failJob(
+            job.id,
+            job.attempts,
+            job.maxAttempts,
+            result.error,
+            result.retryable,
+            result.retryAfterSeconds,
+          );
           return { ok: false, jobId: job.id, error: result.error };
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
@@ -86,6 +97,18 @@ export async function GET(request: NextRequest) {
         failed += 1;
       }
     }
+  }
+
+  await beatHeartbeat(DRAIN_HEARTBEAT_KEY, { claimed: jobs.length, completed, failed });
+
+  // Falhas deixavam de ser visíveis fora do JSON de resposta do cron (que
+  // ninguém lê) — agora vão pro Sentry/console agregadas por execução.
+  if (failed > 0) {
+    captureMessage(`cron drain: ${failed}/${jobs.length} job(s) falharam`, {
+      area: 'cron:drain',
+      level: 'warning',
+      extra: { claimed: jobs.length, completed, failed, errors: errors.slice(0, 5) },
+    });
   }
 
   return Response.json({

@@ -7,12 +7,13 @@ import { db } from '@/lib/db';
 import { opportunities, tags } from '@/lib/schema';
 import { requireUser } from '@/lib/session';
 import { isAdmin } from '@/lib/roles';
+import { getAccessibleOpportunity } from '@/lib/authz';
 import { logActivity } from '@/lib/activity';
 import { TAG_COLOR_OPTS } from '@/lib/tag-colors';
 
 /**
  * Taxonomia de tags gerenciada em banco (crm.tags). Diferente do free-text:
- *   · seed padrão (is_custom=false) vem do migrate-tags.mjs — não deletável
+ *   · seed padrão (is_custom=false) vem do scripts/legacy/migrate-tags.mjs — não deletável
  *   · admin/gestor adiciona tags CUSTOM via /settings/tags
  *   · oportunidades guardam o LABEL da tag em crm.opportunities.tags (text[])
  *
@@ -209,6 +210,10 @@ export async function setOpportunityTaxonomyTags(formData: FormData) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? 'Dados inválidos' };
   }
   const { id, selected, freeText } = parsed.data;
+  // Anti-IDOR: mesma guarda das demais mutações por opportunityId.
+  if (!(await getAccessibleOpportunity(user, id))) {
+    return { ok: false as const, error: 'Oportunidade não encontrada' };
+  }
 
   const selectedLabels = selected.split('\n').map((s) => s.trim()).filter(Boolean);
   const freeLabels = freeText.split(',').map((s) => s.trim()).filter(Boolean);

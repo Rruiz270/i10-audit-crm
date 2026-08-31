@@ -4,6 +4,9 @@ import { db } from '@/lib/db';
 import { webhookLog, sends, events, campaigns, messages } from '@/lib/schema-marketing';
 import { addSuppression } from '@/lib/marketing/suppression';
 import { handleInboundWhatsApp } from '@/lib/marketing/inbound';
+import { notifyInboxChange } from '@/lib/marketing/realtime';
+import { rateLimitByIp } from '@/lib/rate-limit';
+import { captureError } from '@/lib/observability';
 
 // Statuses de entrega (callback). Se não for um desses e tiver Body → é inbound.
 const DELIVERY_STATUSES = ['queued', 'sending', 'sent', 'delivered', 'read', 'failed', 'undelivered'];
@@ -24,6 +27,15 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
+  // Limite alto: callbacks de status chegam em rajada durante disparos.
+  const rl = await rateLimitByIp('webhook:twilio', { limit: 600, windowMs: 60_000 });
+  if (!rl.ok) {
+    return new Response('rate limited', {
+      status: 429,
+      headers: { 'Retry-After': String(rl.retryAfterSeconds) },
+    });
+  }
+
   // Twilio manda urlencoded, não JSON
   const formData = await request.formData();
   const payload: Record<string, string> = {};
@@ -77,9 +89,13 @@ export async function POST(request: NextRequest) {
     });
     try {
       const convId = await handleInboundWhatsApp(payload);
+      // Acorda streams SSE abertos (/api/atende/stream) na mesma instância —
+      // entrega quase instantânea; instâncias irmãs pegam no tick do cursor.
+      notifyInboxChange(typeof convId === 'number' ? convId : null);
       return Response.json({ ok: true, inbound: true, conversationId: convId });
     } catch (err) {
       const m = err instanceof Error ? err.message : String(err);
+      captureError(err, { area: 'webhook:twilio', extra: { kind: 'inbound' } });
       // 500 → Twilio re-tenta (não perdemos a mensagem do contato)
       return Response.json({ ok: false, error: m }, { status: 500 });
     }
@@ -111,8 +127,10 @@ export async function POST(request: NextRequest) {
         .update(messages)
         .set({ status: messageStatus })
         .where(eq(messages.twilioSid, messageSid))
-        .returning({ id: messages.id });
+        .returning({ id: messages.id, conversationId: messages.conversationId });
       inboxMessageUpdated = updatedMsg.length > 0;
+      // Status novo (✓ → ✓✓ → lido) aparece na hora pra quem está no thread.
+      if (inboxMessageUpdated) notifyInboxChange(updatedMsg[0].conversationId);
     }
 
     // Resolver send pelo providerId (MessageSid foi salvo lá)
@@ -182,10 +200,14 @@ export async function POST(request: NextRequest) {
         .set({ deliveredCount: sql`${campaigns.deliveredCount} + 1` })
         .where(eq(campaigns.id, send.campaignId));
     } else if (messageStatus === 'read') {
-      // WA read = equivalent a 'open' no email — incrementa openCount
+      // WA read = equivalent a 'open' no email — incrementa openCount.
+      // readCount é o contador dedicado do funil WhatsApp (lido).
       await db
         .update(campaigns)
-        .set({ openCount: sql`${campaigns.openCount} + 1` })
+        .set({
+          openCount: sql`${campaigns.openCount} + 1`,
+          readCount: sql`${campaigns.readCount} + 1`,
+        })
         .where(eq(campaigns.id, send.campaignId));
     } else if (messageStatus === 'failed' || messageStatus === 'undelivered') {
       await db
@@ -221,6 +243,10 @@ export async function POST(request: NextRequest) {
     return Response.json({ ok: true, sendId: send.id, eventType });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    captureError(err, {
+      area: 'webhook:twilio',
+      extra: { kind: 'status-callback', messageSid, messageStatus, webhookLogId: logEntry.id },
+    });
     await db
       .update(webhookLog)
       .set({ status: 'error', errorMessage: message })

@@ -16,7 +16,7 @@ import {
 } from './template-engine';
 import { isSuppressed, addSuppression } from './suppression';
 import { getEmailProvider, getWhatsAppProvider } from './providers';
-import type { ClaimedJob } from './queue';
+import { pausePendingBucket, type ClaimedJob } from './queue';
 
 // ─── Send pipeline — handlers de jobs da queue ────────────────────────────
 // Cada handler recebe o payload do job, faz o trabalho, retorna sucesso/falha.
@@ -24,7 +24,7 @@ import type { ClaimedJob } from './queue';
 
 type HandlerResult =
   | { ok: true }
-  | { ok: false; error: string; retryable: boolean };
+  | { ok: false; error: string; retryable: boolean; retryAfterSeconds?: number };
 
 // ─── send_email handler ──────────────────────────────────────────────────
 // Payload esperado: { sendId: number }
@@ -258,11 +258,35 @@ export async function handleSendWhatsApp(payload: Record<string, unknown>): Prom
     return { ok: true };
   }
 
+  // Erros de create-time que indicam número morto/opt-out nunca geram
+  // StatusCallback — a supressão do webhook (twilio/route.ts) não cobre esse
+  // caso e o número seria re-tentado a cada campanha. Mesmo mapeamento de
+  // reason do webhook: 21610=opt-out, 63003/21211=número inválido.
+  if (result.errorCode && ['63003', '21211', '21610'].includes(result.errorCode)) {
+    await addSuppression({
+      identifier: phone,
+      channel: 'whatsapp',
+      reason: result.errorCode === '21610' ? 'unsubscribe' : 'bounce_hard',
+      sourceRef: `twilio:send:${sendId}:${result.errorCode}`,
+    });
+  }
+
+  // Saturação (63049/63018): pausa o bucket inteiro — os demais jobs pending
+  // do mesmo provider bateriam no mesmo limite e queimariam attempts à toa.
+  if (result.retryable && result.retryAfterSeconds) {
+    await pausePendingBucket(campaign.provider ?? 'twilio', result.retryAfterSeconds);
+  }
+
   await db
     .update(sends)
     .set({ status: result.retryable ? 'queued' : 'failed', errorMessage: result.error })
     .where(eq(sends.id, sendId));
-  return { ok: false, error: result.error, retryable: result.retryable };
+  return {
+    ok: false,
+    error: result.error,
+    retryable: result.retryable,
+    retryAfterSeconds: result.retryAfterSeconds,
+  };
 }
 
 // ─── process_webhook handler ──────────────────────────────────────────────

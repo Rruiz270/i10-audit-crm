@@ -29,10 +29,13 @@ import {
 } from '@/lib/lost-reasons';
 import { autoTagOpportunity } from '@/lib/actions/tags';
 import { visibilityCondition, canSeeOpportunity } from '@/lib/visibility';
+import { getAccessibleOpportunity } from '@/lib/authz';
 import { PRODUCTS, PRODUCT_POSVENDA, type Product } from '@/lib/products';
 
 const createSchema = z.object({
-  municipalityId: z.coerce.number().int().positive().optional(),
+  // '' = picker sem seleção (o hidden input sempre submete) — município é
+  // opcional no estágio inicial, então string vazia é válida.
+  municipalityId: z.coerce.number().int().positive().optional().or(z.literal('')),
   source: z.string().trim().max(120).optional().or(z.literal('')),
   estimatedValue: z.coerce.number().nonnegative().optional(),
   notes: z.string().trim().max(5000).optional().or(z.literal('')),
@@ -81,23 +84,59 @@ export async function checkDuplicateByMunicipality(municipalityId: number) {
   return rows;
 }
 
-export async function createOpportunity(formData: FormData): Promise<void> {
+/**
+ * Estado devolvido pro useActionState do form de criação. Erro NÃO derruba a
+ * página (antes era throw → error boundary engolia o form inteiro): a mensagem
+ * vai inline e `values` repovoa os campos digitados via defaultValue.
+ */
+export type CreateOpportunityState = {
+  error: string;
+  values: {
+    source: string;
+    estimatedValue: string;
+    notes: string;
+    allowDuplicate: boolean;
+    contactName: string;
+    contactRole: string;
+    contactEmail: string;
+    contactPhone: string;
+  };
+} | null;
+
+export async function createOpportunity(
+  _prevState: CreateOpportunityState,
+  formData: FormData,
+): Promise<CreateOpportunityState> {
   const user = await requireUser();
   const raw = Object.fromEntries(formData);
+  const fail = (error: string): CreateOpportunityState => ({
+    error,
+    values: {
+      source: String(formData.get('source') ?? ''),
+      estimatedValue: String(formData.get('estimatedValue') ?? ''),
+      notes: String(formData.get('notes') ?? ''),
+      allowDuplicate: formData.get('allowDuplicate') === 'on',
+      contactName: String(formData.get('contactName') ?? ''),
+      contactRole: String(formData.get('contactRole') ?? ''),
+      contactEmail: String(formData.get('contactEmail') ?? ''),
+      contactPhone: String(formData.get('contactPhone') ?? ''),
+    },
+  });
   const parsed = createSchema.safeParse(raw);
   if (!parsed.success) {
-    throw new Error(parsed.error.issues[0]?.message ?? 'Dados inválidos');
+    return fail(parsed.error.issues[0]?.message ?? 'Dados inválidos');
   }
   const data = parsed.data;
+  const municipalityId = data.municipalityId || null;
 
   // Duplicate detection — bloqueia a não ser que o form explicite allow_duplicate=on.
   const allowDuplicate =
     formData.get('allowDuplicate') === 'on' || formData.get('allowDuplicate') === 'true';
-  if (data.municipalityId && !allowDuplicate) {
-    const dupes = await checkDuplicateByMunicipality(data.municipalityId);
+  if (municipalityId && !allowDuplicate) {
+    const dupes = await checkDuplicateByMunicipality(municipalityId);
     if (dupes.length > 0) {
       const ids = dupes.map((d) => `#${d.id}`).join(', ');
-      throw new Error(
+      return fail(
         `Já existe oportunidade ativa para este município (${ids}). Para forçar, marque "Permitir duplicada".`,
       );
     }
@@ -106,7 +145,7 @@ export async function createOpportunity(formData: FormData): Promise<void> {
   const [created] = await db
     .insert(opportunities)
     .values({
-      municipalityId: data.municipalityId ?? null,
+      municipalityId,
       ownerId: user.id,
       stage: 'novo',
       source: data.source || null,
@@ -158,6 +197,9 @@ export async function createOpportunity(formData: FormData): Promise<void> {
 export async function setOpportunityTags(formData: FormData) {
   const user = await requireUser();
   const id = Number(formData.get('id'));
+  if (!(await getAccessibleOpportunity(user, id))) {
+    return { ok: false as const, error: 'Oportunidade não encontrada', tags: [] as string[] };
+  }
   const tagsCsv = String(formData.get('tags') ?? '');
   const list = tagsCsv
     .split(',')
@@ -220,6 +262,9 @@ export async function updateOpportunity(formData: FormData) {
     return { ok: false as const, error: parsed.error.issues[0]?.message ?? 'Dados inválidos' };
   }
   const { id, ...rest } = parsed.data;
+  if (!(await getAccessibleOpportunity(user, id))) {
+    return { ok: false as const, error: 'Oportunidade não encontrada' };
+  }
 
   const patch: Record<string, unknown> = { updatedAt: new Date() };
   if (rest.municipalityId !== undefined && rest.municipalityId !== '')
@@ -327,6 +372,10 @@ export async function changeStage(input: {
     where: eq(opportunities.id, opportunityId),
   });
   if (!op) return { ok: false as const, error: 'Oportunidade não encontrada' };
+  // Anti-IDOR: consultor só mexe nos próprios leads (ou pool 'novo' sem dono).
+  if (!canSeeOpportunity(user, { ownerId: op.ownerId, stage: op.stage })) {
+    return { ok: false as const, error: 'Oportunidade não encontrada' };
+  }
 
   const primaryContact = await db.query.contacts.findFirst({
     where: and(eq(contacts.opportunityId, opportunityId), eq(contacts.isPrimary, true)),

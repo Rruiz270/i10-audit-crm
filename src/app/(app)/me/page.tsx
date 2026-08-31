@@ -10,8 +10,8 @@ export const dynamic = 'force-dynamic';
 export default async function MyProfilePage() {
   const session = await requireUser();
   const [profile, stats] = await Promise.all([
-    getMyProfile(session.id),
-    getMyStats(session.id),
+    getMyProfile(),
+    getMyStats(),
   ]);
 
   const displayName = profile?.displayName || profile?.name || '—';

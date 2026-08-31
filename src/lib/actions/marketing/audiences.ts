@@ -203,7 +203,7 @@ export async function importContactsFromCsv(formData: FormData): Promise<void> {
   // Upsert contacts em chunks
   const chunkSize = 500;
   let insertedContacts = 0;
-  let upsertedContacts = 0;
+  const upsertedContacts = 0;
   const allContactIds: number[] = [];
 
   for (let i = 0; i < filtered.length; i += chunkSize) {

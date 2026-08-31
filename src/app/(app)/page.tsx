@@ -142,7 +142,7 @@ export default async function DashboardPage() {
     (((neverRes as unknown as { rows?: Array<{ n: number }> }).rows ?? [])[0]?.n ?? 0),
   );
 
-  const myTasks = await listMyOpenTasks(user.id);
+  const myTasks = await listMyOpenTasks();
   const overdueTeam = await listOverdueTasks();
   const nowMs = new Date().getTime();
   const myOverdue = myTasks.filter((t) => new Date(t.dueAt).getTime() < nowMs);
@@ -162,8 +162,8 @@ export default async function DashboardPage() {
 
   // Meu forecast + stats pessoais
   const [myOpsForForecast, myStats] = await Promise.all([
-    getMyActiveOpportunitiesForForecast(user.id),
-    getMyStats(user.id),
+    getMyActiveOpportunitiesForForecast(),
+    getMyStats(),
   ]);
   const myWeighted = weightedValue(
     myOpsForForecast.map((o) => ({ stage: o.stage, estimatedValue: o.estimatedValue })),

@@ -3,7 +3,7 @@ import { FileText } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/session';
 import { getWhatsAppConfig } from '@/lib/marketing/whatsapp-health';
-import { InboxAutoRefresh } from '@/components/inbox-auto-refresh';
+import { InboxRealtime } from '@/components/inbox-realtime';
 import { InboxComposer } from '@/components/inbox-composer';
 import { InboxContactHeader } from '@/components/inbox-contact-header';
 import { InboxMarkRead } from '@/components/inbox-mark-read';
@@ -117,7 +117,7 @@ export default async function ConversasPage({
   if (convs.length === 0) {
     return (
       <div className="px-8 py-8 max-w-3xl">
-        <InboxAutoRefresh />
+        <InboxRealtime />
         <div className="mb-4 text-xs text-slate-500">
           <Link href="/marketing" className="text-cyan-700 hover:underline">Marketing</Link> › Conversas
         </div>
@@ -181,7 +181,7 @@ export default async function ConversasPage({
 
   return (
     <div className="grid h-screen grid-cols-1 overflow-hidden md:grid-cols-[300px_1fr] xl:grid-cols-[300px_1fr_280px]">
-      <InboxAutoRefresh />
+      <InboxRealtime conversationId={conv?.id} />
       {/* lista */}
       <div className="min-h-0 overflow-auto border-r border-slate-200 bg-white">
         <div className="border-b border-slate-200 p-4">

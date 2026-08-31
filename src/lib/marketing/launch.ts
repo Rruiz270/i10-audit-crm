@@ -144,6 +144,24 @@ export async function launchCampaignCore(
   };
   if (options.dryRun) return { ...base, sendsCreated: final.length };
 
+  // Trava de quota Meta: estourar o tier de conversas iniciadas em 24h queima
+  // o número. Vale para o disparo agendado também — é justamente ele que sai
+  // sozinho de madrugada, sem ninguém para ler um aviso na tela.
+  if (isWhatsApp) {
+    // Import sob demanda: whatsapp-health é 'server-only' e, carregado no topo,
+    // quebraria qualquer teste que importe este módulo.
+    const { getWaQuotaStatus } = await import('./whatsapp-health');
+    const quota = await getWaQuotaStatus();
+    if (final.length > quota.remaining) {
+      throw new Error(
+        `Quota Meta insuficiente: ${quota.used.toLocaleString('pt-BR')} de ` +
+          `${quota.limit.toLocaleString('pt-BR')} conversas iniciadas nas últimas 24h ` +
+          `(restam ${quota.remaining.toLocaleString('pt-BR')}) e este launch criaria ` +
+          `${final.length.toLocaleString('pt-BR')}.`,
+      );
+    }
+  }
+
   await db
     .update(campaigns)
     .set({ status: 'sending', startedAt: new Date(), totalRecipients: final.length })

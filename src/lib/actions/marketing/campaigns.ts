@@ -93,6 +93,7 @@ export async function launchCampaign(formData: FormData): Promise<void> {
     limit: limitInput > 0 ? limitInput : undefined,
   });
 
+
   revalidatePath(`/marketing/${camp.projectId}/campaigns/${campaignId}`);
   redirect(
     dryRunOnly
@@ -121,6 +122,8 @@ export async function getCampaignStats(campaignId: number) {
       deliveredCount: campaigns.deliveredCount,
       openCount: campaigns.openCount,
       clickCount: campaigns.clickCount,
+      readCount: campaigns.readCount,
+      repliedCount: campaigns.repliedCount,
       bounceCount: campaigns.bounceCount,
       unsubscribeCount: campaigns.unsubscribeCount,
       complaintCount: campaigns.complaintCount,

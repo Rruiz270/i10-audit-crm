@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   DndContext,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useDraggable,
   useDroppable,
   useSensor,
@@ -26,6 +27,16 @@ import { stageAccentColor } from '@/components/ui/stage-badge';
 import { Chip } from '@/components/ui/chip';
 import { Icon } from '@/components/ui/icon';
 import { Popover } from '@/components/ui/popover';
+import { StageControl } from '@/components/stage-control';
+
+// Impede que interações em controles internos do card iniciem o drag.
+// Cobre os activators dos três sensores: PointerSensor (pointerdown),
+// MouseSensor (mousedown) e TouchSensor (touchstart).
+const stopDragListeners = {
+  onPointerDown: (e: React.PointerEvent) => e.stopPropagation(),
+  onMouseDown: (e: React.MouseEvent) => e.stopPropagation(),
+  onTouchStart: (e: React.TouchEvent) => e.stopPropagation(),
+};
 
 export type TeamUser = { id: string; name: string | null; email: string; role: string };
 export type Viewer = { id: string; role: string };
@@ -124,7 +135,13 @@ export function KanbanBoard({
   const [openCard, setOpenCard] = React.useState<number | null>(null);
   const [wonSel, setWonSel] = React.useState<string[]>([]);
   const [prodFilter, setProdFilter] = React.useState<string>('all');
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  // Mouse mantém o drag imediato (4px). No touch, long-press de 250ms arma o
+  // drag; mover o dedo antes disso (tolerance) deixa o scroll das colunas
+  // acontecer normalmente — sem isso, arrastar card e scrollar brigavam.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+  );
 
   const withLocalStage = cards
     .filter(
@@ -348,6 +365,10 @@ export function KanbanBoard({
               team={team}
               viewer={viewer}
               onOpen={setOpenCard}
+              onWonNeeded={(card) => {
+                setWonFor(card);
+                setWonSel([]);
+              }}
             />
           ))}
         </div>
@@ -363,6 +384,7 @@ function Column({
   team,
   viewer,
   onOpen,
+  onWonNeeded,
 }: {
   stageDef: DynamicStage;
   cards: KanbanCard[];
@@ -370,6 +392,7 @@ function Column({
   team?: TeamUser[];
   viewer?: Viewer;
   onOpen?: (id: number) => void;
+  onWonNeeded?: (card: KanbanCard) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stageDef.key });
   const def = stageDef;
@@ -426,6 +449,7 @@ function Column({
             team={team}
             viewer={viewer}
             onOpen={onOpen}
+            onWonNeeded={onWonNeeded}
           />
         ))}
         {cards.length === 0 && (
@@ -449,12 +473,14 @@ function DraggableCard({
   team,
   viewer,
   onOpen,
+  onWonNeeded,
 }: {
   card: KanbanCard;
   busy: boolean;
   team?: TeamUser[];
   viewer?: Viewer;
   onOpen?: (id: number) => void;
+  onWonNeeded?: (card: KanbanCard) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: card.id,
@@ -519,7 +545,7 @@ function DraggableCard({
         // Clique (sem drag) abre o card-modal, como no mockup.
         if (!isDragging && onOpen) onOpen(card.id);
       }}
-      className={`rounded-lg border bg-white p-3 shadow-sm cursor-grab active:cursor-grabbing ${
+      className={`touch-manipulation rounded-lg border bg-white p-3 shadow-sm cursor-grab active:cursor-grabbing ${
         rotten ? 'border-rose-300 ring-1 ring-rose-100' : isDragging ? 'border-i10-400 shadow-md' : 'border-slate-200'
       } ${busy ? 'opacity-50' : ''}`}
     >
@@ -528,7 +554,7 @@ function DraggableCard({
         <Link
           href={`/opportunities/${card.id}`}
           onClick={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
+          {...stopDragListeners}
           className="text-sm font-semibold hover:underline truncate"
           style={{ color: 'var(--i10-navy)' }}
         >
@@ -564,11 +590,29 @@ function DraggableCard({
       {/* Zona 2.5 — dono: dropdown (admin/gestor) ou "pegar" (consultor no pool) */}
       {viewer && <CardOwner card={card} team={team ?? []} viewer={viewer} />}
 
+      {/* Zona 2.6 — ação rápida em telas pequenas: mover estágio sem drag
+          (reusa o StageControl do painel da oportunidade; long-press continua
+          disponível, mas o select é mais confiável no touch). */}
+      <div className="mt-2 md:hidden" {...stopDragListeners} onClick={(e) => e.stopPropagation()}>
+        <Popover
+          align="start"
+          trigger="↕ Mover estágio"
+          triggerClassName="w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600 active:bg-slate-100"
+          panelClassName="w-64 rounded-lg border border-slate-200 bg-white p-3 shadow-lg"
+        >
+          <StageControl
+            opportunityId={card.id}
+            currentStage={card.stage as StageKey}
+            onNeedsProducts={onWonNeeded ? () => onWonNeeded(card) : undefined}
+          />
+        </Popover>
+      </div>
+
       {/* Zona 2.7 — contato principal + ações rápidas 💬 ✉️ 📞 */}
       {card.primaryContact && (
         <div
           className="mt-2 flex items-center gap-1.5 border-t border-dashed border-slate-100 pt-2 text-xs text-slate-500"
-          onPointerDown={(e) => e.stopPropagation()}
+          {...stopDragListeners}
           onClick={(e) => e.stopPropagation()}
         >
           {card.primaryContact.marketingContactId ? (
@@ -659,7 +703,7 @@ function DraggableCard({
             </Chip>
           ))}
           {overflowTags.length > 0 && (
-            <span onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+            <span {...stopDragListeners} onClick={(e) => e.stopPropagation()}>
               <Popover
                 align="start"
                 triggerClassName="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 hover:bg-slate-200"
@@ -712,7 +756,7 @@ function CardOwner({
   const admin = isAdmin(viewer.role);
   const inPool = !card.ownerId;
   const stop = {
-    onPointerDown: (e: React.PointerEvent) => e.stopPropagation(),
+    ...stopDragListeners,
     onClick: (e: React.MouseEvent) => e.stopPropagation(),
   };
 

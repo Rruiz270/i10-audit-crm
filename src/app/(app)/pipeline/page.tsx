@@ -21,10 +21,7 @@ export default async function PipelinePage({
   const [user, params, prefs, stages] = await Promise.all([
     requireUser(),
     searchParams,
-    (async () => {
-      const u = await requireUser();
-      return getMyPreferences(u.id);
-    })(),
+    getMyPreferences(),
     listStages(),
   ]);
 
