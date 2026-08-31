@@ -6,6 +6,7 @@ import { Icon } from '@/components/ui/icon';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { FacetGroup } from '@/components/ui/facet-group';
 import { OpportunitiesTable } from '@/components/opportunities-table';
+import { DateRangeFilter } from '@/components/ui/date-range-filter';
 import { requireUser } from '@/lib/session';
 import { getTagStyleMap } from '@/lib/actions/tags';
 import { ACTIVE_STAGES, STAGES_BY_KEY, type StageKey } from '@/lib/pipeline';
@@ -15,7 +16,7 @@ export const dynamic = 'force-dynamic';
 export default async function OpportunitiesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ stage?: string; tag?: string; mine?: string }>;
+  searchParams: Promise<{ stage?: string; tag?: string; mine?: string; desde?: string; ate?: string }>;
 }) {
   const [user, params] = await Promise.all([requireUser(), searchParams]);
   const prefs = await getMyPreferences(user.id);
@@ -30,6 +31,8 @@ export default async function OpportunitiesPage({
   const rows = await listOpportunities({
     stage: params.stage as StageKey | undefined,
     ownerId: mine ? user.id : undefined,
+    desde: params.desde,
+    ate: params.ate,
   });
   const [users, tagStyles] = await Promise.all([listUsersForAssignment(), getTagStyleMap()]);
 
@@ -43,6 +46,8 @@ export default async function OpportunitiesPage({
     const q = new URLSearchParams();
     if (params.stage) q.set('stage', params.stage);
     if (params.tag) q.set('tag', params.tag);
+    if (params.desde) q.set('desde', params.desde);
+    if (params.ate) q.set('ate', params.ate);
     if (params.mine) q.set('mine', params.mine);
     for (const [k, v] of Object.entries(overrides)) {
       if (v === undefined) q.delete(k);
@@ -104,9 +109,17 @@ export default async function OpportunitiesPage({
         </div>
       </header>
 
-      {/* Barra de filtros: estágio (segmented) + tags (facets por categoria) */}
+      {/* Barra de filtros: estágio (segmented) + período de entrada + tags */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <SegmentedControl value={params.stage ?? ''} options={stageOptions} />
+      </div>
+      <div className="mb-4">
+        <DateRangeFilter
+          desde={params.desde}
+          ate={params.ate}
+          basePath="/opportunities"
+          outros={{ stage: params.stage, tag: params.tag, mine: params.mine }}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-6">

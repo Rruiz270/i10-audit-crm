@@ -7,6 +7,7 @@ import {
   boolean,
   jsonb,
   timestamp,
+  date,
   varchar,
   primaryKey,
 } from 'drizzle-orm/pg-core';
@@ -109,6 +110,10 @@ export const opportunities = crmSchema.table('opportunities', {
   products: text('products').array().default([]),
   lostReasonCode: text('lost_reason_code'),
   lastActivityAt: timestamp('last_activity_at').defaultNow(),
+  // Data de entrada do lead. Nasce com a oportunidade, mas avança quando outro
+  // contato da MESMA cidade engaja — assim a cidade sempre aparece pela última
+  // vez que deu sinal, e não pela primeira. É por ela que as telas filtram.
+  leadEntradaAt: timestamp('lead_entrada_at').defaultNow(),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -295,4 +300,46 @@ export const verificationTokens = crmSchema.table(
     expires: timestamp('expires', { mode: 'date' }).notNull(),
   },
   (t) => [primaryKey({ columns: [t.identifier, t.token] })],
+);
+
+// ─── Adoção & uso ──────────────────────────────────────────────────────────
+// A sessão do NextAuth é JWT, então `sessions` acima fica vazia e não serve
+// como registro de acesso. `access_log` é o log de login de verdade, gravado
+// pelo evento signIn (ver ./auth.ts).
+//
+// ATENÇÃO ao fuso: as colunas `timestamp` do banco não têm timezone e guardam
+// UTC (o DEFAULT now() roda com TimeZone=GMT no Neon). Ler direto pelo driver
+// engana — ele reinterpreta o valor naive no fuso da máquina. Toda leitura
+// orientada a hora local deve converter no SQL:
+//   occurred_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo'
+export const accessLog = crmSchema.table('access_log', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  email: text('email'),
+  provider: text('provider'),
+  ip: text('ip'),
+  userAgent: text('user_agent'),
+  occurredAt: timestamp('occurred_at').notNull().defaultNow(),
+});
+
+// Snapshot diário por usuário — populado pelo cron /api/cron/usage-snapshot.
+// `day` já está em horário de Brasília; `hours` é um array de 24 contagens.
+export const usageDaily = crmSchema.table(
+  'usage_daily',
+  {
+    day: date('day').notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    actions: integer('actions').notNull().default(0),
+    sessions: integer('sessions').notNull().default(0),
+    activeMinutes: integer('active_minutes').notNull().default(0),
+    logins: integer('logins').notNull().default(0),
+    firstAt: timestamp('first_at'),
+    lastAt: timestamp('last_at'),
+    hours: jsonb('hours').notNull().default([]),
+    types: jsonb('types').notNull().default({}),
+    computedAt: timestamp('computed_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.day, t.userId] })],
 );

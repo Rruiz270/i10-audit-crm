@@ -1,6 +1,6 @@
 'use server';
 
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
@@ -447,11 +447,17 @@ export async function changeStageAction(formData: FormData) {
 export async function listOpportunities(filter?: {
   stage?: StageKey;
   ownerId?: string;
+  /** Data de entrada do lead — recorte por período (YYYY-MM-DD). */
+  desde?: string;
+  ate?: string;
 }) {
   const user = await requireUser();
   const conditions = [];
   if (filter?.stage) conditions.push(eq(opportunities.stage, filter.stage));
   if (filter?.ownerId) conditions.push(eq(opportunities.ownerId, filter.ownerId));
+  if (filter?.desde) conditions.push(gte(opportunities.leadEntradaAt, new Date(`${filter.desde}T00:00:00`)));
+  // `ate` é inclusivo: o usuário escolhe um dia, não um instante.
+  if (filter?.ate) conditions.push(lte(opportunities.leadEntradaAt, new Date(`${filter.ate}T23:59:59`)));
   const visibility = visibilityCondition(user);
   if (visibility) conditions.push(visibility);
 
@@ -465,6 +471,7 @@ export async function listOpportunities(filter?: {
       stageUpdatedAt: opportunities.stageUpdatedAt,
       lastActivityAt: opportunities.lastActivityAt,
       createdAt: opportunities.createdAt,
+      leadEntradaAt: opportunities.leadEntradaAt,
       tags: opportunities.tags,
       municipalityId: opportunities.municipalityId,
       municipalityName: fundebMunicipalities.nome,
@@ -655,7 +662,12 @@ function requireRoleCheck(role: string) {
   }
 }
 
-export async function opportunitiesByStage(filter?: { ownerId?: string }) {
+export async function opportunitiesByStage(filter?: {
+  ownerId?: string;
+  /** Data de entrada do lead — recorte por período (YYYY-MM-DD). */
+  desde?: string;
+  ate?: string;
+}) {
   const user = await requireUser();
   const visibility = visibilityCondition(user);
   const rows = await db
@@ -691,6 +703,8 @@ export async function opportunitiesByStage(filter?: { ownerId?: string }) {
           'ganhou',
         ]),
         filter?.ownerId ? eq(opportunities.ownerId, filter.ownerId) : undefined,
+        filter?.desde ? gte(opportunities.leadEntradaAt, new Date(`${filter.desde}T00:00:00`)) : undefined,
+        filter?.ate ? lte(opportunities.leadEntradaAt, new Date(`${filter.ate}T23:59:59`)) : undefined,
         visibility,
       ),
     )

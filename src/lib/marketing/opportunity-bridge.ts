@@ -27,7 +27,9 @@ export type EnsureOpportunityInput = {
 
 export type EnsureOpportunityResult =
   | { created: true; opportunityId: number }
-  | { created: false; reason: 'already_exists' | 'error'; error?: string };
+  | { created: false; reason: 'already_exists' | 'error'; error?: string }
+  /** A cidade já tinha lead nesta origem: o contato foi anexado a ele. */
+  | { created: false; reason: 'merged_into_city'; opportunityId: number };
 
 export async function ensureOpportunity(
   input: EnsureOpportunityInput,
@@ -74,9 +76,40 @@ export async function ensureOpportunity(
       }
     }
 
+    // Uma câmara tem vários e-mails, e mais de um pode engajar. Nesse caso a
+    // cidade NÃO vira um segundo lead: o contato é anexado ao que já existe e a
+    // data de entrada avança para agora — a cidade passa a aparecer pela última
+    // vez que deu sinal. O recorte é por origem: um lead desta campanha nunca
+    // se cola a uma oportunidade de outra, que pode ser de outro consultor.
+    if (municipalityId) {
+      const daCidade = await q`
+        select id from crm.opportunities
+        where municipality_id = ${municipalityId} and source = ${input.source}
+          and won_at is null and lost_at is null
+        order by id limit 1`;
+      if (daCidade.length) {
+        const opportunityId = daCidade[0].id as number;
+        await q`
+          insert into crm.contacts (opportunity_id, name, email, phone, role, is_primary)
+          values (${opportunityId}, ${input.name ?? email.split('@')[0]}, ${email},
+                  ${input.phone ?? null}, 'prefeitura', false)`;
+        await q`
+          update crm.opportunities
+          set lead_entrada_at = NOW(), last_activity_at = NOW(), updated_at = NOW()
+          where id = ${opportunityId}`;
+        await q`
+          insert into crm.activities (opportunity_id, type, subject, body, metadata)
+          values (${opportunityId}, ${input.activityType ?? 'marketing'},
+                  ${'Outro contato da mesma câmara engajou'},
+                  ${`${input.name ?? email} (${email}) engajou na campanha. Anexado a este lead em vez de abrir um novo.`},
+                  ${JSON.stringify({ source: input.source, marketingContactId: input.marketingContactId ?? null, merged: true })})`;
+        return { created: false, reason: 'merged_into_city', opportunityId };
+      }
+    }
+
     const opp = await q`
-      insert into crm.opportunities (municipality_id, owner_id, stage, source, notes)
-      values (${municipalityId}, ${ownerId}, 'novo', ${input.source}, ${input.notes})
+      insert into crm.opportunities (municipality_id, owner_id, stage, source, notes, lead_entrada_at)
+      values (${municipalityId}, ${ownerId}, 'novo', ${input.source}, ${input.notes}, NOW())
       returning id`;
     const opportunityId = opp[0].id as number;
 
