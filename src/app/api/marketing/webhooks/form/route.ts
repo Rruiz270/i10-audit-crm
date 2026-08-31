@@ -134,6 +134,7 @@ async function processFormSubmission(
     opportunityNotes?: string;
     opportunitySubject?: string;
     opportunityOrigin?: string;
+    opportunityOwnerId?: string;
   };
   const signupTag = settings.signupTag ?? `${project.slug}:signup`;
 
@@ -247,6 +248,7 @@ async function processFormSubmission(
       activitySubject: settings.opportunitySubject ?? 'Agendou no Smart Cities Park',
       activityBody: `Lead criado via ${settings.opportunityOrigin ?? 'LP /pa-smart'}. E-mail: ${email}`,
       marketingContactId: contactId,
+      ownerId: settings.opportunityOwnerId ?? null,
     });
   }
 

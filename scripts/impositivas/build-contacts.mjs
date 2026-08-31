@@ -47,7 +47,10 @@ const firstName = (s) => titleCase(s).split(' ')[0] ?? '';
 function splitEmails(raw) {
   return String(raw ?? '')
     .split(/[;,]/)
-    .map((e) => e.trim().toLowerCase())
+    // A planilha traz caracteres invisíveis (zero-width space, NBSP) colados em
+    // alguns endereços. Eles passam pela validação e só aparecem como recusa do
+    // provedor no disparo — uma câmara inteira ficaria sem receber nada.
+    .map((e) => e.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '').trim().toLowerCase())
     .filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
 }
 

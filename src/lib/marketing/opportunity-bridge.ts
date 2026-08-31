@@ -17,6 +17,12 @@ export type EnsureOpportunityInput = {
   activitySubject: string;
   activityBody?: string;
   marketingContactId?: number | null;
+  /**
+   * Dono fixo da oportunidade. Sem isso o lead cai no balanceamento entre
+   * consultores ativos — o que nem sempre se quer: campanhas com atendimento
+   * dedicado precisam que tudo caia na mesma pessoa.
+   */
+  ownerId?: string | null;
 };
 
 export type EnsureOpportunityResult =
@@ -37,13 +43,25 @@ export async function ensureOpportunity(
       where lower(cc.email) = ${email} and oo.source = ${input.source} limit 1`;
     if (existing.length > 0) return { created: false, reason: 'already_exists' };
 
-    // Consultor ativo com menos oportunidades (load-balance simples)
-    const owner = await q`
-      select id from crm.users
-      where role = 'consultor' and is_active = true
-      order by (select count(*) from crm.opportunities o where o.owner_id = crm.users.id) asc, id asc
-      limit 1`;
-    const ownerId = owner[0]?.id ?? null;
+    // Dono fixo quando a campanha define um; senão, consultor ativo com menos
+    // oportunidades (load-balance simples).
+    let ownerId: string | null = null;
+    if (input.ownerId) {
+      const fixo = await q`
+        select id from crm.users where id = ${input.ownerId} and is_active = true limit 1`;
+      ownerId = fixo[0]?.id ?? null;
+      if (!ownerId) {
+        console.error(`[opportunity-bridge] dono fixo ${input.ownerId} não existe ou está inativo`);
+      }
+    }
+    if (!ownerId && !input.ownerId) {
+      const owner = await q`
+        select id from crm.users
+        where role = 'consultor' and is_active = true
+        order by (select count(*) from crm.opportunities o where o.owner_id = crm.users.id) asc, id asc
+        limit 1`;
+      ownerId = owner[0]?.id ?? null;
+    }
 
     let municipalityId: number | null = null;
     if (input.ibge) {
