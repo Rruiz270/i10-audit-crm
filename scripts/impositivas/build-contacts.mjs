@@ -87,6 +87,9 @@ const ALIAS = {
   SANTOANTONIODAPOSSE: 'SANTOANTONIODEPOSSE',
   SAOLUISDOPARAITINGA: 'SAOLUIZDOPARAITINGA',
 };
+// A planilha traz o nome com sufixo de UF ou caixa irregular em alguns casos.
+const NOME_CORRIGIDO = { 'Orlândia-Sp': 'Orlândia', 'Torre de pedra': 'Torre de Pedra' };
+
 const lookupIbge = (municipio) => {
   const k = norm(municipio);
   return ibgeByName.get(k) ?? ibgeByName.get(ALIAS[k] ?? '') ?? null;
@@ -99,7 +102,8 @@ const semCelular = [];
 const seenEmail = new Set();
 
 for (const r of rows) {
-  const municipio = titleCase(r['MUNICÍPIO'] ?? r['MUNICIPIO'] ?? '');
+  const bruto = titleCase(r['MUNICÍPIO'] ?? r['MUNICIPIO'] ?? '');
+  const municipio = NOME_CORRIGIDO[bruto] ?? bruto;
   const presidente = titleCase(r['NOME'] ?? '');
   const emails = splitEmails(r['E-MAIL']);
   const whatsapp = toE164Mobile(r['CELULAR']);

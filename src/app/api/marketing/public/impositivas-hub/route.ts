@@ -132,8 +132,8 @@ export async function GET(req: Request) {
       WHERE oo.source = ${`lp_${slug}`}
       GROUP BY lower(cc.email)
     )
-    SELECT m.municipio,
-           max(m.ibge)                                        AS ibge,
+    SELECT max(m.municipio)                                   AS municipio,
+           m.ibge                                             AS ibge,
            max(COALESCE(m.attributes->>'presidente', m.name))  AS presidente,
            count(*)::int                                       AS contatos,
            bool_or(m.whatsapp IS NOT NULL)                     AS com_whatsapp,
@@ -158,8 +158,11 @@ export async function GET(req: Request) {
     LEFT JOIN trilhaA ON trilhaA.contact_id = m.id
     LEFT JOIN conv    ON conv.contact_id    = m.id
     LEFT JOIN opp     ON opp.email          = lower(m.email)
-    GROUP BY m.municipio
-    ORDER BY m.municipio
+    -- Agrupa por IBGE: o nome do município varia de formatação entre as
+    -- planilhas de origem, e agrupar por ele criava duas linhas para a mesma
+    -- câmara ("Orlândia" e "Orlândia-Sp").
+    GROUP BY m.ibge
+    ORDER BY max(m.municipio)
   `) as unknown as Array<MuniRow & { em_trilha_a: boolean }>;
 
   // Campanhas do projeto (para o cabeçalho do painel)

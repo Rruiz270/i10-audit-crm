@@ -108,9 +108,10 @@ export async function ensureOpportunity(
       if (daCidade.length) {
         const opportunityId = daCidade[0].id as number;
         await q`
-          insert into crm.contacts (opportunity_id, name, email, phone, whatsapp, role, is_primary)
+          insert into crm.contacts
+            (opportunity_id, name, email, phone, whatsapp, role, is_primary, marketing_contact_id)
           values (${opportunityId}, ${input.name ?? email.split('@')[0]}, ${email},
-                  ${fone}, ${zap}, 'prefeitura', false)`;
+                  ${fone}, ${zap}, 'prefeitura', false, ${input.marketingContactId ?? null})`;
         await q`
           update crm.opportunities
           set lead_entrada_at = NOW(), last_activity_at = NOW(), updated_at = NOW()
@@ -152,10 +153,14 @@ export async function ensureOpportunity(
       activeNo = (no[0]?.active_no as number | undefined) ?? null;
     }
 
+    // marketing_contact_id é o que liga o contato do pipeline à base de
+    // marketing. Sem ele o botão de WhatsApp do card fica inerte, porque a
+    // ação que abre a conversa parte do contato de marketing.
     await q`
-      insert into crm.contacts (opportunity_id, name, email, phone, whatsapp, role, is_primary)
+      insert into crm.contacts
+        (opportunity_id, name, email, phone, whatsapp, role, is_primary, marketing_contact_id)
       values (${opportunityId}, ${input.name ?? email.split('@')[0]}, ${email},
-              ${fone}, ${zap}, 'prefeitura', true)`;
+              ${fone}, ${zap}, 'prefeitura', true, ${input.marketingContactId ?? null})`;
 
     await q`
       insert into crm.activities (opportunity_id, type, subject, body, metadata)
