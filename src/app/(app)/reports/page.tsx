@@ -278,6 +278,7 @@ async function FunilPorProduto() {
     'Escola Online': 'bg-cyan-50 text-cyan-700',
     'Município Bilíngue': 'bg-violet-50 text-violet-700',
     'Radar Fiscal 360': 'bg-blue-50 text-blue-700',
+    'Emendas Impositivas': 'bg-amber-50 text-amber-700',
   };
   const PRODUCT_LIST = Object.keys(PRODUCT_TONES);
   const rows = await db

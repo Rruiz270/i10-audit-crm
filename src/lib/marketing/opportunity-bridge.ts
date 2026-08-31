@@ -23,6 +23,8 @@ export type EnsureOpportunityInput = {
    * dedicado precisam que tudo caia na mesma pessoa.
    */
   ownerId?: string | null;
+  /** Produto(s) do catálogo — alimenta o filtro por produto no pipeline. */
+  products?: string[] | null;
 };
 
 export type EnsureOpportunityResult =
@@ -114,9 +116,9 @@ export async function ensureOpportunity(
     const comDono = Boolean(ownerId);
     const opp = await q`
       insert into crm.opportunities
-        (municipality_id, owner_id, stage, stage_updated_at, source, notes, lead_entrada_at)
+        (municipality_id, owner_id, stage, stage_updated_at, source, notes, lead_entrada_at, products)
       values (${municipalityId}, ${ownerId}, ${comDono ? 'contato_inicial' : 'novo'}, NOW(),
-              ${input.source}, ${input.notes}, NOW())
+              ${input.source}, ${input.notes}, NOW(), ${input.products ?? []})
       returning id`;
     const opportunityId = opp[0].id as number;
 

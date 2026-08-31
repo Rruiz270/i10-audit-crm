@@ -31,6 +31,8 @@ type Settings = {
   trilhaASequenceId?: number;
   /** Dono fixo das oportunidades da campanha (sem balanceamento). */
   opportunityOwnerId?: string;
+  /** Produto do catálogo, para o filtro do pipeline. */
+  opportunityProducts?: string[];
   /** ISO date: antes disso ninguém é classificado como frio. */
   corteTrilhaB?: string;
   /** Nome (LIKE) das campanhas da régua B, cuja audiência é dinâmica. */
@@ -148,6 +150,7 @@ export async function GET(request: NextRequest) {
         activityBody: `Clique, download ou contato via LP/WhatsApp. E-mail: ${c.email}`,
         marketingContactId: c.id,
         ownerId: settings.opportunityOwnerId ?? null,
+        products: settings.opportunityProducts ?? null,
       });
     }
   }

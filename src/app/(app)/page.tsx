@@ -109,6 +109,7 @@ export default async function DashboardPage() {
     'Ensino Integral',
     'Escola Online',
     'Radar Fiscal 360',
+    'Emendas Impositivas',
   ];
   const byProduct = PRODUCT_LIST.map((prod) => {
     const total = activeOnly
