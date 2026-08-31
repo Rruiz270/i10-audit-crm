@@ -107,11 +107,32 @@ export async function ensureOpportunity(
       }
     }
 
+    // No CRM, 'novo' significa pool SEM dono — quem assume um lead o move para
+    // 'contato_inicial' e recebe o nº sequencial. Nascer com dono em 'novo'
+    // criava um estado que o fluxo da tela nunca produz: lead com dono parado
+    // na coluna do pool, sem número e sem histórico.
+    const comDono = Boolean(ownerId);
     const opp = await q`
-      insert into crm.opportunities (municipality_id, owner_id, stage, source, notes, lead_entrada_at)
-      values (${municipalityId}, ${ownerId}, 'novo', ${input.source}, ${input.notes}, NOW())
+      insert into crm.opportunities
+        (municipality_id, owner_id, stage, stage_updated_at, source, notes, lead_entrada_at)
+      values (${municipalityId}, ${ownerId}, ${comDono ? 'contato_inicial' : 'novo'}, NOW(),
+              ${input.source}, ${input.notes}, NOW())
       returning id`;
     const opportunityId = opp[0].id as number;
+
+    // Nº sequencial atribuído em UPDATE separado: a subconsulta precisa ser SQL
+    // literal (o driver parametriza `${}` como valor, não como expressão), e
+    // calculá-la dentro do próprio UPDATE evita a corrida de dois leads
+    // simultâneos lerem o mesmo MAX.
+    let activeNo: number | null = null;
+    if (comDono) {
+      const no = await q`
+        update crm.opportunities
+        set active_no = (select coalesce(max(o2.active_no), 0) + 1 from crm.opportunities o2)
+        where id = ${opportunityId} and active_no is null
+        returning active_no`;
+      activeNo = (no[0]?.active_no as number | undefined) ?? null;
+    }
 
     await q`
       insert into crm.contacts (opportunity_id, name, email, phone, role, is_primary)
@@ -123,6 +144,16 @@ export async function ensureOpportunity(
       values (${opportunityId}, ${input.activityType ?? 'agendamento'}, ${input.activitySubject},
               ${input.activityBody ?? `Lead criado via ${input.source}. E-mail: ${email}`},
               ${JSON.stringify({ source: input.source, marketingContactId: input.marketingContactId ?? null })})`;
+
+    // Mesmo registro de mudança de estágio que a tela grava ao atribuir dono.
+    if (comDono) {
+      await q`
+        insert into crm.activities (opportunity_id, type, subject, body, actor_id, metadata)
+        values (${opportunityId}, 'stage_change', 'Novo → Oportunidades',
+                ${`Lead nasceu com dono definido${activeNo ? ` (#${String(activeNo).padStart(3, '0')})` : ''}.`},
+                ${ownerId},
+                ${JSON.stringify({ from: 'novo', to: 'contato_inicial', reason: 'owner_assigned', activeNo })})`;
+    }
 
     return { created: true, opportunityId };
   } catch (err) {
