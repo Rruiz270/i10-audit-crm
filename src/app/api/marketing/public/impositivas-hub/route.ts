@@ -165,6 +165,99 @@ export async function GET(req: Request) {
     ORDER BY max(m.municipio)
   `) as unknown as Array<MuniRow & { em_trilha_a: boolean }>;
 
+  // ─── WhatsApp da campanha ────────────────────────────────────────────────
+  // Recorte duplo: só contatos das audiências do projeto e só mensagens a
+  // partir do primeiro disparo. A conversa no WhatsApp é por número, não por
+  // campanha — sem a janela, threads de campanhas antigas entrariam na conta.
+  const wa = (await sql`
+    WITH inicio AS (
+      SELECT COALESCE(min(started_at), now() - interval '30 days') AS t
+      FROM marketing.campaigns WHERE project_id = ${projectId} AND started_at IS NOT NULL
+    ),
+    membros AS (
+      SELECT DISTINCT ON (c.ibge)
+             c.ibge, c.municipio,
+             COALESCE(c.attributes->>'presidente', c.name) AS presidente,
+             COALESCE(c.whatsapp, c.phone) AS fone
+      FROM marketing.list_members lm
+      JOIN marketing.audiences a ON a.id = lm.audience_id
+      JOIN marketing.contacts c  ON c.id = lm.contact_id
+      WHERE a.project_id = ${projectId} AND a.name NOT LIKE 'ZZ %'
+        AND c.ibge IS NOT NULL AND COALESCE(c.whatsapp, c.phone) IS NOT NULL
+      ORDER BY c.ibge, (c.whatsapp IS NULL), c.id
+    ),
+    conv AS (
+      SELECT DISTINCT ON (m.ibge) m.ibge, cv.id AS conv_id
+      FROM membros m
+      JOIN marketing.conversations cv
+        ON right(regexp_replace(cv.wa_phone, '\\D', '', 'g'), 11)
+         = right(regexp_replace(m.fone, '\\D', '', 'g'), 11)
+      ORDER BY m.ibge, cv.last_message_at DESC NULLS LAST
+    ),
+    troca AS (
+      SELECT c.ibge,
+             count(*) FILTER (WHERE ms.direction = 'inbound')::int  AS recebidas,
+             count(*) FILTER (WHERE ms.direction = 'outbound')::int AS enviadas,
+             max(ms.created_at) AS ultima,
+             (array_agg(ms.direction ORDER BY ms.id DESC))[1] AS ultima_direcao,
+             (array_agg(ms.body     ORDER BY ms.id DESC))[1] AS ultimo_texto
+      FROM conv c
+      JOIN marketing.messages ms ON ms.conversation_id = c.conv_id
+      WHERE ms.created_at >= (SELECT t FROM inicio)
+      GROUP BY c.ibge
+    ),
+    disparo AS (
+      SELECT right(regexp_replace(s.to_phone, '\\D', '', 'g'), 11) AS chave,
+             bool_or(s.status IN ('sent','delivered')) AS entregue
+      FROM marketing.sends s
+      JOIN marketing.campaigns cp ON cp.id = s.campaign_id
+      WHERE cp.project_id = ${projectId} AND s.to_phone IS NOT NULL
+      GROUP BY 1
+    )
+    SELECT m.ibge, m.municipio, m.presidente,
+           COALESCE(t.recebidas, 0) AS recebidas,
+           COALESCE(t.enviadas, 0)  AS enviadas,
+           t.ultima AS ultima_em,
+           left(COALESCE(t.ultimo_texto, ''), 100) AS ultimo_texto,
+           CASE
+             WHEN t.ultima_direcao = 'inbound'  THEN 'aguardando_nos'
+             WHEN t.ultima_direcao = 'outbound' THEN 'aguardando_eles'
+             WHEN COALESCE(d.entregue, false)   THEN 'sem_resposta'
+             ELSE 'nunca_enviado'
+           END AS situacao,
+           CASE WHEN t.ultima IS NOT NULL
+                THEN round(EXTRACT(EPOCH FROM (now() - t.ultima)) / 3600)::int END AS horas_parada
+    FROM membros m
+    LEFT JOIN troca   t ON t.ibge = m.ibge
+    LEFT JOIN disparo d ON d.chave = right(regexp_replace(m.fone, '\\D', '', 'g'), 11)
+    ORDER BY
+      CASE WHEN t.ultima_direcao = 'inbound' THEN 0
+           WHEN t.ultima_direcao = 'outbound' THEN 1 ELSE 2 END,
+      t.ultima DESC NULLS LAST, m.municipio
+  `) as Array<{
+    ibge: string; municipio: string; presidente: string | null;
+    recebidas: number; enviadas: number; ultima_em: string | null;
+    ultimo_texto: string | null; situacao: string; horas_parada: number | null;
+  }>;
+
+  const faixa = (h: number | null) =>
+    h == null ? 'sem_troca' : h < 24 ? 'ate_24h' : h < 72 ? 'de_1_a_3_dias' : h < 168 ? 'de_3_a_7_dias' : 'mais_7_dias';
+  const contaWa = (fn: (r: (typeof wa)[number]) => boolean) => wa.filter(fn).length;
+  const whatsapp = {
+    com_numero: wa.length,
+    conversando: contaWa((r) => r.recebidas > 0 || r.enviadas > 0),
+    responderam: contaWa((r) => r.recebidas > 0),
+    aguardando_nos: contaWa((r) => r.situacao === 'aguardando_nos'),
+    aguardando_eles: contaWa((r) => r.situacao === 'aguardando_eles'),
+    sem_resposta: contaWa((r) => r.situacao === 'sem_resposta'),
+    nunca_enviado: contaWa((r) => r.situacao === 'nunca_enviado'),
+    paradas_por_faixa: ['ate_24h', 'de_1_a_3_dias', 'de_3_a_7_dias', 'mais_7_dias'].map((f) => ({
+      faixa: f,
+      n: contaWa((r) => r.situacao !== 'nunca_enviado' && faixa(r.horas_parada) === f),
+    })),
+    linhas: wa.map((r) => ({ ...r, faixa: faixa(r.horas_parada) })),
+  };
+
   // Campanhas do projeto (para o cabeçalho do painel)
   const camps = (await sql`
     SELECT c.id, c.name, c.status, c.scheduled_at, c.total_recipients, c.sent_count,
@@ -220,6 +313,7 @@ export async function GET(req: Request) {
       atualizado_em: new Date().toISOString(),
       kpis,
       trilhas,
+      whatsapp,
       campanhas: camps,
       municipios,
     },
