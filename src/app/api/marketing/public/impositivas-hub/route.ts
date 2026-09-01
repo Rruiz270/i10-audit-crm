@@ -169,6 +169,10 @@ export async function GET(req: Request) {
   // Recorte duplo: só contatos das audiências do projeto e só mensagens a
   // partir do primeiro disparo. A conversa no WhatsApp é por número, não por
   // campanha — sem a janela, threads de campanhas antigas entrariam na conta.
+  //
+  // A resposta automática (author_user_id nulo) entrega o material, mas não
+  // substitui o atendimento: o SLA conta a partir dela.
+  const SLA_HORAS = 1;
   const wa = (await sql`
     WITH inicio AS (
       SELECT COALESCE(min(started_at), now() - interval '30 days') AS t
@@ -195,16 +199,18 @@ export async function GET(req: Request) {
       ORDER BY m.ibge, cv.last_message_at DESC NULLS LAST
     ),
     troca AS (
-      SELECT c.ibge,
+      SELECT c.ibge, c.conv_id,
              count(*) FILTER (WHERE ms.direction = 'inbound')::int  AS recebidas,
              count(*) FILTER (WHERE ms.direction = 'outbound')::int AS enviadas,
              max(ms.created_at) AS ultima,
+             max(ms.created_at) FILTER (WHERE ms.direction = 'outbound' AND ms.author_user_id IS NULL)     AS auto_em,
+             max(ms.created_at) FILTER (WHERE ms.direction = 'outbound' AND ms.author_user_id IS NOT NULL) AS humana_em,
              (array_agg(ms.direction ORDER BY ms.id DESC))[1] AS ultima_direcao,
              (array_agg(ms.body     ORDER BY ms.id DESC))[1] AS ultimo_texto
       FROM conv c
       JOIN marketing.messages ms ON ms.conversation_id = c.conv_id
       WHERE ms.created_at >= (SELECT t FROM inicio)
-      GROUP BY c.ibge
+      GROUP BY c.ibge, c.conv_id
     ),
     disparo AS (
       SELECT right(regexp_replace(s.to_phone, '\\D', '', 'g'), 11) AS chave,
@@ -214,40 +220,53 @@ export async function GET(req: Request) {
       WHERE cp.project_id = ${projectId} AND s.to_phone IS NOT NULL
       GROUP BY 1
     )
-    SELECT m.ibge, m.municipio, m.presidente,
+    SELECT m.ibge, m.municipio, m.presidente, t.conv_id,
            COALESCE(t.recebidas, 0) AS recebidas,
            COALESCE(t.enviadas, 0)  AS enviadas,
            t.ultima AS ultima_em,
            left(COALESCE(t.ultimo_texto, ''), 100) AS ultimo_texto,
            CASE
-             WHEN t.ultima_direcao = 'inbound'  THEN 'aguardando_nos'
+             WHEN t.ultima_direcao = 'inbound' THEN 'aguardando_nos'
+             WHEN t.ultima_direcao = 'outbound'
+              AND t.auto_em IS NOT NULL
+              AND (t.humana_em IS NULL OR t.humana_em < t.auto_em) THEN 'so_automatica'
              WHEN t.ultima_direcao = 'outbound' THEN 'aguardando_eles'
-             WHEN COALESCE(d.entregue, false)   THEN 'sem_resposta'
+             WHEN COALESCE(d.entregue, false) THEN 'sem_resposta'
              ELSE 'nunca_enviado'
            END AS situacao,
            CASE WHEN t.ultima IS NOT NULL
-                THEN round(EXTRACT(EPOCH FROM (now() - t.ultima)) / 3600)::int END AS horas_parada
+                THEN round(EXTRACT(EPOCH FROM (now() - t.ultima)) / 3600)::int END AS horas_parada,
+           -- Horas desde a automática sem ninguém ter assumido: é o relógio do SLA.
+           CASE WHEN t.auto_em IS NOT NULL AND (t.humana_em IS NULL OR t.humana_em < t.auto_em)
+                THEN round(EXTRACT(EPOCH FROM (now() - t.auto_em)) / 3600, 1)::float END AS horas_desde_auto
     FROM membros m
     LEFT JOIN troca   t ON t.ibge = m.ibge
     LEFT JOIN disparo d ON d.chave = right(regexp_replace(m.fone, '\\D', '', 'g'), 11)
     ORDER BY
       CASE WHEN t.ultima_direcao = 'inbound' THEN 0
-           WHEN t.ultima_direcao = 'outbound' THEN 1 ELSE 2 END,
+           WHEN t.auto_em IS NOT NULL AND (t.humana_em IS NULL OR t.humana_em < t.auto_em) THEN 1
+           WHEN t.ultima_direcao = 'outbound' THEN 2 ELSE 3 END,
       t.ultima DESC NULLS LAST, m.municipio
   `) as Array<{
-    ibge: string; municipio: string; presidente: string | null;
-    recebidas: number; enviadas: number; ultima_em: string | null;
-    ultimo_texto: string | null; situacao: string; horas_parada: number | null;
+    ibge: string; municipio: string; presidente: string | null; conv_id: number | null;
+    recebidas: number; enviadas: number; ultima_em: string | null; ultimo_texto: string | null;
+    situacao: string; horas_parada: number | null; horas_desde_auto: number | null;
   }>;
 
   const faixa = (h: number | null) =>
     h == null ? 'sem_troca' : h < 24 ? 'ate_24h' : h < 72 ? 'de_1_a_3_dias' : h < 168 ? 'de_3_a_7_dias' : 'mais_7_dias';
+  const atrasada = (r: (typeof wa)[number]) =>
+    r.situacao === 'so_automatica' && (r.horas_desde_auto ?? 0) > SLA_HORAS;
   const contaWa = (fn: (r: (typeof wa)[number]) => boolean) => wa.filter(fn).length;
+
   const whatsapp = {
+    sla_horas: SLA_HORAS,
     com_numero: wa.length,
     conversando: contaWa((r) => r.recebidas > 0 || r.enviadas > 0),
     responderam: contaWa((r) => r.recebidas > 0),
     aguardando_nos: contaWa((r) => r.situacao === 'aguardando_nos'),
+    so_automatica: contaWa((r) => r.situacao === 'so_automatica'),
+    atrasadas: contaWa(atrasada),
     aguardando_eles: contaWa((r) => r.situacao === 'aguardando_eles'),
     sem_resposta: contaWa((r) => r.situacao === 'sem_resposta'),
     nunca_enviado: contaWa((r) => r.situacao === 'nunca_enviado'),
@@ -255,7 +274,7 @@ export async function GET(req: Request) {
       faixa: f,
       n: contaWa((r) => r.situacao !== 'nunca_enviado' && faixa(r.horas_parada) === f),
     })),
-    linhas: wa.map((r) => ({ ...r, faixa: faixa(r.horas_parada) })),
+    linhas: wa.map((r) => ({ ...r, faixa: faixa(r.horas_parada), atrasada: atrasada(r) })),
   };
 
   // Campanhas do projeto (para o cabeçalho do painel)
