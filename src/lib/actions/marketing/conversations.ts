@@ -191,13 +191,17 @@ export async function sendConversationReply(
     .set({
       lastMessageAt: new Date(),
       unread: false,
-      // ao responder, assume a conversa se ninguém tinha
-      assignedTo: conv.assignedTo ?? user.id,
+      // Quem responde ASSUME a conversa — inclusive tirando de outro dono.
+      // O dono tem que ser quem está de fato falando com o contato; se um
+      // gestor entra e responde, a conversa passa pra ele (pra devolver,
+      // usar Transferir / Devolver à fila, que são explícitos).
+      assignedTo: user.id,
       status: conv.status === 'closed' ? 'open' : conv.status,
     })
     .where(eq(conversations.id, conversationId));
 
   revalidatePath('/marketing/conversas');
+  revalidatePath('/atende');
   if (!result.ok) {
     return { ok: false as const, error: `Falha no envio: ${result.error}` };
   }
@@ -296,12 +300,13 @@ export async function sendAudioReply(
     .set({
       lastMessageAt: new Date(),
       unread: false,
-      assignedTo: conv.assignedTo ?? user.id,
+      assignedTo: user.id,
       status: conv.status === 'closed' ? 'open' : conv.status,
     })
     .where(eq(conversations.id, conversationId));
 
   revalidatePath('/marketing/conversas');
+  revalidatePath('/atende');
   if (!result.ok) {
     return { ok: false as const, error: `Falha no envio do áudio: ${result.error}` };
   }
@@ -408,12 +413,13 @@ export async function sendMediaUrlReply(
     .set({
       lastMessageAt: new Date(),
       unread: false,
-      assignedTo: conv.assignedTo ?? user.id,
+      assignedTo: user.id,
       status: conv.status === 'closed' ? 'open' : conv.status,
     })
     .where(eq(conversations.id, conversationId));
 
   revalidatePath('/marketing/conversas');
+  revalidatePath('/atende');
   if (!result.ok) {
     return { ok: false as const, error: `Falha no envio do arquivo: ${result.error}` };
   }
@@ -553,12 +559,13 @@ export async function sendTemplateReply(
     .set({
       lastMessageAt: new Date(),
       unread: false,
-      assignedTo: conv.assignedTo ?? user.id,
+      assignedTo: user.id,
       status: conv.status === 'closed' ? 'open' : conv.status,
     })
     .where(eq(conversations.id, conversationId));
 
   revalidatePath('/marketing/conversas');
+  revalidatePath('/atende');
   if (!result.ok) {
     return { ok: false as const, error: `Falha no envio do template: ${result.error}` };
   }
@@ -1053,7 +1060,7 @@ export async function sendFundebReport(
     .set({
       lastMessageAt: new Date(),
       unread: false,
-      assignedTo: conv.assignedTo ?? user.id,
+      assignedTo: user.id,
       status: conv.status === 'closed' ? 'open' : conv.status,
     })
     .where(eq(conversations.id, conversationId));
