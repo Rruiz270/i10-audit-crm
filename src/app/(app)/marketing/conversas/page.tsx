@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import Link from 'next/link';
 import { FileText } from 'lucide-react';
 import { redirect } from 'next/navigation';
@@ -43,6 +44,60 @@ function MessageTicks({ status }: { status: string | null }) {
   }
   // queued | sending | sent
   return <span title="Enviada"> · ✓</span>;
+}
+
+const SP_TZ = 'America/Sao_Paulo';
+
+// Chave de dia (YYYY-MM-DD) já convertida pro fuso de São Paulo — assim uma
+// mensagem das 22h não cai no "dia seguinte" por causa do UTC.
+function dayKey(value: string | Date): string {
+  return new Date(value).toLocaleDateString('en-CA', { timeZone: SP_TZ });
+}
+
+// Rótulo do separador de data, estilo WhatsApp: HOJE · ONTEM · 12 de setembro de 2026.
+function dayLabel(value: string | Date): string {
+  const key = dayKey(value);
+  if (key === dayKey(new Date())) return 'HOJE';
+  if (key === dayKey(new Date(Date.now() - 86_400_000))) return 'ONTEM';
+  return new Date(value).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+    timeZone: SP_TZ,
+  });
+}
+
+// Hora da bolha (14:32) e data+hora completa no title (tooltip ao passar o mouse).
+function messageTime(value: string | Date): string {
+  return new Date(value).toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: SP_TZ,
+  });
+}
+function messageStamp(value: string | Date): string {
+  return new Date(value).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: SP_TZ,
+  });
+}
+
+// Carimbo curto da lista de conversas: hoje = "14:32" · ontem = "ontem" ·
+// senão a data (12/09/2026).
+function listStamp(value: string | Date): string {
+  const key = dayKey(value);
+  if (key === dayKey(new Date())) return messageTime(value);
+  if (key === dayKey(new Date(Date.now() - 86_400_000))) return 'ontem';
+  return new Date(value).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: SP_TZ,
+  });
 }
 
 // Detecta se a mensagem tem mídia de áudio. mediaUrls (jsonb) pode ser:
@@ -209,7 +264,14 @@ export default async function ConversasPage({
                     <span className="truncate text-sm font-semibold text-slate-900">
                       {cv.contactName ?? cv.waPhone}
                     </span>
-                    {cv.unread && <span className="h-2 w-2 shrink-0 rounded-full bg-cyan-500" />}
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      {cv.lastMessageAt && (
+                        <span className="text-[10px] text-slate-400" title={messageStamp(cv.lastMessageAt)}>
+                          {listStamp(cv.lastMessageAt)}
+                        </span>
+                      )}
+                      {cv.unread && <span className="h-2 w-2 shrink-0 rounded-full bg-cyan-500" />}
+                    </span>
                   </div>
                   <div className="mt-0.5 truncate text-xs text-slate-500">{cv.waPhone}</div>
                 </div>
@@ -257,9 +319,22 @@ export default async function ConversasPage({
                 // aparece na ÚLTIMA mensagem de cada sequência (alinhado ao fim
                 // da bolha via items-end), evitando poluir o thread.
                 const isLastOfRun = arr[i + 1]?.direction !== m.direction;
+                // Separador de data estilo WhatsApp: aparece na primeira mensagem
+                // do thread e sempre que o dia (em SP) muda em relação à anterior.
+                const prev = arr[i - 1];
+                const showDay =
+                  Boolean(m.createdAt) &&
+                  (!prev?.createdAt || dayKey(prev.createdAt) !== dayKey(m.createdAt!));
                 return (
+                  <Fragment key={m.id}>
+                  {showDay && (
+                    <div className="my-1 flex justify-center">
+                      <span className="rounded-lg bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500 shadow-sm">
+                        {dayLabel(m.createdAt!)}
+                      </span>
+                    </div>
+                  )}
                   <div
-                    key={m.id}
                     className={`flex items-end gap-2 ${outbound ? 'flex-row-reverse self-end' : 'self-start'} max-w-[78%]`}
                   >
                     {isLastOfRun ? (
@@ -329,13 +404,17 @@ export default async function ConversasPage({
                       hideBody={hideBody}
                     />
                     {!deleted && (
-                      <div className="mt-1 text-right text-[10px] text-slate-400">
-                        {m.createdAt ? new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }) : ''}
+                      <div
+                        className="mt-1 text-right text-[10px] text-slate-400"
+                        title={m.createdAt ? messageStamp(m.createdAt) : undefined}
+                      >
+                        {m.createdAt ? messageTime(m.createdAt) : ''}
                         {m.direction === 'outbound' && <MessageTicks status={m.status} />}
                       </div>
                     )}
                     </div>
                   </div>
+                  </Fragment>
                 );
               })}
             </div>
