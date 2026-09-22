@@ -109,6 +109,8 @@ async function processFormSubmission(
   tagged: string | null;
   exitedFromSequence: boolean;
   enrolledInSequence: number | null;
+  opportunityId: number | null;
+  leadSubmissionId: number | null;
 }> {
   const email = String(body.email ?? '').trim().toLowerCase();
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -146,6 +148,8 @@ async function processFormSubmission(
     opportunityOrigin?: string;
     opportunityOwnerId?: string;
     opportunityProducts?: string[];
+    /** Slug em crm.lead_forms: liga a inscrição à Leads Hub (triagem). */
+    leadFormSlug?: string;
   };
   const signupTag = settings.signupTag ?? `${project.slug}:signup`;
 
@@ -245,10 +249,11 @@ async function processFormSubmission(
   // ─── Ponte: quem agenda vira oportunidade no pipeline (crm.opportunities) ──
   // Escopado por settings.createOpportunity (só projetos que optam, ex: PB).
   // Defensivo: NUNCA quebra o cadastro do lead — falha aqui só loga.
+  let opportunityId: number | null = null;
   if (settings.createOpportunity) {
     // Rótulos vêm do projeto; os defaults preservam o texto do PA Smart, que
     // foi o primeiro projeto a usar esta ponte.
-    await ensureOpportunity({
+    const oppResult = await ensureOpportunity({
       email,
       name: body.name ? String(body.name) : null,
       phone: body.phone ? String(body.phone) : null,
@@ -262,7 +267,57 @@ async function processFormSubmission(
       ownerId: settings.opportunityOwnerId ?? null,
       products: settings.opportunityProducts ?? null,
     });
+    // O resultado é uma união: só as variantes "created" e "merged_into_city"
+    // carregam o id. Quando já existia (ou falhou), a inscrição segue sem ele.
+    opportunityId = 'opportunityId' in oppResult ? oppResult.opportunityId : null;
   }
 
-  return { contactId, tagged: signupTag, exitedFromSequence, enrolledInSequence };
+  // ─── Ponte: a inscrição também entra na Leads Hub (crm.lead_submissions) ──
+  // A oportunidade sozinha mostra o lead no pipeline, mas não na tela de
+  // triagem — é lá que se vê a resposta de cada campo do formulário (função,
+  // como a Câmara tramita hoje, a pergunta enviada). Escopado por
+  // settings.leadFormSlug: só projetos que optam.
+  // Defensivo, como a ponte de oportunidade: falhar aqui não pode derrubar a
+  // inscrição de quem acabou de preencher o formulário.
+  let leadSubmissionId: number | null = null;
+  if (settings.leadFormSlug) {
+    try {
+      const { neon } = await import('@neondatabase/serverless');
+      const q = neon(process.env.DATABASE_URL!);
+      const form = (await q`
+        SELECT id FROM crm.lead_forms WHERE slug = ${settings.leadFormSlug} LIMIT 1
+      `) as Array<{ id: number }>;
+      if (form.length) {
+        const payload = {
+          name: body.name ?? null,
+          email,
+          whatsapp: body.phone ?? null,
+          municipality: body.municipio ?? null,
+          uf: body.uf ?? null,
+          ibge: body.ibge ?? null,
+          source: body.source ?? null,
+          ...(body.attributes && typeof body.attributes === 'object'
+            ? (body.attributes as Record<string, unknown>)
+            : {}),
+        };
+        const ins = (await q`
+          INSERT INTO crm.lead_submissions (form_id, payload, opportunity_id, triaged, submitted_at)
+          VALUES (${form[0].id}, ${JSON.stringify(payload)}::jsonb, ${opportunityId}, false, NOW())
+          RETURNING id
+        `) as Array<{ id: number }>;
+        leadSubmissionId = ins[0]?.id ?? null;
+      }
+    } catch (err) {
+      console.error('[webhooks/form] lead_submission falhou (inscrição preservada):', err);
+    }
+  }
+
+  return {
+    contactId,
+    tagged: signupTag,
+    exitedFromSequence,
+    enrolledInSequence,
+    opportunityId,
+    leadSubmissionId,
+  };
 }
