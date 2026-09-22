@@ -77,6 +77,14 @@ export function buildMergeVars(
     const msg = `Olá! Sou ${vars.nome || 'presidente'} da Câmara de ${contact.municipio ?? ''} e quero saber sobre as emendas impositivas.`;
     vars.link_whatsapp = `https://wa.me/${waNumber.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`;
   }
+
+  // Variáveis iguais para toda a campanha — link da sala, da gravação, do PDF.
+  // Ficam em settings porque chegam DEPOIS dos templates (a sala do webinar só
+  // existe perto do evento): trocar aqui não obriga a re-renderizar o template.
+  // Vêm por último de propósito: são decisão do projeto, não do contato.
+  if (settings.mergeExtras && typeof settings.mergeExtras === 'object') {
+    Object.assign(vars, settings.mergeExtras as Record<string, unknown>);
+  }
   return vars;
 }
 
