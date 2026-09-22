@@ -1,0 +1,43 @@
+name: Webinar Impositivas (piloto automático)
+
+# Reconstrói as audiências dinâmicas (inscrito × não inscrito, presente ×
+# ausente) e lança as campanhas cuja data chegou. Roda no GitHub Actions —
+# nunca na máquina de ninguém. Idempotente: rodar de novo não duplica nada.
+#
+# A fila de envio em si é drenada pelo marketing-engine.yml (a cada 5 min).
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry:
+        description: "Simular (não grava nem dispara)"
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: webinar-impositivas
+  cancel-in-progress: false
+
+jobs:
+  piloto:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rodar trilhas + agendadas
+        env:
+          BASE: ${{ secrets.CRM_BASE_URL }}
+          SECRET: ${{ secrets.CRM_CRON_SECRET }}
+          DRY: ${{ github.event.inputs.dry == 'true' && '1' || '0' }}
+        run: |
+          set -euo pipefail
+          : "${BASE:?defina o secret CRM_BASE_URL}"
+          : "${SECRET:?defina o secret CRM_CRON_SECRET}"
+          curl -sS --fail-with-body -m 120 \
+            -H "Authorization: Bearer $SECRET" \
+            "$BASE/api/marketing/cron/webinar?dry=$DRY" | tee resultado.json
+          echo
+          echo "### Webinar Impositivas" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          cat resultado.json >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

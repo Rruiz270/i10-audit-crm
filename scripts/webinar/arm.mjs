@@ -66,16 +66,58 @@ async function mostrar() {
 // As três coisas que, pelo histórico desta base, estragam um disparo: template
 // de WhatsApp sem SID aprovado, link da sala vazio numa peça que o promete, e
 // descadastro forjável porque o segredo do HMAC está em branco.
-async function preVoo() {
+// `filtro` limita o pré-voo às peças que estão sendo armadas: armar só o E1
+// de hoje não deveria ser barrado por um template de WhatsApp que a Meta
+// aprova amanhã.
+async function preVoo(filtro = null) {
   const avisos = [];
-  const rows = await linhas();
+  const todas = await linhas();
+  const rows = filtro ? todas.filter((r) => r.name.startsWith(`${filtro} `)) : todas;
+  if (filtro && !rows.length) {
+    return [`nenhuma peça corresponde a "${filtro}".`];
+  }
 
   const semSid = rows.filter((r) => r.channel === 'whatsapp' && !r.wa_template_name);
   if (semSid.length) {
     avisos.push(
-      `${semSid.length} peça(s) de WhatsApp sem Content SID aprovado: ${semSid.map((r) => r.name.split(' ·')[0]).join(', ')}.\n` +
-        '    → node scripts/webinar/submit-wa-templates.mjs --status',
+      `${semSid.length} peça(s) de WhatsApp sem Content SID: ${semSid.map((r) => r.name.split(' ·')[0]).join(', ')}.\n` +
+        '    → node scripts/webinar/submit-wa-templates.mjs',
     );
+  }
+
+  // Ter SID não é ter aprovação: o SID é gravado na SUBMISSÃO. Armar uma peça
+  // ainda `pending` marca uma data em que o disparo vai falhar em massa — por
+  // isso perguntamos o status real à Twilio, uma vez por SID.
+  const comSid = rows.filter((r) => r.channel === 'whatsapp' && r.wa_template_name);
+  const sids = [...new Set(comSid.map((r) => r.wa_template_name))];
+  if (sids.length && process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+    const auth =
+      'Basic ' +
+      Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
+    const status = {};
+    await Promise.all(
+      sids.map(async (sid) => {
+        try {
+          const r = await fetch(`https://content.twilio.com/v1/Content/${sid}/ApprovalRequests`, {
+            headers: { Authorization: auth },
+          });
+          const j = await r.json();
+          status[sid] = j?.whatsapp?.status ?? j?.status ?? 'desconhecido';
+        } catch {
+          status[sid] = 'erro ao consultar';
+        }
+      }),
+    );
+    const naoAprovadas = comSid.filter((r) => status[r.wa_template_name] !== 'approved');
+    if (naoAprovadas.length) {
+      avisos.push(
+        `${naoAprovadas.length} peça(s) de WhatsApp com template NÃO aprovado pela Meta:\n` +
+          naoAprovadas
+            .map((r) => `      ${r.name.split(' ·')[0].padEnd(5)} ${status[r.wa_template_name]}`)
+            .join('\n') +
+          '\n    → o SID existe desde a submissão; só "approved" dispara sem ser recusado.',
+      );
+    }
   }
 
   const extras = proj.settings.mergeExtras ?? {};
@@ -112,7 +154,7 @@ if (has('disarm')) {
   console.log(`desarmadas: ${r.length}`);
   await mostrar();
 } else if (has('arm')) {
-  const avisos = await preVoo();
+  const avisos = await preVoo(alvo);
   if (avisos.length) {
     console.log('\n⚠  PRÉ-VOO:');
     avisos.forEach((a, i) => console.log(`  ${i + 1}. ${a}`));
@@ -135,7 +177,7 @@ if (has('disarm')) {
   console.log('A partir de agora o cron lança cada peça na data. Para reverter: --disarm');
 } else {
   await mostrar();
-  const avisos = await preVoo();
+  const avisos = await preVoo(alvo);
   if (avisos.length) {
     console.log('⚠  pendências antes de armar:');
     avisos.forEach((a, i) => console.log(`  ${i + 1}. ${a}`));
