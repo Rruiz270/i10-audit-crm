@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { neon } from '@neondatabase/serverless';
 import { launchCampaignCore } from '@/lib/marketing/launch';
+import { beatHeartbeat } from '@/lib/marketing/alerts';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -166,6 +167,11 @@ export async function GET(request: NextRequest) {
     }
   }
   log.lancadas = lancadas;
+
+  // Carimbo "eu rodei" (marketing.ops_heartbeats, chave cron:webinar): é o que o
+  // monitor de crons da Central de Agentes lê. Sem ele o job aparecia "sem
+  // telemetria" mesmo rodando. Dry-run não carimba.
+  if (!dryRun) await beatHeartbeat('cron:webinar', { agendadas: due.length });
 
   return Response.json({ ok: true, ...log });
 }
